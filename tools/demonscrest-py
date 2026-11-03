@@ -1,0 +1,5 @@
+#!/bin/sh
+# Run the Python port with the same CLI/env contract as build/demonscrest,
+# so the project's existing tools/check_*.py can drive either implementation.
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" exec "$ROOT/.venv/bin/python" -m dcpy.main "$@"
