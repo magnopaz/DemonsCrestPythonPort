@@ -1,3 +1,6 @@
+> **Archived.** This is the README of the frozen C build (`DemonsCrestNativePort`), copied here as project history. The active
+> implementation and its instructions are in the repository README; some paths and controls below refer to the C build.
+
 # Demon's Crest — Native Fan Game
 
 A native C11 + raylib foundation for a Demon's Crest fan game. The original

@@ -133,7 +133,8 @@ python3 tools/check_hippogriff.py      # whole suite: tools/run_regression.py
 - `tools/dc_extract/`, `tools/oracle/`, `tools/gen/`, `tools/audio/` — the asset
   pipeline and oracle probes, unchanged.
 - `tools/build_assets.sh` — regenerates `assets/generated/` from the ROM and
-  `captures/`.
+  `captures/`; run it as `PYTHON=.venv/bin/python tools/build_assets.sh`
+  (the extractors need Pillow/numpy, which the venv has).
 
 ## Known gaps
 

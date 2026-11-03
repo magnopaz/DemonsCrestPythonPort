@@ -21,6 +21,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Python with Pillow/numpy if the caller has one (this repo's .venv does).
+PY="${PYTHON:-python3}"
 # Note: the ROM file name contains an apostrophe and parentheses, which bash
 # mis-parses inside a `${VAR:-default}` expansion. Keep it in its own variable.
 DEFAULT_ROM="$ROOT/../roms/Demon's Crest (USA).sfc"
@@ -47,12 +49,12 @@ need "$ROM"
 need "$DUMP/$PREFIX.vram.bin"
 
 echo "== 1/6 rooms, atlases, campaign =="
-python3 tools/dc_extract/extract.py --rom "$ROM" --dump "$DUMP" --prefix "$PREFIX" \
+"$PY" tools/dc_extract/extract.py --rom "$ROM" --dump "$DUMP" --prefix "$PREFIX" \
     --area 1 --screens 9,10 --full-room --out "$OUT"
 
 echo "== 2/6 player / fireball / HUD animations =="
 if [ -d "$ROOT/captures/anim" ]; then
-  python3 tools/dc_extract/extract_anim.py --dump "$ROOT/captures/anim" --out "$OUT" --clean
+  "$PY" tools/dc_extract/extract_anim.py --dump "$ROOT/captures/anim" --out "$OUT" --clean
 else
   echo "   captures/anim missing; animations fall back to player_idle.png"
 fi
@@ -62,13 +64,13 @@ echo "== 3/6 font + endings =="
 # ASCII code), so `captures/menu` is the authoritative source. The graveyard
 # frame also carries the HUD digits but not the whole printable set.
 if [ -d "$ROOT/captures/menu" ]; then
-  python3 tools/dc_extract/extract_font.py --dump "$ROOT/captures/menu" --out "$OUT"
+  "$PY" tools/dc_extract/extract_font.py --dump "$ROOT/captures/menu" --out "$OUT"
 elif [ -d "$ROOT/captures/font" ]; then
-  python3 tools/dc_extract/extract_font.py --dump "$ROOT/captures/font" --out "$OUT"
+  "$PY" tools/dc_extract/extract_font.py --dump "$ROOT/captures/font" --out "$OUT"
 else
   echo "   no menu capture; run tools/oracle/capture_menu.py for the BG3 font"
 fi
-python3 tools/dc_extract/build_endings.py --out "$OUT"
+"$PY" tools/dc_extract/build_endings.py --out "$OUT"
 
 # Mode 7 overworld: bake from a capture of the map screen. `build_world_map.py`
 # wants the frame number, so take it from the capture's own filename.
@@ -78,7 +80,7 @@ if [ -d "$ROOT/captures/map11" ]; then
     frame_num=$(basename "$frame_file" .json)
     frame_num=${frame_num#f}
     frame_num=$((10#$frame_num))
-    python3 tools/dc_extract/build_world_map.py --capture "$ROOT/captures/map11" \
+    "$PY" tools/dc_extract/build_world_map.py --capture "$ROOT/captures/map11" \
         --frame "$frame_num" --out "$OUT/world_map.png"
   fi
 else
@@ -86,44 +88,44 @@ else
 fi
 
 echo "== 4/7 boss objects from the check table =="
-python3 tools/dc_extract/apply_boss_table.py --rooms "$OUT"
+"$PY" tools/dc_extract/apply_boss_table.py --rooms "$OUT"
 
 # Somulo's own art: the walk cycle comes from the reference GIF kept in
 # docs/reference, and its anchors are measured from the art's feet (the baker's
 # own anchor assumes screen-space numbers that drift when the camera moves).
 if [ -f docs/reference/somulo_walk.gif ]; then
   echo "== bake Somulo (species 33) from the reference GIF =="
-  python3 tools/dc_extract/bake_somulo_gif.py \
+  "$PY" tools/dc_extract/bake_somulo_gif.py \
     --gif docs/reference/somulo_walk.gif --out "$OUT"
-  python3 tools/dc_extract/fix_species_anchor.py --species 33 \
+  "$PY" tools/dc_extract/fix_species_anchor.py --species 33 \
     --feet-band 0:0.4 --assets "$OUT"
   # Body / legs / head parts, composed at runtime for the poses the walk cycle
   # does not have (head lowered, roar, fainted).
   echo "== Somulo body/legs/head parts =="
-  python3 tools/dc_extract/bake_somulo_parts.py --assets "$OUT"
+  "$PY" tools/dc_extract/bake_somulo_parts.py --assets "$OUT"
 fi
 
 # Ground props (urns, crest pickups) sit on their object's centre; the CHR-tile
 # bake wrote anchor_y 27/26 for 16 px art and they floated in mid-air.
 for sp in 57 2d 2e 49; do
-  python3 tools/dc_extract/fix_species_anchor.py --species "$sp" \
+  "$PY" tools/dc_extract/fix_species_anchor.py --species "$sp" \
     --center --assets "$OUT"
 done
 
 echo "== 5/7 room names (needs the save->area mapping) =="
 if [ -f "$ROOT/captures/save_to_area.json" ]; then
-  python3 tools/dc_extract/build_room_names.py \
+  "$PY" tools/dc_extract/build_room_names.py \
       --areas "$ROOT/captures/save_to_area.json" --out "$OUT/room_names.json"
 else
   echo "   captures/save_to_area.json missing; the banner falls back to STAGE <n>"
 fi
 
 echo "== 6/7 talkable city NPCs =="
-python3 tools/dc_extract/apply_npc_table.py --rooms "$OUT"
+"$PY" tools/dc_extract/apply_npc_table.py --rooms "$OUT"
 
 echo "== 7/7 save-observed doors (optional) =="
 if [ -f tools/dc_extract/apply_door_table.py ]; then
-  python3 tools/dc_extract/apply_door_table.py --rooms "$OUT"
+  "$PY" tools/dc_extract/apply_door_table.py --rooms "$OUT"
 else
   echo "   apply_door_table.py not present yet; ROM transitions only"
 fi
@@ -134,14 +136,14 @@ fi
 # of the room will do; the colosseum save state is the one we have.
 if [ -d captures/rooms/somulo_fight_starts ]; then
   echo "== rebake area 0 atlases from the colosseum capture =="
-  python3 tools/dc_extract/bake_bg_atlas_from_capture.py \
+  "$PY" tools/dc_extract/bake_bg_atlas_from_capture.py \
     --dump captures/rooms/somulo_fight_starts --area 0 --pals 4,5,6,7 \
     --out "$OUT"
 fi
 
 # Last writer: make BG1 agree with each room's world box, otherwise the whole
 # scene is drawn at a different y than collision and entities look airborne.
-python3 tools/dc_extract/normalize_rooms.py --rooms "$OUT"
+"$PY" tools/dc_extract/normalize_rooms.py --rooms "$OUT"
 
 # ROM music. The tracks are captured from the oracle's own DSP output (a bare
 # .spc does not survive this game's driver - see docs/AUDIO_PLAN.md) and cut to
@@ -154,7 +156,7 @@ if [ "$SKIP_AUDIO" -eq 0 ] && [ -f tools/audio/music_tracks.json ]; then
   if python3 tools/audio/make_music_asset.py --use-capture --outdir "$OUT/audio"; then
     :
   elif [ -d "$RECOMP/build-trace" ]; then
-    python3 tools/audio/make_music_asset.py --recomp "$RECOMP" --outdir "$OUT/audio"
+    "$PY" tools/audio/make_music_asset.py --recomp "$RECOMP" --outdir "$OUT/audio"
   else
     echo "   no captures/audio and no oracle; music stays procedural"
   fi
@@ -162,7 +164,7 @@ fi
 
 if [ "$SKIP_CAPTURES" -eq 0 ]; then
   echo "== verify: room/BG2 coverage =="
-  python3 - "$OUT" <<'PY'
+  "$PY" - "$OUT" <<'PY'
 import json, sys
 from pathlib import Path
 out = Path(sys.argv[1])
