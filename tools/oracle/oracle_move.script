@@ -1,0 +1,33 @@
+# Clean movement oracle: no attack, no cutscene skipping after the landing.
+# The WRAM trace contains the OAM buffer at $0700, so the parser reconstructs
+# Firebrand's sprite rectangle every frame.
+turbo on
+wait 24000
+press start 4
+until 008D == 02 60000
+
+# The landing settles here. The native spawn was extracted from this frame.
+wait 600
+
+# Idle.
+wait 120
+
+# Walk right.
+press right 120
+wait 120
+
+# Walk left.
+press left 120
+wait 120
+
+# Jump in place.
+press a 8
+wait 120
+
+# Jump while moving right, then keep moving.
+press right+a 8
+wait 60
+press right 60
+wait 180
+
+quit

@@ -1,0 +1,18 @@
+# Try to leave the locked intro in save2, then probe movement.
+wait 30
+press start 4
+wait 60
+press a 4
+wait 60
+press start 4
+wait 60
+press right 120
+wait 30
+dump right
+press left 120
+wait 30
+dump left
+press a 8
+wait 60
+dump jump
+quit

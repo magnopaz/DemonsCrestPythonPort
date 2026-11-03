@@ -1,0 +1,34 @@
+# Sample the B-button jump arc from save0.
+wait 30
+dump j_base
+press b 1
+dump j01
+wait 2
+dump j03
+wait 2
+dump j05
+wait 2
+dump j07
+wait 2
+dump j09
+wait 2
+dump j11
+wait 2
+dump j13
+wait 2
+dump j15
+wait 2
+dump j17
+wait 2
+dump j19
+wait 2
+dump j21
+wait 2
+dump j23
+wait 2
+dump j25
+wait 2
+dump j27
+wait 2
+dump j29
+quit

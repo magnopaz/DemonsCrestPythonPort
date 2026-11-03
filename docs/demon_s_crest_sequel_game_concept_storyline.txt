@@ -1,0 +1,193 @@
+================================================================================
+           DEMON'S CREST: REIGN OF THE RED BLAZE (FAN GAME CONCEPT)
+================================================================================
+
+--------------------------------------------------------------------------------
+1. OVERVIEW & PREMISE
+--------------------------------------------------------------------------------
+Title: Demon's Crest II: Age of the Emperor
+Genre: Action-Platformer / Metroidvania
+Setting: The Ghoul Realm (Demon Realm)
+Protagonist: Firebrand (The Legendary Red Blaze)
+
+Synopsis:
+Following the catastrophic battles of 'Demon's Crest', Firebrand defeated the 
+usurper Phalanx and sealed away the dangerous Crest of Heaven. With the power 
+vacuum left in the Ghoul Realm, ancient dark overlords—the high-ranking demon 
+emperors from 'Super Ghouls 'n Ghosts'—have descended from the Nether Depths to 
+claim the shattered realm for themselves. 
+
+Led by Emperor Sardius, these ancient warlords view Firebrand not as a hero, 
+but as an arrogant pest who ruined the hierarchy of the demon world. To truly 
+become the undisputed Ruler of the Ghoul Realm, Firebrand must embark on a 
+brutal crusade against Sardius's dread generals, absorbing their dark essence 
+and reclaiming his throne as the legendary Red Blaze.
+
+--------------------------------------------------------------------------------
+2. MAIN CHARACTERS
+--------------------------------------------------------------------------------
+* FIREBRAND (The Red Blaze):
+  The legendary gargoyle warrior. Ambitious, ruthless, and loyal to no one. He 
+  seeks total domination over the Ghoul Realm, rejecting both human salvation 
+  and demon subservience.
+
+* EMPEROR SARDIUS (The Ultimate Overlord):
+  The massive, golden-armored emperor of dark realm conquest. He views the 
+  surface world (Arthur's realm) and the Ghoul Realm as his birthright. He 
+  despises Firebrand for causing chaos among the demon factions.
+
+* ASTAROTH & NEBIROTH (The Twin Crown Dukes):
+  High-ranking demonic nobility who command the infernal legions. They serve 
+  as Sardius's chief strategists and warlords.
+
+* THE DARK MAIDEN (Ariel):
+  A mysterious demon sorceress who acts as an ambiguous mentor/guide to 
+  Firebrand, nudging him toward conflict with Sardius for her own inscrutable 
+  reasons.
+
+--------------------------------------------------------------------------------
+3. NARRATIVE STRUCTURE & ACT BREAKDOWN
+--------------------------------------------------------------------------------
+
+PROLOGUE: ASHES OF THE CRESTS
+-----------------------------
+After his victory over Phalanx, Firebrand rests atop the Obsidian Spire, holding 
+the elemental Crests (Fire, Earth, Air, Water, and Time). Suddenly, the sky of 
+the Ghoul Realm bleeds crimson as a massive dark portal opens in the stratosphere. 
+Emperor Sardius launches a surprise orbital strike from his flying fortress, 
+the Imperial Citadel. 
+
+Sardius's vanguard—led by the resurrected Lord Astaroth—shatters Firebrand's 
+elemental crests into raw "Prism Shards" and scatters them across the six 
+domains of the realm. Firebrand is left gravely wounded and stripped of his 
+transformation forms. Driven by pure fury, Firebrand swears to slay Sardius and 
+slaughter every general under his command.
+
+---
+
+ACT I: THE FALLEN DOMAINS
+-------------------------
+Firebrand must travel across the fractured Ghoul Realm to hunt down Sardius's 
+generals, who are using the Crest Shards to empower their own bio-monstrosities.
+
+1. Area 1: The Sunken Graveyard of Ships (Coastal Ruins)
+   * Context: The aquatic territory once guarded by Phalanx's minions, now 
+     overrun by giant sea leviathans.
+   * Boss: Cockatrice (The Mutated Twin-Headed Serpent from Super Ghouls 'n Ghosts).
+   * Story: The Cockatrice guards the Crest Shard of Water. It attempts to petrify 
+     Firebrand, but Firebrand tears through its dual necks, reclaiming the Water 
+     Form (allowing deep underwater movement and ice-blade attacks).
+
+2. Area 2: The Rotting Canopy (The Phantom Forest)
+   * Context: A decaying forest where spirit trees and cursed apparitions linger.
+   * Boss: Wood Spirit / Barnacle Terror (Gould / Forest Demon).
+   * Story: Firebrand navigates toxic spores and phantom traps to locate the 
+     Earth Shard. Upon defeating the ancient forest monstrosity, he unlocks the 
+     Ground Form (rebuilding his brute strength and headbutt destruction capabilities).
+
+---
+
+ACT II: WAR OF THE CORONATION
+-----------------------------
+With two Crests partially restored, Firebrand's return spreads terror throughout 
+Sardius's exotics units. Sardius dispatches his highest generals to eliminate 
+the Red Blaze before he reaches the Citadel.
+
+3. Area 3: The Magma Caldera (Infernal Furnace)
+   * Context: A subterranean volcano where Sardius's war machines and demonic 
+     armor are forged.
+   * Boss: Flame Dragon (Gildaran).
+   * Story: Firebrand engages in an aerial chase across rising lava. Defeating 
+     Gildaran restores the Fire Form (boosting his fiery breath weapons and flight 
+     speed).
+
+4. Area 4: The Tower of Whispers (Storm Peaks)
+   * Context: A floating spire buffeted by perpetual hurricanes, serving as the 
+     communication hub for Sardius's fleet.
+   * Boss: Freya / Storm Weaver (The Cloud Sorceress).
+   * Story: Firebrand scales the tempestuous spire, slaying the sorceress to 
+     reclaim the Air Form (unlocking infinite vertical flight and gale-force blasts).
+
+---
+
+ACT III: THE HIGH COMMAND
+-------------------------
+Having restored his core transformations, Firebrand invades Sardius's vanguard 
+strangleholds on the gateway to the upper atmosphere.
+
+5. Area 5: The Dread Citadel Gatehouse
+   * Context: The outer defenses of Sardius's floating empire.
+   * Boss: Nebiroth (The Tyrant Duke).
+   * Story: Nebiroth taunts Firebrand, claiming that gargoyles are mere hounds 
+     built to serve emperors. Firebrand disembowels Nebiroth in a visceral showdown. 
+     Nebiroth's dying breath warns that Astaroth awaits in the inner sanctum.
+
+6. Area 6: The Chamber of Illusions
+   * Context: A twisted hall of mirrors inside the Citadel.
+   * Boss: Astaroth (Reborn in Dual Form).
+   * Story: Astaroth unleashes devastating laser attacks and fire magic. Mid-fight, 
+     he morphs into his true form (Nebiroth/Astaroth hybrid demon). Firebrand 
+     uses switching Crest mechanics to counter his elemental shields, breaking 
+     Astaroth permanently.
+
+---
+
+ACT IV: EMPEROR OF THE UNDERWORLD
+----------------------------------
+7. Final Area: The Golden Throne of Sardius
+   * Context: The apex of the Imperial Citadel hovering above the entire Demon Realm.
+
+   * Phase 1 (Sardius in Armor):
+     Sardius fights in his massive golden armor, firing laser beams from his 
+     crown and summoning energy platforms. Firebrand must maneuver vertically 
+     using Air Form and strike his exposed chest core using Ground and Fire Forms.
+
+   * Phase 2 (Sardius - Unbound Astral Entity):
+     Upon shattering the golden suit, Sardius transforms into a towering cosmic 
+     demon of raw dark magic. 
+
+   * Climax / Secret Mechanics:
+     If the player collected all hidden Artifacts and secret crest runes throughout 
+     the game, Firebrand unlocks the ultimate transformation: THE OVERLORD FORM 
+     (Ultimate Red Blaze). With crimson wings, gold-tinted horns, and apocalyptic 
+     firepower, Firebrand crushes Sardius's dark core once and for all.
+
+--------------------------------------------------------------------------------
+4. ENDING PATHS (MULTIPLE ENDINGS)
+--------------------------------------------------------------------------------
+
+* BAD ENDING (Missing Crest Shards):
+  Firebrand defeats Sardius but succumbs to his wounds. Without the complete 
+  Crests, the Ghoul Realm falls into total chaos and ruin, leaving it vulnerable 
+  to human knight invasions (Arthur's realm).
+
+* NORMAL ENDING (All Crests Found, No Secret Artifacts):
+  Firebrand slays Sardius and claims the Golden Throne. The remaining demon 
+  hordes bow before the Red Blaze. Firebrand sets his sights on expanding his 
+  empire across the dimensional rift into the human world (setting the stage 
+  for the events of 'Ghosts 'n Goblins').
+
+* TRUE / SECRET ENDING (100% Completion + Overlord Form):
+  Firebrand utterly destroys Sardius and absorbs his cosmic essence. He rejects 
+  the concept of thrones or kingdoms. Instead, he shatters the dimensional 
+  barriers entirely, uniting the Ghoul Realm and Human Realm into a single dark 
+  playground under his sole, eternal dominion. A silhouette of Arthur looking 
+  at a blood-red sky appears in the final frame.
+
+--------------------------------------------------------------------------------
+5. GAMEPLAY & SYSTEM HIGHLIGHTS FOR DEVELOPMENT
+--------------------------------------------------------------------------------
+1. Crest Fusion System:
+   Allows combining elements (e.g., Fire + Air = Inferno Jet; Ground + Water = 
+   Acid Mud Burst) to solve environmental puzzles and deal bonus damage to 
+   specific bosses from Super Ghouls 'n Ghosts.
+
+2. Boss Rematches & Lore Relics:
+   Defeating bosses drops "Demon Lore Tablets" that detail the history of the 
+   war between Arthur's Kingdom, Sardius's Empire, and the Red Arremer Tribe.
+
+3. Soundtrack Style:
+   Gothic orchestral mixed with 16-bit SNES soundchip synthesis—combining 
+   the dark organ melodies of 'Demon's Crest' with the brass fanfares of 
+   'Super Ghouls 'n Ghosts'.
+================================================================================

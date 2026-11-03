@@ -1,0 +1,36 @@
+# Oracle route: boot -> first playable area -> deterministic movement probes.
+#
+# Run with SNESRECOMP_WRAM_TRACE_FILE to record the player object at $1400.
+# The long settle is deliberate: area 2 has a landing/intro segment, and input
+# is not reliable until it finishes.
+turbo on
+wait 24000
+press start 4
+until 008D == 02 60000
+
+# Let the landing/intro settle completely.
+wait 2000
+
+# Probe 1: short walk right, stop, short walk left.
+press right 60
+wait 120
+press left 60
+wait 120
+
+# Probe 2: A (jump candidate), then wait.
+press a 8
+wait 120
+
+# Probe 3: B (attack candidate), then wait.
+press b 8
+wait 120
+
+# Probe 4: jump while moving right, then hold A (hover candidate).
+press right+a 8
+wait 60
+press right 30
+wait 120
+press a 60
+wait 120
+
+quit

@@ -1,0 +1,17 @@
+# Test whether the graveyard landing has accepted control: attack, walk, jump.
+turbo on
+wait 24000
+press start 4
+until 008D == 02 60000
+wait 600
+dump ctl_start
+press b 8
+wait 60
+dump ctl_attack
+press right 120
+wait 30
+dump ctl_right
+press a 8
+wait 60
+dump ctl_jump
+quit

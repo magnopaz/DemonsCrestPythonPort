@@ -9,7 +9,7 @@ assets/rom/
 captures/
 saves/
 
-# Local verification output
-*.csv
-*.png
-!docs/*.png
+# Local verification output (root-only shots, like the C project)
+/*.png
+/*.csv
+*.log

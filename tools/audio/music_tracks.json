@@ -1,0 +1,23 @@
+{
+ "_comment": [
+  "Which save state plays which track, and how the loop is cut.",
+  "save is relative to the recompilation checkout (RECOMP_DIR).",
+  "loop is the period search window in seconds, loop_start where the cut",
+  "begins and snap how far the cut may slide to land on a clean seam.",
+  "Generated audio is ROM-derived and stays git-ignored."
+ ],
+ "tracks": [
+  {
+   "name": "music_boss",
+   "area": 0,
+   "note": "colosseum, Somulo fight",
+   "save": "build-trace/saves/somulo_player_control.sav",
+   "capture_seconds": 120,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [38, 44],
+   "loop_start": 50,
+   "snap": 1.0
+  }
+ ]
+}

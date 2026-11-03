@@ -1,0 +1,21 @@
+# Short physics probe after the landing lock. Inputs start at frame 800,
+# late enough for control, and move only a few pixels to avoid room changes.
+turbo on
+wait 24000
+press start 4
+until 008D == 02 60000
+wait 800
+dump short_idle
+
+press right 10
+wait 20
+dump short_right
+press left 10
+wait 20
+dump short_left
+
+press a 8
+wait 20
+dump short_jump
+
+quit

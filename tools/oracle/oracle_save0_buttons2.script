@@ -1,0 +1,19 @@
+# More jump-button candidates from save0.
+wait 30
+dump b2_base
+press up 8
+wait 20
+dump b2_up
+press r 8
+wait 20
+dump b2_r
+press l 8
+wait 20
+dump b2_l
+press start 8
+wait 20
+dump b2_start
+press select 8
+wait 20
+dump b2_select
+quit

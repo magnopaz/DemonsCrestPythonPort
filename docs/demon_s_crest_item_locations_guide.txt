@@ -1,0 +1,222 @@
+===============================================================================
+                       DEMON'S CREST (SNES)
+                   EVERY ITEM LOCATION GUIDE
+===============================================================================
+
+-------------------------------------------------------------------------------
+1. CRESTS & FIRE CREST WEAPONS (10 TOTAL)
+-------------------------------------------------------------------------------
+
+• Crest of Fire (Base):
+  - Location: Starter item (held at the beginning of the game).
+
+• Buster Fire Shot:
+  - Location: Stage 1 (Colosseum / Graveyard)
+  - Details: Rewarded upon defeating the boss Ovununu in the graveyard.
+
+• Crest of Earth (Ground Gargoyle):
+  - Location: Stage 1 (Cliff / Forest Pass)
+  - Details: Rewarded upon defeating Arma in his 1st encounter.
+
+• Tornado Fire Shot:
+  - Location: Stage 2 (Forest)
+  - Details: Rewarded upon defeating the Flame Lord boss.
+
+• Crest of Air (Aerial Gargoyle):
+  - Location: Stage 5 (Sky / Mountain Towers)
+  - Details: Rewarded upon defeating Arma in his 2nd encounter.
+
+• Crest of Water (Tidal Gargoyle):
+  - Location: Stage 3 (Cathedral / Flooded Caves)
+  - Details: Rewarded upon defeating Belth in the underground cavern.
+
+• Claw Fire Shot:
+  - Location: Stage 3 (Cathedral Upper Shaft)
+  - Details: Rewarded upon defeating the boss Flier high up in the cathedral.
+
+• Dragon Fire Shot:
+  - Location: Stage 2 (Forest / Secret Pond Area)
+  - Details: Defeat the secret underwater boss Holothurion (requires Water Crest 
+    to dive into the forest lake).
+
+• Crest of Time (Legendary Gargoyle):
+  - Location: Stage 5 (Mountain Peak)
+  - Details: Rewarded upon defeating Grewon the Wolf Boss at the mountain summit.
+
+• Crest of Heaven (Ultimate Form):
+  - Location: Overworld Map
+  - Details: Unlocked automatically on the map after collecting 100% of all other 
+    items (Crests, Fragments, Health Extensions, Urns, Vellums, and Talismans).
+
+
+-------------------------------------------------------------------------------
+2. LIFE EXTENSIONS / HEALTH TANKS (16 TOTAL)
+-------------------------------------------------------------------------------
+
+• Life Extension #1:
+  - Location: Stage 1 (Colosseum)
+  - Details: Right after defeating Somulo (the dragon), headbutt the gargoyle 
+    statue on the wall before exiting the area.
+
+• Life Extension #2:
+  - Location: Stage 1 (Colosseum)
+  - Details: Re-visit after obtaining the Buster Shot. Break through the stone 
+    block wall inside the opening room.
+
+• Life Extension #3:
+  - Location: Stage 1 (Colosseum)
+  - Details: In the middle of the arena, drop down into a hidden shaft using 
+    the Buster Shot or Ground Gargoyle to smash stone blocks.
+
+• Life Extension #4:
+  - Location: Stage 1 (Cliff Pass)
+  - Details: In the climbing section, use Buster or Ground Gargoyle to break 
+    a block wall near the top right ledge.
+
+• Life Extension #5:
+  - Location: Stage 2 (Town / Underground Catacombs)
+  - Details: Inside the Catacombs, smash a weak stone wall at the bottom of 
+    the second level with Buster / Ground Gargoyle.
+
+• Life Extension #6:
+  - Location: Stage 2 (Forest)
+  - Details: Use the Tornado Shot or Aerial Gargoyle to reach a high tree branch 
+    hidden behind leaves in the upper right quadrant.
+
+• Life Extension #7:
+  - Location: Stage 2 (Forest Reservoir / Submerged Ruins)
+  - Details: Dive into the deep water pool using Tidal Gargoyle. Go through the 
+    hidden cavern to find a urn containing the health tank.
+
+• Life Extension #8:
+  - Location: Stage 3 (Cathedral)
+  - Details: Climb the spiked shaft using the Claw Shot to reach a high platform 
+    alcove on the upper left side.
+
+• Life Extension #9:
+  - Location: Stage 3 (Flooded Caves)
+  - Details: Use Tidal Gargoyle to swim into a narrow underwater cavern on 
+    the bottom-left path.
+
+• Life Extension #10:
+  - Location: Stage 4 (Underground River)
+  - Details: Swim against the strong current using Tidal Gargoyle to reach an 
+    isolated stone ledge.
+
+• Life Extension #11:
+  - Location: Stage 4 (Catacombs Deep Room)
+  - Details: Light all candles/torches in the dark room using the standard Fire 
+    shot to spawn a jar containing the extension.
+
+• Life Extension #12:
+  - Location: Stage 5 (Mountain Pass)
+  - Details: Break open a large ice/rock boulder with the Ground Gargoyle charge.
+
+• Life Extension #13:
+  - Location: Stage 5 (Sky Towers)
+  - Details: Fly to the absolute top-left corner using Aerial Gargoyle outside 
+    the windy tower section.
+
+• Life Extension #14:
+  - Location: Overworld Shop / Game Hall (Trio the Pago)
+  - Details: Win the skull-matching mini-game on the highest difficulty setting.
+
+• Life Extension #15:
+  - Location: Stage 5 (Phalanx's Castle Exterior)
+  - Details: Before entering the throne room, fly up to the castle bell tower with 
+    Aerial Gargoyle and headbutt the giant bell 5 times.
+
+• Life Extension #16:
+  - Location: Stage 2 (Forest - Deep Burn Area)
+  - Details: Re-visit after acquiring Ground Gargoyle; dash through a heavy boulder 
+    wall in the burning section.
+
+
+-------------------------------------------------------------------------------
+3. URNS (5 TOTAL)
+-------------------------------------------------------------------------------
+
+• Urn #1:
+  - Location: Stage 1 (Cliff Pass)
+  - Details: In the canyon section with floating platforms, drop down the pit 
+    on the left side and go left into a hidden alcove.
+
+• Urn #2:
+  - Location: Stage 2 (Underground Catacombs)
+  - Details: Use Buster to break a stone wall in the middle section of the catacombs.
+
+• Urn #3:
+  - Location: Stage 2 (Forest Pond)
+  - Details: Dive underwater with Tidal Gargoyle at the third gap in the water 
+    area and head right.
+
+• Urn #4:
+  - Location: Stage 3 (Cathedral)
+  - Details: Inside the windy shaft tower, drop to the far right floor alcove 
+    behind a breakable statue.
+
+• Urn #5:
+  - Location: Stage 4 (Catacombs Lower Cavern)
+  - Details: Break open a stone urn situated behind a wall of spikes (requires 
+    Ground Gargoyle or Claw Shot).
+
+
+-------------------------------------------------------------------------------
+4. VELLUMS / MAGIC SCROLLS (5 TOTAL)
+-------------------------------------------------------------------------------
+
+• Vellum #1:
+  - Location: Stage 1 (Graveyard)
+  - Details: Headbutt the small hippogriff statue sitting on a high platform 
+    near the large background gargoyle statue.
+
+• Vellum #2:
+  - Location: Stage 2 (Town Catacombs Entrance)
+  - Details: Break open the wall next to the pot shop using the Buster Shot.
+
+• Vellum #3:
+  - Location: Stage 5 (Sky Towers)
+  - Details: In the vertical windy room, climb to the top-right corner to find 
+    the scroll sitting on a high ledge.
+
+• Vellum #4:
+  - Location: Stage 4 (Underground River)
+  - Details: Destroy a submerged urn located at the far right of the underwater 
+    passageway (requires Tidal Gargoyle).
+
+• Vellum #5:
+  - Location: Stage 5 (Mountain Pass 2)
+  - Details: Destroy the last skull pile sitting on a floating platform right 
+    before the boss fight with Grewon.
+
+
+-------------------------------------------------------------------------------
+5. TALISMANS (5 TOTAL)
+-------------------------------------------------------------------------------
+
+• Crown Talisman (Increases Coin Drop Rate):
+  - Location: Stage 5 (Sky Towers)
+  - Details: Drop to the bottom-left door in the windy tower section. Headbutt 
+    the 3rd (farthest left) mini statue.
+
+• Skull Talisman (Increases Health Drop Rate):
+  - Location: Stage 2 (Forest)
+  - Details: Use Buster to break the stone blocks sealing a door frame in the 
+    burning area, then headbutt to enter the cave.
+
+• Armor Talisman (Halves Incoming Damage):
+  - Location: Stage 5 (Mountain Peak - Ice Cave)
+  - Details: Climb up the ice shaft to find a frozen skeleton in an alcove. 
+    Smash it using the Ground Gargoyle.
+
+• Fang Talisman (Increases Attack Power):
+  - Location: Stage 4 (Catacombs)
+  - Details: Fall through a false pit floor near the end of the catacombs section 
+    to enter a hidden cavern containing the talisman.
+
+• Hand Talisman (Speeds Up Fireband's Charge Shots):
+  - Location: Stage 2 (Forest Lake / Submerged Area)
+  - Details: Swim to the far right underwater wall using Tidal Gargoyle and 
+    break open the hidden alcove.
+
+===============================================================================

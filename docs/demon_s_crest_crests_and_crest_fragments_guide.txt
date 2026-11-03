@@ -1,0 +1,163 @@
+===============================================================================
+                       DEMON'S CREST (SNES)
+              CRESTS & CREST FRAGMENTS ABILITIES GUIDE
+===============================================================================
+
+-------------------------------------------------------------------------------
+1. THE FIVE MAIN CRESTS (FORM TRANSFORMATIONS)
+-------------------------------------------------------------------------------
+
+[ CREST OF FIRE (Base Form / Transformations) ]
+-------------------------------------------------------------------------------
+The central crest of the game. Restoring its five crest fragments restores 
+Firebrand to his full natural powers and unlocks enhanced elemental fire shots.
+
+• Default Abilities:
+  - Hovering horizontally in mid-air (press Jump while in air).
+  - Headbutt / Wall-climb using claws (clinging to walls).
+  - Shoots standard Fire, Buster, Tornado, Claw, or Dragon Fire shots (selected
+    in menu once acquired).
+
+• Destructible Obstacles:
+  - Standard Fire: Torches/lanterns (lighting rooms or revealing hidden paths).
+  - Buster Shot: Cracked stone blocks, weak masonry walls, specific urns.
+  - Tornado Shot: Creates temporary air platforms/whirlwinds to jump off of.
+  - Claw Shot: Coats walls in resin, allowing Firebrand to climb spikes/damaging
+    surfaces.
+  - Dragon Fire: Highest damage projectile; incinerates tough obstacles and
+    bosses faster.
+
+• Notable Level Applications:
+  - Stage 1 (Colosseum / Graveyard): Use Buster to break stone barriers.
+  - Stage 2 (Town / Forest): Use Tornado to reach high ledges; Buster to break
+    hidden background walls.
+  - Stage 3 (Cathedral / Caves): Use Claw to climb spiked shaft walls.
+  - Stage 4 (Underground Catacombs): Use Fire to light dark passages.
+
+
+[ CREST OF EARTH (Ground Gargoyle) ]
+-------------------------------------------------------------------------------
+Transforms Firebrand into a heavy, four-legged armored gargoyle.
+
+• Form Abilities:
+  - Ground Charge / Dash attack (breaks through obstacles and damages enemies).
+  - Cannot fly or hover (wings are replaced by heavy armor).
+  - Reduced jump height, but high defense and heavy impact.
+  - Shoots the "Sonic Wave" / Ground Blade projectile along the floor.
+
+• Destructible Obstacles:
+  - Heavy rock piles, dense stone walls, and specific ground boulders that 
+    impede progress.
+
+• Notable Level Applications:
+  - Stage 1 (Graveyard / Forest transition): Charge through thick stone blocks.
+  - Stage 2 (Forest): Clear large stone barricades along the forest floor.
+  - Stage 4 (Catacombs): Smash heavy statues blocking progression routes.
+
+
+[ CREST OF AIR (Aerial Gargoyle) ]
+-------------------------------------------------------------------------------
+Transforms Firebrand into a winged, harpylike creature designed for vertical 
+and free movement.
+
+• Form Abilities:
+  - True 8-directional free flight (ascend, descend, and fly freely).
+  - Increased speed in mid-air.
+  - Shoots the "Air Cutter" projectile (a sharp blade of wind).
+
+• Destructible Obstacles:
+  - Vines, ropes, thorns, and light hanging obstacles blocking ceiling paths.
+
+• Notable Level Applications:
+  - Stage 2 (Forest Treetops): Ascend to top branches to find secret items.
+  - Stage 3 (Caves / Towers): Fly upward through tall vertical shafts without 
+    needing walls.
+  - Stage 5 (Sky / Mountain Towers): Essential for navigating open air chasms 
+    and strong wind gusts.
+
+
+[ CREST OF WATER (Ocean Gargoyle) ]
+-------------------------------------------------------------------------------
+Transforms Firebrand into a aquatic gargoyle suited for underwater exploration.
+
+• Form Abilities:
+  - Infinite swimming maneuverability underwater.
+  - Unaffected by water currents that push normal forms back.
+  - Can dive deep underwater without taking continuous environmental damage.
+  - Shoots the "Stream" projectile (high-velocity water blast).
+
+• Destructible Obstacles:
+  - Underwater rock barriers, submerged coral walls, underwater urns.
+
+• Notable Level Applications:
+  - Stage 3 (Flooded Caves / Sunken Ruins): Navigate underwater tunnels and 
+    reach submerged chests/tanks.
+  - Stage 4 (Underground Waterways): Swim against strong currents to reach 
+    hidden spell urns and vellum.
+
+
+[ CREST OF TIME (Legendary Gargoyle) ]
+-------------------------------------------------------------------------------
+Transforms Firebrand into a golden, ancient warrior form representing maximum 
+physical power.
+
+• Form Abilities:
+  - Cuts all incoming damage in half (doubles effective health).
+  - Enhanced mobility: hover capability combined with faster movement speed.
+  - Fires a high-powered energy beam capable of damaging all enemy types.
+
+• Destructible Obstacles:
+  - Can destroy all standard Buster-type stone blocks and barriers with basic 
+    attacks.
+
+• Notable Level Applications:
+  - Late-game stages and Boss Rematches: Essential for surviving intense boss 
+    fights (e.g., Phalanx, Dark Demon).
+  - Used in end-game stages to easily clear through enemy-dense corridors.
+
+
+-------------------------------------------------------------------------------
+2. CREST OF HEAVEN (ULTIMATE FORM)
+-------------------------------------------------------------------------------
+
+[ CREST OF HEAVEN (Ultimate Gargoyle) ]
+-------------------------------------------------------------------------------
+Acquired by collecting all Crests, Crest Fragments, Health Tanks, Spell Urns, 
+and Talismans. Unlocks Firebrand's ultimate form.
+
+• Form Abilities:
+  - Combines ALL powers into one form: Free flight (Air), heavy dash (Earth), 
+    underwater swimming (Water), maximum defense (Time), and charge shots.
+  - Charges up to release a devastating screen-clearing energy blast.
+
+• Destructible Obstacles:
+  - Destroys all breakable blocks, walls, vines, and underwater barriers.
+
+• Notable Level Applications:
+  - Final Secret Boss Fight: Required to reasonably combat and defeat the 
+    true final boss, the Dark Demon.
+
+
+-------------------------------------------------------------------------------
+3. CREST FRAGMENTS (FIRE CREST SHOTS)
+-------------------------------------------------------------------------------
+
+• Fire (Default):
+  - Base flame shot. Ignites torches in dark levels (Stage 4 Catacombs).
+
+• Buster:
+  - Destroys cracked stone blocks and walls. Opens shortcut doors across 
+    Stages 1, 2, and 3.
+
+• Tornado:
+  - Creates air whirlwinds. Used in Stage 2 (Town/Forest) and Stage 5 (Towers) 
+    to reach high ledges without Aerial Gargoyle.
+
+• Claw:
+  - Sticks to walls/spikes. Used in Stage 3 (Cathedral) to climb spiked walls.
+
+• Dragon:
+  - Pure offensive power. Destroys tough barriers and inflicts maximum fire 
+    damage on bosses.
+
+===============================================================================

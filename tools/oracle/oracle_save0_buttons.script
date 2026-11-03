@@ -1,0 +1,16 @@
+# Identify the jump button from save0.
+wait 30
+dump btn_base
+press b 8
+wait 20
+dump btn_b
+press x 8
+wait 20
+dump btn_x
+press y 8
+wait 20
+dump btn_y
+press a 8
+wait 20
+dump btn_a
+quit

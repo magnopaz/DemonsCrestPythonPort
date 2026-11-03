@@ -1,0 +1,58 @@
+{
+  "_comment": "ComfyUI API-format workflow (POST to /prompt as {\"prompt\": <this>}). Verified on the GPU box 2026-11-02: SDXL base + the dcrest style LoRA, 1024px, plain background, one pose. Edit node 2 for the LoRA file, node 3 for the subject, node 5 for the batch, node 8 for the output prefix. See docs/AI_CHARACTER_PIPELINE.md Stage 3.",
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": { "ckpt_name": "ilustmix_v9.safetensors" }
+  },
+  "2": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "model": ["1", 0],
+      "clip": ["1", 1],
+      "lora_name": "dcrest_style_v1.safetensors",
+      "strength_model": 0.8,
+      "strength_clip": 0.8
+    }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "dcrest snes style, limited palette, hard pixels, dark outline, a hunched grave imp with a cracked stone mask and bone claws, idle pose, side view, plain background, no text",
+      "clip": ["2", 1]
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "text, caption, watermark, sprite sheet, grid, blurry, anti-aliasing, gradient background, several characters, photo, 3d render",
+      "clip": ["2", 1]
+    }
+  },
+  "5": {
+    "class_type": "EmptyLatentImage",
+    "inputs": { "width": 1024, "height": 1024, "batch_size": 4 }
+  },
+  "6": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["2", 0],
+      "positive": ["3", 0],
+      "negative": ["4", 0],
+      "latent_image": ["5", 0],
+      "seed": 4242,
+      "steps": 28,
+      "cfg": 6.0,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 1.0
+    }
+  },
+  "7": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["6", 0], "vae": ["1", 2] }
+  },
+  "8": {
+    "class_type": "SaveImage",
+    "inputs": { "images": ["7", 0], "filename_prefix": "dcrest_test" }
+  }
+}

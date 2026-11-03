@@ -1,0 +1,18 @@
+# Oracle capture with machine dumps at each probe, for player-object
+# identification and animation frames.
+turbo on
+wait 24000
+press start 4
+until 008D == 02 60000
+wait 600
+dump before
+press right 60
+wait 60
+dump after_right
+press left 60
+wait 60
+dump after_left
+press a 8
+wait 60
+dump after_a
+quit

@@ -25,7 +25,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_C_BINARY = ROOT.parent / "DemonsCrestNativePort" / "build" / "demonscrest"
-DEFAULT_ASSETS = ROOT.parent / "DemonsCrestNativePort" / "assets" / "generated"
+DEFAULT_ASSETS = ROOT / "assets" / "generated"
 
 
 def parse_args() -> argparse.Namespace:

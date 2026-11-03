@@ -1,0 +1,68 @@
+===============================================================================
+                       DEMON'S CREST (SNES)
+                      ENDINGS & REQUIREMENTS GUIDE
+===============================================================================
+
+Demon's Crest features four distinct endings based on your overall completion 
+percentage, the items you have collected, and whether you defeat the secret 
+true final boss.
+
+-------------------------------------------------------------------------------
+1. BAD ENDING (Short Ending / "The Coward")
+-------------------------------------------------------------------------------
+• Completion Level: Low (Minimal items collected)
+• Unlock Conditions:
+  - Defeat Phalanx in Stage 5 after collecting only the bare minimum mandatory 
+    crests/items.
+  - Do NOT collect all Crests or Crest Fragments.
+• Outcome:
+  - Firebrand defeats Phalanx and claims the Crest of Heaven, but he lacks 
+    full power. The realm falls into instability, and Firebrand vanishes into 
+    obscurity without attaining true legendary status.
+
+-------------------------------------------------------------------------------
+2. NORMAL ENDING (Standard Ending)
+-------------------------------------------------------------------------------
+• Completion Level: Moderate (~50% to 99% item collection)
+• Unlock Conditions:
+  - Defeat Phalanx in Stage 5.
+  - Collect most Crests, Talismans, and Health Extensions, but leave at least 
+    one collectible item or Crest missing (do NOT reach 100% completion).
+• Outcome:
+  - Firebrand defeats Phalanx, unites the elemental Crests, and casts them into 
+    the sea to prevent further conflict, ruling as the undisputed lord of the 
+    Demon Realm.
+
+-------------------------------------------------------------------------------
+3. GOOD ENDING (Secret Boss Unlocked)
+-------------------------------------------------------------------------------
+• Completion Level: 100% Item Completion
+• Unlock Conditions:
+  1. Collect ALL 5 main Crests (Fire, Earth, Air, Water, Time).
+  2. Collect ALL 5 Fire Crest Fragments / Weapon Shots (Buster, Tornado, Claw, 
+     Dragon).
+  3. Collect ALL 16 Life Extensions / Health Tanks.
+  4. Collect ALL 5 Urns.
+  5. Collect ALL 5 Vellums.
+  6. Collect ALL 5 Talismans.
+  7. Upon reaching 100% completion, enter the Overworld Map to automatically 
+     receive the Crest of Heaven (Ultimate Form) and a special 100% completion 
+     password.
+  8. Enter the newly unlocked secret stage on the Overworld Map and DEFEAT the 
+     true final boss: The Dark Demon (Ultimate Gargoyle form).
+• Outcome:
+  - Firebrand proves his supremacy by defeating the ultimate evil, cementing his 
+    legend as the undisputed ruler of all demons.
+
+-------------------------------------------------------------------------------
+4. SECRET / SPECIAL ENDING (Ultimate Completion Password)
+-------------------------------------------------------------------------------
+• Completion Level: True Master (Post-Dark Demon)
+• Unlock Conditions:
+  - Defeat the Dark Demon and view the Good Ending credits roll.
+  - At the end of the credits, a special password (`QFFB KNST BDR2 SA22` or 
+    `AR3S J42S G743 ML14` depending on regional version) is displayed.
+  - Enter this password from the main menu to view a unique special epilogue 
+    screen and full credits without having to replay the game.
+
+===============================================================================

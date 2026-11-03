@@ -1,0 +1,478 @@
+{
+ "maps": [
+  {
+   "file": "demons-crest-dark-forest-burning-grove-secret-room-snes-map.webp",
+   "name": "dark-forest-burning-grove-secret-room",
+   "group": "Level III (Dark Forest)",
+   "width": 256,
+   "height": 223,
+   "screens": [
+    1,
+    1
+   ]
+  },
+  {
+   "file": "demons-crest-dark-forest-burning-grove-snes-map.webp",
+   "name": "dark-forest-burning-grove",
+   "group": "Level III (Dark Forest)",
+   "width": 2048,
+   "height": 445,
+   "screens": [
+    8,
+    2
+   ]
+  },
+  {
+   "file": "demons-crest-dark-forest-limestone-cave-snes-map.webp",
+   "name": "dark-forest-limestone-cave",
+   "group": "Level III (Dark Forest)",
+   "width": 512,
+   "height": 213,
+   "screens": [
+    2,
+    1
+   ]
+  },
+  {
+   "file": "demons-crest-dark-forest-riverbank-snes-map.webp",
+   "name": "dark-forest-riverbank",
+   "group": "Level III (Dark Forest)",
+   "width": 1536,
+   "height": 469,
+   "screens": [
+    6,
+    3
+   ]
+  },
+  {
+   "file": "demons-crest-dark-forest-scula-cave-snes-map.webp",
+   "name": "dark-forest-scula-cave",
+   "group": "Level III (Dark Forest)",
+   "width": 1456,
+   "height": 469,
+   "screens": [
+    6,
+    3
+   ]
+  },
+  {
+   "file": "demons-crest-dark-forest-thorn-grove-snes-map.webp",
+   "name": "dark-forest-thorn-grove",
+   "group": "Level III (Dark Forest)",
+   "width": 1280,
+   "height": 469,
+   "screens": [
+    5,
+    3
+   ]
+  },
+  {
+   "file": "demons-crest-dark-forest-underground-dyke-snes-map.webp",
+   "name": "dark-forest-underground-dyke",
+   "group": "Level III (Dark Forest)",
+   "width": 1792,
+   "height": 469,
+   "screens": [
+    7,
+    3
+   ]
+  },
+  {
+   "file": "demons-crest-demons-hideout-the-dark-demon-snes-map.webp",
+   "name": "demons-hideout-the-dark-demon",
+   "group": "Secret (Demon's Hideout)",
+   "width": 400,
+   "height": 416,
+   "screens": [
+    2,
+    2
+   ]
+  },
+  {
+   "file": "demons-crest-demons-hideout-tunnel-snes-map.webp",
+   "name": "demons-hideout-tunnel",
+   "group": "Secret (Demon's Hideout)",
+   "width": 1024,
+   "height": 470,
+   "screens": [
+    4,
+    3
+   ]
+  },
+  {
+   "file": "demons-crest-mountains-armas-realm-snes-map.webp",
+   "name": "mountains-armas-realm",
+   "group": "Level V (Mountains)",
+   "width": 513,
+   "height": 213,
+   "screens": [
+    3,
+    1
+   ]
+  },
+  {
+   "file": "demons-crest-mountains-darkened-tower-snes-map.webp",
+   "name": "mountains-darkened-tower",
+   "group": "Level V (Mountains)",
+   "width": 768,
+   "height": 976,
+   "screens": [
+    3,
+    5
+   ]
+  },
+  {
+   "file": "demons-crest-mountains-ice-crevasse-snes-map.webp",
+   "name": "mountains-ice-crevasse",
+   "group": "Level V (Mountains)",
+   "width": 2048,
+   "height": 725,
+   "screens": [
+    8,
+    4
+   ]
+  },
+  {
+   "file": "demons-crest-mountains-ice-palace-corridor-snes-map.webp",
+   "name": "mountains-ice-palace-corridor",
+   "group": "Level V (Mountains)",
+   "width": 2304,
+   "height": 397,
+   "screens": [
+    9,
+    2
+   ]
+  },
+  {
+   "file": "demons-crest-mountains-ice-spire-snes-map.webp",
+   "name": "mountains-ice-spire",
+   "group": "Level V (Mountains)",
+   "width": 1023,
+   "height": 949,
+   "screens": [
+    4,
+    5
+   ]
+  },
+  {
+   "file": "demons-crest-mountains-valley-of-the-grewon-snes-map.webp",
+   "name": "mountains-valley-of-the-grewon",
+   "group": "Level V (Mountains)",
+   "width": 2048,
+   "height": 721,
+   "screens": [
+    8,
+    4
+   ]
+  },
+  {
+   "file": "demons-crest-murkland-abyss-snes-map.webp",
+   "name": "murkland-abyss",
+   "group": "Level I (Murkland)",
+   "width": 1024,
+   "height": 1230,
+   "screens": [
+    4,
+    6
+   ]
+  },
+  {
+   "file": "demons-crest-murkland-cemetery-snes-map.webp",
+   "name": "murkland-cemetery",
+   "group": "Level I (Murkland)",
+   "width": 2048,
+   "height": 276,
+   "screens": [
+    8,
+    2
+   ]
+  },
+  {
+   "file": "demons-crest-murkland-colosseum-snes-map.webp",
+   "name": "murkland-colosseum",
+   "group": "Level I (Murkland)",
+   "width": 1024,
+   "height": 197,
+   "screens": [
+    4,
+    1
+   ]
+  },
+  {
+   "file": "demons-crest-murkland-slope-snes-map.webp",
+   "name": "murkland-slope",
+   "group": "Level I (Murkland)",
+   "width": 2048,
+   "height": 467,
+   "screens": [
+    8,
+    3
+   ]
+  },
+  {
+   "file": "demons-crest-phalanxs-fortress-battle-arena-snes-map.webp",
+   "name": "phalanxs-fortress-battle-arena",
+   "group": "Final (Phalanx's Fortress)",
+   "width": 400,
+   "height": 223,
+   "screens": [
+    2,
+    1
+   ]
+  },
+  {
+   "file": "demons-crest-phalanxs-fortress-demon-realm-snes-map.webp",
+   "name": "phalanxs-fortress-demon-realm",
+   "group": "Final (Phalanx's Fortress)",
+   "width": 2080,
+   "height": 213,
+   "screens": [
+    9,
+    1
+   ]
+  },
+  {
+   "file": "demons-crest-phalanxs-fortress-eastern-bell-tower-snes-map.webp",
+   "name": "phalanxs-fortress-eastern-bell-tower",
+   "group": "Final (Phalanx's Fortress)",
+   "width": 256,
+   "height": 1492,
+   "screens": [
+    1,
+    7
+   ]
+  },
+  {
+   "file": "demons-crest-phalanxs-fortress-front-hall-snes-map.webp",
+   "name": "phalanxs-fortress-front-hall",
+   "group": "Final (Phalanx's Fortress)",
+   "width": 1792,
+   "height": 213,
+   "screens": [
+    7,
+    1
+   ]
+  },
+  {
+   "file": "demons-crest-phalanxs-fortress-hall-of-agonized-souls-snes-map.webp",
+   "name": "phalanxs-fortress-hall-of-agonized-souls",
+   "group": "Final (Phalanx's Fortress)",
+   "width": 2560,
+   "height": 398,
+   "screens": [
+    10,
+    2
+   ]
+  },
+  {
+   "file": "demons-crest-phalanxs-fortress-phalanxs-chamber-snes-map.webp",
+   "name": "phalanxs-fortress-phalanxs-chamber",
+   "group": "Final (Phalanx's Fortress)",
+   "width": 512,
+   "height": 266,
+   "screens": [
+    2,
+    2
+   ]
+  },
+  {
+   "file": "demons-crest-phalanxs-fortress-spiny-balcony-snes-map.webp",
+   "name": "phalanxs-fortress-spiny-balcony",
+   "group": "Final (Phalanx's Fortress)",
+   "width": 2048,
+   "height": 469,
+   "screens": [
+    8,
+    3
+   ]
+  },
+  {
+   "file": "demons-crest-phalanxs-fortress-western-bell-tower-snes-map.webp",
+   "name": "phalanxs-fortress-western-bell-tower",
+   "group": "Final (Phalanx's Fortress)",
+   "width": 256,
+   "height": 1492,
+   "screens": [
+    1,
+    7
+   ]
+  },
+  {
+   "file": "demons-crest-poseidonia-aquatica-snes-map.webp",
+   "name": "poseidonia-aquatica",
+   "group": "Level VI (Poseidonia)",
+   "width": 1792,
+   "height": 469,
+   "screens": [
+    7,
+    3
+   ]
+  },
+  {
+   "file": "demons-crest-poseidonia-lair-of-holothurion-snes-map.webp",
+   "name": "poseidonia-lair-of-holothurion",
+   "group": "Level VI (Poseidonia)",
+   "width": 2048,
+   "height": 213,
+   "screens": [
+    8,
+    1
+   ]
+  },
+  {
+   "file": "demons-crest-poseidonia-temple-and-hidden-chamber-snes-map.webp",
+   "name": "poseidonia-temple-and-hidden-chamber",
+   "group": "Level VI (Poseidonia)",
+   "width": 1024,
+   "height": 939,
+   "screens": [
+    4,
+    5
+   ]
+  },
+  {
+   "file": "demons-crest-poseidonia-underwater-grotto-snes-map.webp",
+   "name": "poseidonia-underwater-grotto",
+   "group": "Level VI (Poseidonia)",
+   "width": 1024,
+   "height": 982,
+   "screens": [
+    4,
+    5
+   ]
+  },
+  {
+   "file": "demons-crest-ruined-city-boneyard-snes-map.webp",
+   "name": "ruined-city-boneyard",
+   "group": "Level II (Ruined City)",
+   "width": 2050,
+   "height": 469,
+   "screens": [
+    9,
+    3
+   ]
+  },
+  {
+   "file": "demons-crest-ruined-city-catacombs-snes-map.webp",
+   "name": "ruined-city-catacombs",
+   "group": "Level II (Ruined City)",
+   "width": 512,
+   "height": 981,
+   "screens": [
+    2,
+    5
+   ]
+  },
+  {
+   "file": "demons-crest-ruined-city-dark-avenue-snes-map.webp",
+   "name": "ruined-city-dark-avenue",
+   "group": "Level II (Ruined City)",
+   "width": 1024,
+   "height": 455,
+   "screens": [
+    4,
+    3
+   ]
+  },
+  {
+   "file": "demons-crest-ruined-city-darkened-catacombs-snes-map.webp",
+   "name": "ruined-city-darkened-catacombs",
+   "group": "Level II (Ruined City)",
+   "width": 1024,
+   "height": 469,
+   "screens": [
+    4,
+    3
+   ]
+  },
+  {
+   "file": "demons-crest-ruined-city-pit-of-ovununu-snes-map.webp",
+   "name": "ruined-city-pit-of-ovununu",
+   "group": "Level II (Ruined City)",
+   "width": 256,
+   "height": 693,
+   "screens": [
+    1,
+    4
+   ]
+  },
+  {
+   "file": "demons-crest-ruined-city-reservoir-snes-map.webp",
+   "name": "ruined-city-reservoir",
+   "group": "Level II (Ruined City)",
+   "width": 2048,
+   "height": 469,
+   "screens": [
+    8,
+    3
+   ]
+  },
+  {
+   "file": "demons-crest-towers-of-doom-chasm-snes-map.webp",
+   "name": "towers-of-doom-chasm",
+   "group": "Level IV (Towers of Doom)",
+   "width": 1024,
+   "height": 1961,
+   "screens": [
+    4,
+    9
+   ]
+  },
+  {
+   "file": "demons-crest-towers-of-doom-gryphon-spire-snes-map.webp",
+   "name": "towers-of-doom-gryphon-spire",
+   "group": "Level IV (Towers of Doom)",
+   "width": 768,
+   "height": 957,
+   "screens": [
+    3,
+    5
+   ]
+  },
+  {
+   "file": "demons-crest-towers-of-doom-ivy-spire-snes-map.webp",
+   "name": "towers-of-doom-ivy-spire",
+   "group": "Level IV (Towers of Doom)",
+   "width": 512,
+   "height": 1961,
+   "screens": [
+    2,
+    9
+   ]
+  },
+  {
+   "file": "demons-crest-towers-of-doom-misty-skies-snes-map.webp",
+   "name": "towers-of-doom-misty-skies",
+   "group": "Level IV (Towers of Doom)",
+   "width": 2052,
+   "height": 213,
+   "screens": [
+    9,
+    1
+   ]
+  },
+  {
+   "file": "demons-crest-towers-of-doom-spire-bridge-snes-map.webp",
+   "name": "towers-of-doom-spire-bridge",
+   "group": "Level IV (Towers of Doom)",
+   "width": 512,
+   "height": 213,
+   "screens": [
+    2,
+    1
+   ]
+  },
+  {
+   "file": "demons-crest-trio-the-pagos-level-3-shop-snes-map.webp",
+   "name": "trio-the-pagos-level-3-shop",
+   "group": "Minigame shop",
+   "width": 1544,
+   "height": 444,
+   "screens": [
+    7,
+    2
+   ]
+  }
+ ],
+ "count": 43
+}

@@ -1,0 +1,26 @@
+# Oracle probes from the existing playable save state (saves/save0.sav).
+# The save is copied first because --resume-state consumes the file.
+wait 30
+dump start
+press right 120
+wait 30
+dump right
+press left 120
+wait 30
+dump left
+press a 8
+wait 60
+dump jump
+wait 60
+press b 8
+wait 60
+dump attack
+press right+a 8
+wait 60
+press right 30
+wait 90
+dump fly
+press a 60
+wait 120
+dump hover
+quit

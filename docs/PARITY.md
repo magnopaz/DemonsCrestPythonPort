@@ -52,9 +52,11 @@ A sweep over other rooms at frame 120 (same command, different `DC_AREA`):
 The world is bit-identical. The residuals are the default font's antialiased
 edges and the HUD's highlighted slot outline.
 
-## C suite against the Python port
+## The project suite against the Python port
 
-Run from the C project with `--binary ../DemonsCrestPythonPort/tools/demonscrest-py`:
+Run from this repository; the checkers default to `tools/demonscrest-py` and
+`assets/generated` (pass `--binary ../DemonsCrestNativePort/build/demonscrest`
+to score the frozen C build instead):
 
 | Check | Result |
 | --- | --- |

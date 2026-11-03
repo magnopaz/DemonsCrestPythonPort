@@ -1,0 +1,15 @@
+# Long-settle probe: find the first frame after the graveyard landing where
+# input actually moves Firebrand.
+turbo on
+wait 24000
+press start 4
+until 008D == 02 60000
+wait 6000
+dump late
+press right 120
+wait 60
+dump late_right
+press left 120
+wait 60
+dump late_left
+quit

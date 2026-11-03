@@ -1,0 +1,81 @@
+{
+  "species": {
+    "120": {
+      "species": 288,
+      "boss": false,
+      "frames": [
+        {
+          "texture": "spr_120_walk_00.png",
+          "anchor_x": 14,
+          "anchor_y": 40,
+          "duration": 7,
+          "width": 32,
+          "height": 40
+        },
+        {
+          "texture": "spr_120_walk_01.png",
+          "anchor_x": 14,
+          "anchor_y": 40,
+          "duration": 7,
+          "width": 32,
+          "height": 40
+        },
+        {
+          "texture": "spr_120_walk_02.png",
+          "anchor_x": 14,
+          "anchor_y": 40,
+          "duration": 9,
+          "width": 32,
+          "height": 40
+        },
+        {
+          "texture": "spr_120_walk_03.png",
+          "anchor_x": 14,
+          "anchor_y": 40,
+          "duration": 7,
+          "width": 32,
+          "height": 40
+        },
+        {
+          "texture": "spr_120_idle_04.png",
+          "anchor_x": 14,
+          "anchor_y": 40,
+          "duration": 8,
+          "width": 32,
+          "height": 40
+        },
+        {
+          "texture": "spr_120_idle_05.png",
+          "anchor_x": 14,
+          "anchor_y": 40,
+          "duration": 8,
+          "width": 32,
+          "height": 40
+        },
+        {
+          "texture": "spr_120_hurt_06.png",
+          "anchor_x": 14,
+          "anchor_y": 40,
+          "duration": 8,
+          "width": 32,
+          "height": 40
+        }
+      ],
+      "states": {
+        "0": [
+          4,
+          5
+        ],
+        "1": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      "source": "Pipeline C (docs/AI_CHARACTER_PIPELINE.md)",
+      "hurt": 6,
+      "default": 4
+    }
+  }
+}

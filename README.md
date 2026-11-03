@@ -1,13 +1,14 @@
 # Demon's Crest — Python Port
 
 A Python 3 + raylib port of the native C11 fan port in
-`../DemonsCrestNativePort`. The same ROM-derived assets, the same extracted
-room data and the same recovered SNES behaviour — rewritten module by module
-in Python so gameplay iteration does not need a C rebuild.
+`../DemonsCrestNativePort`, which is now **frozen** as the source spec and the
+reference binary. This repository is the living implementation and is
+self-contained: the ROM-derived assets, captures, research docs and the
+verification suite all live here.
 
-> **No ROM data is distributed here.** `assets/generated/` belongs to the C
-> project and is git-ignored there too. You need your own *Demon's Crest (USA)*
-> ROM and the C project's `tools/build_assets.sh` to produce it.
+> **No ROM data is distributed here.** `assets/generated/` and `captures/` are
+> git-ignored. You need your own *Demon's Crest (USA)* ROM to regenerate them
+> with `tools/build_assets.sh`.
 
 ## Status
 
@@ -26,8 +27,7 @@ Verified against the C build (see `docs/PARITY.md` for the commands):
 | Area 1 frame 200, render target vs C window shot | mean diff 0.029, 0.17 % pixels |
 | Area 1 frame 60 (entry banner visible) | mean diff 0.42, 1.55 % pixels |
 | Areas 0, 2, 3, 10, 61 at frame 120 | mean diff 0.03-0.21, <=0.36 % pixels |
-| C suite: hippogriff, ghoul, wall cling, room fade | PASS |
-| C regression suite (`tools/run_regression.py`) | see `docs/PARITY.md` |
+| Full suite (`tools/run_regression.py`, default binary = this port) | PASS |
 
 Rendering is pixel-identical outside antialiased text edges: the world region
 of frame 200 measures exactly 0.0 difference
@@ -42,14 +42,14 @@ cd ~/Projetos/opencode/DemonsCrestPythonPort
 python3 -m venv .venv
 .venv/bin/pip install -e .
 
-# assets live in the C project unless you copy them here
-.venv/bin/python -m dcpy.main \
-  --assets ../DemonsCrestNativePort/assets/generated
+# assets are local (git-ignored); --assets overrides the default
+.venv/bin/python -m dcpy.main
 ```
 
-Asset lookup order: `--assets DIR`, `$DC_ASSETS`, `./assets/generated`,
-`../DemonsCrestNativePort/assets/generated`, then the absolute path of this
-checkout's sibling. `DC_ASSETS` is the convenient override.
+Asset lookup order: `--assets DIR`, `$DC_ASSETS`, `./assets/generated`, then
+the sibling C project as a legacy fallback. `DC_ASSETS` is the convenient
+override. `tools/build_assets.sh` regenerates the tree from the ROM and
+`captures/` (both paths are relative to this repository).
 
 ## Controls
 
@@ -89,14 +89,12 @@ Useful variables: `DC_AREA`, `DC_DEMO`, `DC_RUN_FRAMES`, `DC_START_X/Y`,
 like the C build), `DC_TRACE_*`, `DC_NO_AUDIO`, `DC_AUDIO_FORCE`,
 `DC_AUDIO_DEBUG`.
 
-`tools/demonscrest-py` is a drop-in replacement for `build/demonscrest`, so
-the C project's checkers run against the Python port:
+`tools/demonscrest-py` keeps the C build's CLI/env contract. The checkers
+copied from the C project now default to it and to this repo's assets, so they
+run from here unchanged:
 
 ```sh
-cd ../DemonsCrestNativePort
-python3 tools/check_hippogriff.py \
-  --binary ../DemonsCrestPythonPort/tools/demonscrest-py \
-  --assets assets/generated
+python3 tools/check_hippogriff.py      # whole suite: tools/run_regression.py
 ```
 
 ## Layout
@@ -119,15 +117,23 @@ python3 tools/check_hippogriff.py \
 | `dcpy/render.py` | `render.c` | tile layers, sprites, HUD, fade |
 | `dcpy/game.py` | `game.c` | states, saves, password, overworld, overlays |
 | `dcpy/main.py` | `main.c` | window, fixed-step loop, screenshot |
+| `reference/c-src/` | — | the frozen C implementation, as the spec to read |
+| `docs/` | — | the project's research: state/handoff, level map, audio plan, AI notes, sprite/map references |
+| `captures/` | — | reference frames and save-state dumps used by the extractors (git-ignored) |
 
 ## Tooling
 
-- `tools/parity_trace.py` — runs the C build and this port on one demo script
-  and diffs player/object/projectile traces.
+- `tools/parity_trace.py` — runs the frozen C build and this port on one demo
+  script and diffs player/object/projectile traces.
 - `tools/compare_frames.py` — measures a C window screenshot against a Python
   render-target dump and writes a side-by-side.
-- `tools/demonscrest-py` — same CLI/env as `build/demonscrest` for the C
-  suite's checkers.
+- `tools/demonscrest-py` — same CLI/env as `build/demonscrest`.
+- `tools/run_regression.py`, `tools/check_*.py` — the project's gates, driving
+  this port by default.
+- `tools/dc_extract/`, `tools/oracle/`, `tools/gen/`, `tools/audio/` — the asset
+  pipeline and oracle probes, unchanged.
+- `tools/build_assets.sh` — regenerates `assets/generated/` from the ROM and
+  `captures/`.
 
 ## Known gaps
 
@@ -138,6 +144,7 @@ python3 tools/check_hippogriff.py \
 - Audio output is the same ROM WAV / procedural mix; no sample-exact A/B has
   been run against the C binary's device output.
 
-`docs/PARITY.md` records the measurements and the porting traps that cost
-real debugging time (C struct copies, level reload resets, raylib `Color`
-aliasing, struct-construction cost).
+`docs/PARITY.md` records the measurements and the porting traps that cost real
+debugging time (C struct copies, level reload resets, raylib `Color` aliasing,
+struct-construction cost). `docs/PROJECT_STATE.md` is the project handoff; the
+next session starts there.

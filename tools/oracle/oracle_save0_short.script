@@ -1,0 +1,15 @@
+# Short physics probe from the user's save0 (normal graveyard gameplay).
+wait 30
+dump s0_idle
+press right 10
+wait 20
+dump s0_right
+press left 10
+wait 20
+dump s0_left
+press a 8
+wait 20
+dump s0_jump
+wait 20
+dump s0_land
+quit

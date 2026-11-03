@@ -1,0 +1,28 @@
+# Sample the first frames after A and B presses from save0.
+wait 30
+press a 1
+dump a1
+press a 1
+dump a2
+press a 1
+dump a3
+press a 1
+dump a4
+press a 1
+dump a5
+press a 1
+dump a6
+wait 40
+press b 1
+dump b1
+press b 1
+dump b2
+press b 1
+dump b3
+press b 1
+dump b4
+press b 1
+dump b5
+press b 1
+dump b6
+quit
