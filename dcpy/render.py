@@ -11,8 +11,8 @@ from .assets import (DC_BG_PALETTES, DC_SPECIES_STATES,
                      assets_has_area_bg2, assets_player_anim_for_form,
                      assets_species_sheet, species_part_index)
 from .consts import (ANIM_CLIP_COUNT, CREST_AIR, CREST_EARTH, CREST_TIME,
-                     CREST_ULTIMATE, CREST_WATER, LEVEL_OBJECT_UNKNOWN,
-                     OBJECT_BOSS, OBJECT_CREST_ITEM,
+                     CREST_ULTIMATE, CREST_WATER, LEVEL_OBJECT_DECOR,
+                     LEVEL_OBJECT_UNKNOWN, OBJECT_BOSS, OBJECT_CREST_ITEM,
                      OBJECT_ENEMY, OBJECT_ENEMY_SHOT, OBJECT_NPC, OBJECT_PICKUP,
                      OBJECT_PLATFORM, OBJECT_POOL_SIZE, OBJECT_TALISMAN,
                      OBJECT_URN)
@@ -26,6 +26,9 @@ _WHITE = rl.rgb(255, 255, 255)
 # the 256x224 viewport (what a screenshot can actually prove).
 _placeholder_drawn = 0
 _placeholder_visible = 0
+_decor_drawn = 0
+_decor_visible = 0
+_decor_clock = 0
 
 
 def placeholders_drawn() -> int:
@@ -34,6 +37,14 @@ def placeholders_drawn() -> int:
 
 def placeholders_visible() -> int:
     return _placeholder_visible
+
+
+def decor_drawn() -> int:
+    return _decor_drawn
+
+
+def decor_visible() -> int:
+    return _decor_visible
 
 
 # Reused structs: raylib-python-cffi builds a fresh ffi struct (with weakref
@@ -573,10 +584,38 @@ def render_game(assets, level, camera, player, projectiles, objects,
                        _WHITE)
 
     global _placeholder_drawn, _placeholder_visible
+    global _decor_drawn, _decor_visible, _decor_clock
     _placeholder_drawn = 0
     _placeholder_visible = 0
-    for o in level.objects:
-        if o.type != LEVEL_OBJECT_UNKNOWN:
+    _decor_drawn = 0
+    _decor_visible = 0
+    _decor_clock += 1
+    for index, o in enumerate(level.objects):
+        if o.type == LEVEL_OBJECT_DECOR:
+            # Decorative flicker (the cemetery's torch flames, $72): the ROM's
+            # handler has no movement or contact damage, so it is drawn from
+            # the species sheet and never enters the pool.
+            sheet = assets_species_sheet(assets, o.species)
+            if sheet is None or not sheet.frames:
+                # No art yet: keep the debug box so the record stays visible.
+                o_type = LEVEL_OBJECT_UNKNOWN
+            else:
+                px = lround(o.x - camera.x)
+                py = lround(o.y - camera.y)
+                _decor_drawn += 1
+                if -16 < px < 272 and -16 < py < 240:
+                    _decor_visible += 1
+                frame = _species_default_frame(
+                    sheet, _decor_clock + index * 7 + int(o.x))
+                sf = sheet.frames[frame]
+                tex = sf.texture if rl.IsTextureValid(sf.texture) else sf.flipped
+                if rl.IsTextureValid(tex):
+                    rl.DrawTexture(tex, lround(o.x - sf.anchor_x - camera.x),
+                                   lround(o.y - sf.anchor_y - camera.y), _WHITE)
+                continue
+        else:
+            o_type = o.type
+        if o_type != LEVEL_OBJECT_UNKNOWN:
             continue
         # Species the port cannot animate yet.  Keep the ROM's position on
         # screen as a magenta box so a missing handler is visible instead of

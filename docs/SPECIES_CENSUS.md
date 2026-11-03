@@ -109,6 +109,8 @@ no script.
 
 ## 6. Ordem proposta para portar
 
+0. ~~`$72`~~ — **feito** como decor (chama de 5 frames, `check_flame.py`); ver
+   `docs/FLAME_72.md`. O censo abaixo continua válido para o resto.
 1. `$9B` (24 registos, 2 estados, sem movimento) — o mais barato: valida a
    infraestrutura de estados sem risco de combate.
 2. `$68` (30, 2 estados) e `$B0` (18, 2 estados) — máquinas pequenas com

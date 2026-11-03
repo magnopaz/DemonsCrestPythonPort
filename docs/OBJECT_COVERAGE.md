@@ -35,13 +35,14 @@ objects placed / ROM ....... 853/853  (100.0%)
 objects dropped ............ 0  (0 species)
 objects in room JSON ....... 862  (82 species: boss_table 8, npc_table 1, rom 853)
 objects listed in the ROM .. 853  (80 species, 90 areas)
-species with a handler ..... 17/80  (591 records drawn as placeholders)
+species with a handler ..... 18/80  (578 records drawn as placeholders)
 ```
 
 Os 9 objectos a mais que 853 são 8 bosses e 1 NPC que o retail cria fora da
 lista de objectos; a parte `rom` é exacta e é essa que a porta mede. Por tipo
-são 593 placeholders: os 591 registos de espécies sem handler mais os dois
-`$96` obsoletos das áreas 52/54.
+são 580 placeholders: os 578 registos de espécies sem handler mais os dois
+`$96` obsoletos das áreas 52/54. O `$72` (13 registos) já não é placeholder:
+passou a decor em `docs/FLAME_72.md`.
 
 Casos conhecidos e deliberados:
 

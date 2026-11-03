@@ -76,6 +76,10 @@ LEVEL_OBJECT_TALISMAN = 8
 # placement is not lost; the renderer draws a placeholder and the pool ignores
 # it until a real handler exists.
 LEVEL_OBJECT_UNKNOWN = 9
+# A decorative, non-interactive animated object (the cemetery's torch flames,
+# species $72).  It is drawn from the species sheet but never enters the pool:
+# no collision, no damage, no AI.
+LEVEL_OBJECT_DECOR = 10
 
 LEVEL_OBJECT_TYPE_NAMES = {
     "urn": LEVEL_OBJECT_URN,
@@ -87,6 +91,7 @@ LEVEL_OBJECT_TYPE_NAMES = {
     "npc": LEVEL_OBJECT_NPC,
     "talisman": LEVEL_OBJECT_TALISMAN,
     "unknown": LEVEL_OBJECT_UNKNOWN,
+    "decor": LEVEL_OBJECT_DECOR,
 }
 
 # Game states (game.h)

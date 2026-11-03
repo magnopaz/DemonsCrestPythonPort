@@ -58,10 +58,15 @@ O censo que abre o passo está em `docs/SPECIES_CENSUS.md`:
 (`$82:8000/8180/8300/8480`), lê a tabela de estados de cada update e diz quantos
 estados, que helpers e que arte cada espécie tem. Ordem de ataque:
 
-1. `$9B` (24 registos, 2 estados, sem movimento) — valida a infraestrutura.
-2. `$68` (30, 2) e `$B0` (18, 2).
-3. `$63` (35, 3, arte de 1 pose já cozida) — primeiro inimigo completo.
-4. `$06`, `$30`, `$61`; depois os de 5 estados; `$50`/`$20`/`$9C` no fim.
+1. ~~`$72` (13 registos na área 1)~~ — feito como **decor**: chama de 5 frames,
+   sem AI, sem dano; `check_flame.py` na regressão. Ver `docs/FLAME_72.md`.
+   Pelo caminho corrigiu-se um bug real: `_load_species_sheets` iterava o JSON
+   como lista e nenhum sheet de espécie carregava.
+2. `$9B` (24 registos, 2 estados, sem movimento) — valida a infraestrutura de
+   estados com o allocator.
+3. `$68` (30, 2) e `$B0` (18, 2).
+4. `$63` (35, 3, arte de 1 pose já cozida) — primeiro inimigo completo.
+5. `$06`, `$30`, `$61`; depois os de 5 estados; `$50`/`$20`/`$9C` no fim.
 
 Antes das espécies, portar os helpers partilhados (§4 do censo): probe
 rectangular `$809CA4`, colisão `$808C31/$808BED`, allocator `$82877B`, random

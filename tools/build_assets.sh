@@ -111,6 +111,15 @@ if [ -f docs/reference/somulo_walk.gif ]; then
   "$PY" tools/dc_extract/bake_somulo_parts.py --assets "$OUT"
 fi
 
+# Species captures from the oracle (`captures/species_top`, e.g. the cemetery's
+# $72 torch flame).  Optional: without them a decor species falls back to the
+# placeholder box, so a from-scratch build still runs.
+if [ -d "$ROOT/captures/species_top" ]; then
+  echo "== species captures: baking enemy sheets =="
+  "$PY" tools/dc_extract/extract_species.py \
+      --dump "$ROOT/captures/species_top" --out "$OUT"
+fi
+
 # Ground props (urns, crest pickups) sit on their object's centre; the CHR-tile
 # bake wrote anchor_y 27/26 for 16 px art and they floated in mid-air.
 for sp in 57 2d 2e 49; do

@@ -431,6 +431,16 @@ def main() -> int:
               "objects: placement/placeholder check failed\n"
               + obj_proc.stdout[-800:])
 
+        # ---- Species $72: the cemetery's torch flames, drawn as decor ----
+        flame_proc = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_flame.py"),
+             "--binary", str(binary), "--assets", str(assets),
+             "--tmp", str(out)],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=300)
+        check(flame_proc.returncode == 0,
+              "flame: $72 decor check failed\n" + flame_proc.stdout[-800:])
+
         # ---- Room transition: the console's 28+64+28 INIDISP fade ----
         fade_proc = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "check_transition_fade.py"),
@@ -638,7 +648,8 @@ def main() -> int:
         return 1
     print("regression: PASS (demos 6,7,9,10,11,12,13, boss data/runtime, "
           "hippogriff fight, arma crest/map chain, mode 7 map, "
-          "object placement/placeholders, boss defeat + multi-area loads)")
+          "object placement/placeholders, $72 flames, boss defeat + "
+          "multi-area loads)")
     return 0
 
 

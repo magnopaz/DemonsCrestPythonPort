@@ -216,7 +216,18 @@ def _load_species_sheets(assets: Assets, directory: str) -> None:
         root = read_json(path)
     except (OSError, ValueError):
         return
-    for entry in root.get("species") or []:
+    # The shipped format (bake_enemy_sheets.py, extract_species.py, the C port)
+    # is an object keyed by species hex: {"species": {"2c": {...}}}.  Accept the
+    # legacy list form too; iterating a dict directly yields keys and silently
+    # loaded zero sheets, which is why every enemy fell back to procedural art.
+    raw = root.get("species")
+    if isinstance(raw, dict):
+        entries = list(raw.values())
+    elif isinstance(raw, list):
+        entries = raw
+    else:
+        return
+    for entry in entries:
         if not isinstance(entry, dict):
             continue
         boss = entry.get("variant") == "boss"
