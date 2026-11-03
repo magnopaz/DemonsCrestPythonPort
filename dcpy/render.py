@@ -12,7 +12,8 @@ from .assets import (DC_BG_PALETTES, DC_SPECIES_STATES,
                      assets_species_sheet, species_part_index)
 from .consts import (ANIM_CLIP_COUNT, CREST_AIR, CREST_EARTH, CREST_TIME,
                      CREST_ULTIMATE, CREST_WATER, LEVEL_OBJECT_DECOR,
-                     LEVEL_OBJECT_UNKNOWN, OBJECT_BOSS, OBJECT_CREST_ITEM,
+                     LEVEL_OBJECT_INERT, LEVEL_OBJECT_UNKNOWN,
+                     OBJECT_BOSS, OBJECT_CREST_ITEM,
                      OBJECT_ENEMY, OBJECT_ENEMY_SHOT, OBJECT_NPC, OBJECT_PICKUP,
                      OBJECT_PLATFORM, OBJECT_POOL_SIZE, OBJECT_TALISMAN,
                      OBJECT_URN)
@@ -591,6 +592,10 @@ def render_game(assets, level, camera, player, projectiles, objects,
     _decor_visible = 0
     _decor_clock += 1
     for index, o in enumerate(level.objects):
+        if o.type == LEVEL_OBJECT_INERT:
+            # Retail-list records that draw nothing and are driven by a boss
+            # script (species $9B): no sprite, no placeholder.
+            continue
         if o.type == LEVEL_OBJECT_DECOR:
             # Decorative flicker (the cemetery's torch flames, $72): the ROM's
             # handler has no movement or contact damage, so it is drawn from

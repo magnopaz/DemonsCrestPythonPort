@@ -62,9 +62,12 @@ estados, que helpers e que arte cada espécie tem. Ordem de ataque:
    sem AI, sem dano; `check_flame.py` na regressão. Ver `docs/FLAME_72.md`.
    Pelo caminho corrigiu-se um bug real: `_load_species_sheets` iterava o JSON
    como lista e nenhum sheet de espécie carregava.
-2. `$9B` (24 registos, 2 estados, sem movimento) — valida a infraestrutura de
-   estados com o allocator.
-3. `$68` (30, 2) e `$B0` (18, 2).
+2. ~~`$9B` (24 registos)~~ — feito como **inert**: o init não aponta metasprite e
+   o oracle não desenha OAM (nem com `--flags 0x80`); era um controlador de
+   script, não uma peça visível. Deixou de inventar placeholders nas salas
+   52/53/54.
+3. `$68` (30, 2 estados) e `$B0` (18, 2 estados) — máquinas pequenas com
+   tabelas próprias. `$68` ainda sem arte (a captura não desenha).
 4. `$63` (35, 3, arte de 1 pose já cozida) — primeiro inimigo completo.
 5. `$06`, `$30`, `$61`; depois os de 5 estados; `$50`/`$20`/`$9C` no fim.
 

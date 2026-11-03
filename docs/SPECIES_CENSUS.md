@@ -58,7 +58,7 @@ para código seguinte; contam-se à mão ao portar.
 | `$68` | 30 | 2 | 2 | — | `$83:B393` | estado 0 com 7 subestados (`$B3AC`) |
 | `$73` | 27 | 2 | 5 | — | `$83:DD06` | |
 | `$71` | 26 | 3 | 5 | — | `$85:D243` | |
-| `$9B` | 24 | 3 | 2 | — | `$84:CFE2` | sem movimento; só alterna `$0C` com o relógio global `$1DCE` |
+| `$9B` | 24 | 3 | 2 | — | `$84:CFE2` | **inert**: 8 peças 2×4 nas salas 52/53/54; init sem metasprite, oracle sem OAM |
 | `$6C` | 22 | 2 | 4 | — | `$83:C7B2` | |
 | `$65` | 22 | 3 | 5 | — | `$83:A727` | |
 | `$20` | 18 | 3 | 10 | — | `$82:C1C8` | |
@@ -101,8 +101,15 @@ Resultado desta sessão (`captures/species_top`):
 | `$50` | capturada mas **inútil**: o objecto foi para x=-98 e o OAM só tem o player |
 | `$9C`, `$79`, `$73`, `$70`, `$30` | **connection reset** — o guest morre ao injectar (o init depende de estado que não existe fora do jogo) |
 
-`tools/dc_extract/extract_species.py` cozeu: `$63` 1 pose, `$68` 1 pose,
-`$61` 1 pose, `$72` 5 poses. Os PNGs e as entradas em `species_anim.json` são
+O `capture_species.py` passou a aceitar `--flags`: o registo injectado levava
+`$00 = 1` e as espécies cujo init lê as flags do registo (ex. `$9B`, `$68`)
+corriam o ramo errado. Com `--flags 0x80`, o `$9B` continua **sem OAM** — é um
+controlador invisível, não uma peça desenhada; com `--flags 0x84` o `$68`
+desaparece logo (o init espera o script da sala). O `$63` desenha com flags 0.
+
+`tools/dc_extract/extract_species.py` cozeu: `$63` 1 pose, `$61` 1 pose e
+`$72` 5 poses. O `$68` não cozeu (sem sprite distinto na captura). Os PNGs e as
+entradas em `species_anim.json` são
 locais (assets são git-ignored) e **não** são reproduzidos por
 `build_assets.sh`; quando a espécie for portada, o passo de captura tem de entrar
 no script.
@@ -111,10 +118,11 @@ no script.
 
 0. ~~`$72`~~ — **feito** como decor (chama de 5 frames, `check_flame.py`); ver
    `docs/FLAME_72.md`. O censo abaixo continua válido para o resto.
-1. `$9B` (24 registos, 2 estados, sem movimento) — o mais barato: valida a
-   infraestrutura de estados sem risco de combate.
+1. ~~`$9B`~~ — **feito** como *inert*: 24 registos, nenhum desenho (init sem
+   metasprite, oracle sem OAM). Sem placeholder inventado nas salas 52/53/54.
 2. `$68` (30, 2 estados) e `$B0` (18, 2 estados) — máquinas pequenas com
-   tabelas próprias.
+   tabelas próprias. O `$68` ainda não tem arte: a captura injectada não desenha
+   com flags 0 e desaparece com `--flags 0x84`; precisa do contexto da sala.
 3. `$63` (35, 3 estados, arte pronta) — primeiro inimigo "de verdade".
 4. `$06` (16, 3), `$30` (12, 4), `$61` (10, 4, arte pronta).
 5. `$79`/`$73`/`$71`/`$65`/`$93`/`$12` (5 estados cada).

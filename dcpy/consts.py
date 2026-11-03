@@ -80,6 +80,10 @@ LEVEL_OBJECT_UNKNOWN = 9
 # species $72).  It is drawn from the species sheet but never enters the pool:
 # no collision, no damage, no AI.
 LEVEL_OBJECT_DECOR = 10
+# A record that exists in the retail object list but draws and does nothing on
+# its own (species $9B: eight script-owned pieces in the Scula/Holothurion/Ovnunu
+# boss rooms, with no metasprite pointer and no OAM in the oracle capture).
+LEVEL_OBJECT_INERT = 11
 
 LEVEL_OBJECT_TYPE_NAMES = {
     "urn": LEVEL_OBJECT_URN,
@@ -92,6 +96,7 @@ LEVEL_OBJECT_TYPE_NAMES = {
     "talisman": LEVEL_OBJECT_TALISMAN,
     "unknown": LEVEL_OBJECT_UNKNOWN,
     "decor": LEVEL_OBJECT_DECOR,
+    "inert": LEVEL_OBJECT_INERT,
 }
 
 # Game states (game.h)

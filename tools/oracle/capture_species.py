@@ -58,6 +58,11 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--port", type=int, default=4406)
     ap.add_argument("--settle", type=int, default=40)
     ap.add_argument("--timeout", type=float, default=120.0)
+    ap.add_argument("--flags", default="0",
+                    help="object flags byte written into the injected record "
+                         "(decimal or 0x..).  Bit 0 is the init trigger and is "
+                         "added automatically; species whose sprite depends on "
+                         "the ROM record's flags need this")
     return ap.parse_args()
 
 
@@ -199,7 +204,8 @@ def run_species(args, species: int, save: Path, rom: Path) -> dict | None:
         player_screen_x = player[0] - offset[0]
         side = 72.0 if player_screen_x < 160.0 else -72.0
         rec = bytearray(0x50)
-        rec[0x00] = 0x01
+        flags = int(str(args.flags), 0) & 0xFF
+        rec[0x00] = flags | 0x01   # bit 0 = run the species init handler
         rec[0x02] = species
         rec[0x0A] = 0x30
         rec[0x26] = 0x40

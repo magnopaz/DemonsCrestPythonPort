@@ -816,6 +816,11 @@ SPECIES_KIND_MAP = {
     # collision or damage in its handler ($85:D4CF).  Drawn as decor, never
     # spawned into the object pool.
     0x72: "decor",
+    # $9B exists eight times per boss room (areas 52/53/54) as a 2x4 grid of
+    # pieces.  Its init sets no metasprite pointers and the oracle draws no OAM
+    # for it, with flags 0 or 0x80: it is a script-owned controller, not a
+    # visible object.  Typed inert so no placeholder box is invented for it.
+    0x9B: "inert",
 }
 
 
