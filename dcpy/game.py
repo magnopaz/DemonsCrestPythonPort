@@ -8,6 +8,7 @@ import os
 
 from . import rl
 from . import consts as C
+from . import mode7
 from .consts import LEVEL_OBJECT_EXIT
 from .assets import (assets_load, assets_load_area_bg, assets_player_anim_for_form,
                      assets_room_kind)
@@ -38,6 +39,10 @@ CAMPAIGN_CATACOMBS = 2
 CAMPAIGN_RUINS = 3
 CAMPAIGN_LAKE = 4
 CAMPAIGN_DEMON_KEEP = 5
+
+# The world map is a room in the original: area 94, 1024x1024, drawn with
+# Mode 7.  `world_map.sav` resumes there with $008D = $BC.
+MAP_AREA = 94
 
 _FIRE_NAMES = ["FIREBALL", "BUSTER", "TORNADO", "CLAW", "DEMON FIRE"]
 _TALISMAN_NAMES = ["CROWN", "SKULL", "ARMOR", "FANG", "HAND"]
@@ -162,6 +167,9 @@ def game_reset(game: Game) -> None:
         game.objects.boss_alive = False
         game.objects.boss_defeated = True
     game.state_timer = 0
+    # A run that starts inside area 94 starts on the map, not in the raw room.
+    if game.level.area_id == MAP_AREA and game.state == C.GAME_PLAYING:
+        game_open_overworld(game)
 
 
 def game_transition_to_area(game: Game, area_id: int, spawn_id: int) -> bool:
@@ -275,6 +283,12 @@ def game_update_transition(game: Game) -> bool:
             game.transition_timer = 0
             render_set_fade(0.0)
             _game_trace_fade(game, 0.0)
+            # Area 94 is the world map: the original presents it as a Mode 7
+            # plane, not as a normal room.  Hand control to the overworld
+            # state once the fade-in has finished.
+            if game.level.area_id == MAP_AREA and game.state == C.GAME_PLAYING:
+                game_open_overworld(game)
+                return True
     else:
         game.transition_phase = 0
         render_set_fade(0.0)
@@ -610,6 +624,11 @@ def game_init(game: Game, asset_dir: str) -> bool:
             game_start_ending(game)
     game.state_timer = 0
 
+    # Area 94 is the world map: present it as the Mode 7 overworld instead of
+    # the raw room (whose 128x128 BG1 repeats when drawn flat).
+    if game.level.area_id == MAP_AREA and game.state == C.GAME_PLAYING:
+        game_open_overworld(game)
+
     if "DC_STAGE_SELECT" in os.environ:
         game.stage_select = True
     stage_sel_env = env("DC_STAGE_INDEX")
@@ -918,30 +937,49 @@ def game_open_overworld(game: Game) -> None:
     game_overworld_hook_position(game)
 
 
-def game_complete_area(game: Game) -> None:
+def game_complete_area(game: Game, keep_control: bool = False) -> None:
     area = game.level.area_id
     if 0 <= area < 8:
         game.stages_cleared |= 1 << area
     if 0 <= area < C.DC_CAMPAIGN_AREAS:
         game.area_cleared[area] = 1
     granted = -1
-    if area == 0:
-        granted = C.CREST_EARTH
-    elif area == 1:
+    if area == 1:
         granted = C.CREST_AIR
     elif area == 2:
         granted = C.CREST_WATER
     elif area == 3:
-        granted = C.CREST_TIME
+        # Stage I ends with Arma: he uses the Crest of Earth, flees after
+        # enough hits and leaves it behind (wiki; the ROM's gate for area 3
+        # is $F0, the "back to the map" marker).
+        granted = C.CREST_EARTH
     elif area == 4:
         granted = C.CREST_ULTIMATE
+    # Area 0 (the Somulo colosseum intro) awards no crest; the port used to
+    # hand out CREST_EARTH there, which made Arma's drop a duplicate.
     if granted >= 0:
         bits = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20]
         game.player.crests_mask |= bits[granted]
+        if env("DC_DEBUG_CREST"):
+            eprint(f"crest: area {area} granted crest {granted} "
+                   f"(mask {game.player.crests_mask:02X})", flush=True)
     game.password_code = game_encode_password(game)
+    game_save_progress(game)
+    if keep_control:
+        # Rooms with a real gate keep the player in control after the boss:
+        # they walk out through the gate while the crest text (if any) plays.
+        game.state = C.GAME_PLAYING
+        game.state_timer = 0
+        if granted >= 0 and granted < C.CREST_COUNT and \
+                game.crest_text[granted] >= 0 and game_narrative_enabled():
+            game.dialogue_text = game.crest_text[granted]
+            game.dialogue_page = 0
+            game.dialogue_return = C.GAME_PLAYING
+            game.state = C.GAME_DIALOGUE
+            game.state_timer = 0
+        return
     game.state = C.GAME_CLEAR
     game.state_timer = 0
-    game_save_progress(game)
     if granted >= 0 and granted < C.CREST_COUNT and \
             game.crest_text[granted] >= 0 and game_narrative_enabled():
         game.dialogue_text = game.crest_text[granted]
@@ -1039,6 +1077,7 @@ def game_update_overworld(game: Game) -> None:
     elif game.input.special_pressed:
         game.state = C.GAME_SHOP
         game.state_timer = 0
+    game.frame += 1
 
 
 def game_update_subscreen(game: Game, left_pressed: bool, right_pressed: bool,
@@ -1459,10 +1498,12 @@ def _game_playing_step(game: Game) -> None:
             keep_control = game.campaign_mode and \
                 game.level.gate_next_area >= 0 and \
                 ("DC_MVP_KEEP_CONTROL" in os.environ or
-                 game.level.area_id == 1)
+                 game.level.area_id in (1, 3))
             if not keep_control:
                 game.campaign_mode = True
                 game_complete_area(game)
+            else:
+                game_complete_area(game, keep_control=True)
         else:
             game_check_transitions(game)
 
@@ -1506,7 +1547,14 @@ def _game_dialogue_step(game: Game, up_pressed: bool,
                 game.state = game.dialogue_return
                 game.state_timer = 0
         return
-    if game.input.start_pressed:
+    auto = env_int("DC_DIALOGUE_AUTO") or 0
+    advance = game.input.start_pressed
+    if auto > 0:
+        game.state_timer += 1
+        if game.state_timer >= auto:
+            game.state_timer = 0
+            advance = True
+    if advance:
         if game.dialogue_page + 1 < pages:
             game.dialogue_page += 1
         else:
@@ -1594,42 +1642,83 @@ def _draw_stage_select(game: Game) -> None:
     _draw_centered("ENTER TRAVEL   X CLOSE", 204, 9, rl.rgb(200, 220, 255))
 
 
+# --- Mode 7 world map -------------------------------------------------------
+#
+# The projection lives in dcpy/mode7.py (pure maths, shared with
+# tools/check_map_mode7.py); this section only turns it into draw calls.
+MODE7_HORIZON = mode7.HORIZON
+MAP_SIZE = mode7.MAP_SIZE
+
+
+def _mode7_depth(sy: int) -> float:
+    return mode7.depth_at(float(sy))
+
+
+def _mode7_project(cam_x: float, cam_y: float, wx: float, wy: float):
+    return mode7.project(cam_x, cam_y, wx, wy)
+
+
+def _draw_mode7_row(tex, sy: int, cam_x: float, cam_y: float,
+                    depth: float) -> None:
+    """Draw one screen row of the plane, wrapping the 1024 px map."""
+    for start, row, seg, dst_x, dst_w in mode7.row_segments(cam_x, cam_y,
+                                                            depth):
+        rl.DrawTexturePro(
+            tex,
+            rl.Rectangle(start, row, seg, 1.0),
+            rl.Rectangle(dst_x, float(sy), dst_w + 0.5, 1.0),
+            rl.Vector2(0.0, 0.0), 0.0, rl.rgb(255, 255, 255))
+
+
+def _draw_mode7_map(game: Game, cam_x: float, cam_y: float) -> None:
+    """The whole Mode 7 frame: sky, plane, map markers."""
+    tex = game.assets.world_map
+    for y in range(0, MODE7_HORIZON):
+        t = float(y) / max(1, MODE7_HORIZON - 1)
+        rl.DrawRectangle(0, y, 256, 1,
+                         rl.rgb(int(10 + 8 * t), int(8 + 6 * t),
+                                int(28 + 18 * t)))
+    # Far rows first: the near rows overwrite the wrapped edges of the far ones.
+    for sy in range(223, MODE7_HORIZON - 1, -1):
+        _draw_mode7_row(tex, sy, cam_x, cam_y, _mode7_depth(sy))
+    # Map nodes, projected with the same matrix.
+    for mx, my in game.assets.map_markers:
+        p = _mode7_project(cam_x, cam_y, mx, my)
+        if p is None:
+            continue
+        sx, sy = p
+        if not (-8.0 <= sx <= 264.0):
+            continue
+        d = math.hypot(mx - cam_x, my - cam_y)
+        col = rl.rgb(255, 236, 140) if d < 40.0 else rl.rgb(235, 235, 245)
+        size = 5 if sy < 120 else (7 if sy < 190 else 9)
+        rl.DrawRectangle(int(sx - size // 2), int(sy - size // 2), size, size,
+                         col)
+        rl.draw_rect_lines(int(sx - size // 2 - 1), int(sy - size // 2 - 1),
+                           size + 2, size + 2, rl.rgb(40, 40, 60))
+
+
 def _draw_world_map_view(game: Game) -> bool:
+    """The map room (area 94) as the original's Mode 7 plane."""
     if not rl.IsTextureValid(game.assets.world_map):
         return False
-    wx = (game.overworld_x - 24.0) / (232.0 - 24.0) * 1024.0
-    wy = (game.overworld_y - 152.0) / (208.0 - 152.0) * 1024.0
-    zoom = game.overworld_zoom if game.overworld_zoom > 0.0 else 1.0
-    angle = game.overworld_angle
-    while angle < 0.0:
-        angle += 360.0
-    while angle >= 360.0:
-        angle -= 360.0
-    src = rl.Rectangle(0, 0, 1024.0, 1024.0)
-    dst = rl.Rectangle(0, 0, 1024.0, 1024.0)
-    cam = rl.Camera2D()
-    cam.offset = rl.Vector2(128.0, 112.0)
-    cam.target = rl.Vector2(wx, wy)
-    cam.rotation = -angle
-    cam.zoom = zoom
-    rl.BeginMode2D(cam)
-    rl.DrawTexturePro(game.assets.world_map, src, dst, rl.Vector2(0, 0), 0.0,
-                      rl.rgb(255, 255, 255))
-    for mx, my in game.assets.map_markers:
-        d = math.hypot(mx - wx, my - wy)
-        col = rl.rgb(255, 236, 140) if d < 40.0 else rl.rgb(235, 235, 245)
-        rl.DrawRectangle(int(mx - 3), int(my - 3), 7, 7, col)
-        rl.draw_rect_lines(int(mx - 4), int(my - 4), 9, 9, rl.rgb(40, 40, 60))
-    rl.EndMode2D()
-    rl.DrawCircleV(rl.Vector2(128.0, 112.0), 7.0, rl.rgb(255, 220, 120, 60))
+    # The cursor's overworld position maps onto the 1024 px map; the plane is
+    # drawn from the cursor's own spot, looking "up" the map.
+    cam_x = (game.overworld_x - 24.0) / (232.0 - 24.0) * 1024.0
+    cam_y = (game.overworld_y - 152.0) / (208.0 - 152.0) * 1024.0
+    _draw_mode7_map(game, cam_x, cam_y)
+    # Winged cursor: axis-aligned at the bottom centre, wings flapping at the
+    # original's two-frame cadence (the reference take alternates the sprite).
+    flap = (game.frame // 8) & 1
     if rl.IsTextureValid(game.assets.player):
         psrc = rl.Rectangle(0, 0, float(game.assets.player.width),
                             float(game.assets.player.height))
-        pdst = rl.Rectangle(128.0 - 8.0, 112.0 - 12.0, 16.0, 16.0)
-        rl.DrawTexturePro(game.assets.player, psrc, pdst, rl.Vector2(8.0, 12.0),
-                          0.0, rl.rgb(255, 255, 255))
+        w = 22.0 + 2.0 * flap
+        pdst = rl.Rectangle(128.0 - w / 2, 224.0 - 26.0, w, 20.0)
+        rl.DrawTexturePro(game.assets.player, psrc, pdst,
+                          rl.Vector2(w / 2, 20.0), 0.0, rl.rgb(255, 255, 255))
     else:
-        rl.DrawCircleV(rl.Vector2(128.0, 112.0), 2.0, rl.rgb(200, 60, 40))
+        rl.DrawCircleV(rl.Vector2(128.0, 208.0), 3.0, rl.rgb(200, 60, 40))
     return True
 
 

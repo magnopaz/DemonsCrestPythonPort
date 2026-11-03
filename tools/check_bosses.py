@@ -34,7 +34,10 @@ ROOT = Path(__file__).resolve().parents[1]
 # area -> (name, species, expected flags or None, x, y)
 BOSSES = {
     1: [("Hippogriff", 0x09, 0, 1920, 168)],
-    3: [("Arma", 0xA5, 0, 856, 1180)],
+    # Area 3's live Arma is at (856, 151) in arma_boss.sav ($008D = 6, camera
+    # y = 0).  The old (856, 1180) came from the object list's row-offset
+    # encoding and put the boss 1024 px below the fight, inside solid rock.
+    3: [("Arma", 0xA5, 0, 856, 151)],
     23: [("Arma", 0xA5, 2, 640, 1932)],
     26: [("Scula", 0x7B, 0, 1320, 154),
          ("Scula", 0x7C, 0, 1380, 154)],
@@ -171,10 +174,22 @@ def check_rooms(assets: Path, errors: list[str], report: dict) -> None:
                 errors.append(
                     f"area {area} ({name}): position {ox},{oy} outside "
                     f"world {world_w}x{world_h}")
-            if not (cam_y <= oy <= cam_y + VIEWPORT_H):
-                errors.append(
-                    f"area {area} ({name}): y={oy} outside camera band "
-                    f"{cam_y}..{cam_y + VIEWPORT_H}")
+            # Tall rooms (area 3 is 1280 px) are fought over several screens, so
+            # the initial camera rect is not a bound: the boss only has to sit
+            # inside the room's play box.
+            play = room.get("play", {})
+            if world_h <= VIEWPORT_H * 1.5:
+                if not (cam_y <= oy <= cam_y + VIEWPORT_H):
+                    errors.append(
+                        f"area {area} ({name}): y={oy} outside camera band "
+                        f"{cam_y}..{cam_y + VIEWPORT_H}")
+            else:
+                lo = float(play.get("min_y", 0.0))
+                hi = float(play.get("max_y", world_h))
+                if not (lo <= oy <= hi):
+                    errors.append(
+                        f"area {area} ({name}): y={oy} outside play band "
+                        f"{lo}..{hi}")
             if not (0.0 < oy < world_h):
                 errors.append(f"area {area} ({name}): degenerate boss y={oy}")
             report["rooms"].append(

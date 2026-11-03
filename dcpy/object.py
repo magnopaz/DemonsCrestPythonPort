@@ -1088,25 +1088,65 @@ def objects_update(pool: ObjectPool, level, player) -> None:
                         o.state = 0
                         o.phase = 20
             elif o.species == 0xA5:
-                # Arma: hovers in place, then either breathes a pair of shots
-                # or divebombs along the player's line, with a stagger when
-                # hit.
-                if o.hit_flash > 0 and o.state != 4:
-                    o.state = 4
-                    o.phase = 30
-                o.phase -= 1
-                if o.phase <= 0:
-                    if o.state == 0:  # hover -> choose an attack
+                # Arma, species $A5.  ROM handler BE:E6EE, state table
+                # BE:E731; the state byte ($05) is a byte offset into that
+                # table, so states are numbered 0,2,4,...  Ported here:
+                #   0  entrance: sink from the post to the arena floor
+                #   2  hover: bob on the post, then choose the next attack
+                #      (the ROM's chooser at BE:ED13 reads the player's
+                #      vertical offset: far -> volley, near -> dive)
+                #   4  approach: close the horizontal gap at 0x00A0/frame
+                #   6  volley: two aimed shots, then back to 2 with vy=0x0108
+                #   8  dive: rush the player's line at 0x0280/frame
+                #   10 fall: gravity 0x28 until the floor
+                #   12 turn: stop, flip facing, back to 2
+                #   24 flee: rise off-screen (the wiki's "escapes after
+                #      taking enough hits")
+                # States 14/16 (rise variants), 18/20 (helper spawns) and the
+                # 22 attack cycle are not ported yet; docs/ARMA_AI.md lists
+                # them with their ROM addresses.
+                hover_y = o.origin_y_fx - _c_int(81.0 * FX_ONE)
+                if o.state == 0:
+                    # Entrance: rise from the spawn point to the hover post.
+                    if o.y_fx > hover_y:
+                        o.y_fx -= 0x0100
+                    if o.y_fx <= hover_y:
+                        o.y_fx = hover_y
+                        o.state = 2
+                        o.phase = 60
+                elif o.state == 24:
+                    # Flee: climb away and free the slot once off-screen.
+                    o.y_fx -= 0x0200
+                    o.x_fx += 0x0080 if o.x_fx < o.origin_x_fx else -0x0080
+                    o.phase -= 1
+                    if o.phase <= 0:
+                        o.active = False
+                elif o.state == 2:  # hover on the post
+                    o.y_fx = hover_y + _c_int(math.sin(o.timer * 0.05) * 10.0 * FX_ONE)
+                    o.phase -= 1
+                    if o.phase <= 0:
+                        # The ROM chooses at BE:ED13 from $809D8E's direction
+                        # code (thresholds $1A/$17/$0A/$07); that code is not
+                        # decoded yet, so the port alternates the two attacks
+                        # the recording shows, starting with the volley.
                         if o.hops & 1:
-                            o.state = 2  # dive
-                            o.phase = 60
+                            o.state = 8
+                            o.phase = 30
                         else:
-                            o.state = 1  # breath
+                            o.state = 6
                             o.phase = 24
                         o.hops += 1
-                    elif o.state == 1:  # breath attack
-                        ox = fx_to_float(o.x_fx)
-                        oy = fx_to_float(o.y_fx)
+                elif o.state == 4:  # approach
+                    if abs(dx) > 16 * FX_ONE:
+                        o.x_fx += 0x00A0 if dx > 0 else -0x00A0
+                    o.phase -= 1
+                    if o.phase <= 0 or abs(dx) <= 16 * FX_ONE:
+                        o.state = 6
+                        o.phase = 24
+                elif o.state == 6:  # volley
+                    ox = fx_to_float(o.x_fx)
+                    oy = fx_to_float(o.y_fx)
+                    if o.phase == 24:
                         for k in range(2):
                             ty = (player.y - 18.0 - float(k) * 10.0) - oy
                             tx = player.x - ox
@@ -1119,32 +1159,52 @@ def objects_update(pool: ObjectPool, level, player) -> None:
                                 pool, ox + (16.0 if tx > 0 else -16.0), oy,
                                 _c_int(tx / ln * 1.5 * FX_ONE),
                                 _c_int(ty / ln * 1.5 * FX_ONE))
-                        o.state = 0
+                    o.phase -= 1
+                    if o.phase <= 0:
+                        # BE:E8CE: back to the hover.
+                        o.state = 2
+                        o.phase = 70
+                elif o.state == 8:  # dive
+                    if abs(dx) > 8 * FX_ONE:
+                        o.x_fx += 0x0280 if dx > 0 else -0x0280
+                    o.y_fx += 0x0100
+                    o.phase -= 1
+                    if o.phase <= 0:
+                        o.state = 10
+                        o.phase = 90
+                elif o.state == 10:  # fall
+                    o.y_fx += o.vy_fx
+                    o.vy_fx = min(0x0100, o.vy_fx + 0x0028)
+                    surf = level_floor_at(level, fx_to_float(o.x_fx),
+                                          fx_to_float(o.y_fx))
+                    if surf is not None and fx_to_float(o.y_fx) >= surf:
+                        o.y_fx = float_to_fx(surf)
+                        o.vy_fx = 0
+                        o.state = 12
+                        o.phase = 20
+                    o.phase -= 1
+                    if o.phase <= 0:
+                        o.vy_fx = 0
+                        o.state = 12
+                        o.phase = 20
+                elif o.state == 12:  # turn
+                    o.vy_fx = 0
+                    o.facing = 1 if dx >= 0 else -1
+                    o.phase -= 1
+                    if o.phase <= 0:
+                        o.state = 14
+                        o.phase = 120
+                elif o.state == 14:  # rise back to the post
+                    if o.y_fx > hover_y:
+                        o.y_fx -= 0x0200
+                    o.phase -= 1
+                    if o.y_fx <= hover_y or o.phase <= 0:
+                        o.y_fx = hover_y
+                        o.state = 2
                         o.phase = 60
-                    elif o.state == 2:  # dive: rush toward the player
-                        if abs(dx) > 8 * FX_ONE:
-                            o.x_fx += 0x0280 if dx > 0 else -0x0280
-                        if dy > 6 * FX_ONE:
-                            o.y_fx += 0x0200
-                        elif dy < -6 * FX_ONE:
-                            o.y_fx -= 0x0200
-                        o.state = 3
-                        o.phase = 30
-                    elif o.state == 3:  # climb back to the post
-                        o.x_fx += _c_div(o.origin_x_fx - o.x_fx, 8)
-                        o.y_fx += _c_div(o.origin_y_fx - o.y_fx, 8)
-                        o.state = 0
-                        o.phase = 50
-                    elif o.state == 4:
-                        o.state = 0
-                        o.phase = 30
-                    else:
-                        o.state = 0
-                        o.phase = 40
-                # Slow bob while hovering.
-                if o.state == 0:
-                    o.y_fx = o.origin_y_fx + _c_int(
-                        math.sin(o.timer * 0.05) * 10.0 * FX_ONE)
+                else:
+                    o.state = 2
+                    o.phase = 40
             else:
                 # Hippogriff / Stage Boss: swoop and hover above Firebrand,
                 # and punish with a three-shot spread every 110 frames.
@@ -1525,6 +1585,20 @@ def objects_check_projectiles(pool: ObjectPool, projectiles) -> None:
                                 n.substate = 1  # second form
                                 pool.boss_alive = True
                                 pool.events |= OBJECT_EVENT_BOSS_DEFEATED
+                            break
+                        if o.species == 0xA5:
+                            # Arma does not die: he escapes after enough hits
+                            # and leaves the Earth Crest behind (wiki). Keep
+                            # the slot in the flee state until he is
+                            # off-screen; the crest is granted by the
+                            # area-clear path, like the other crests.
+                            o.active = True
+                            o.state = 24
+                            o.phase = 90
+                            o.hit_flash = 0
+                            pool.boss_alive = False
+                            pool.boss_defeated = True
+                            pool.events |= OBJECT_EVENT_BOSS_DEFEATED
                             break
                         pool.boss_alive = False
                         pool.boss_defeated = True

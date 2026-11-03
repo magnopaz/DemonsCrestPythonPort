@@ -471,7 +471,11 @@ def assets_load(assets: Assets, directory: str) -> bool:
     if file_exists(world_map_path):
         tex = rl.LoadTexture(os.fsencode(world_map_path))
         if rl.IsTextureValid(tex):
-            rl.SetTextureFilter(tex, 0)
+            # Mode 7 samples one texture row per screen row; with point
+            # filtering a single dark row in the baked map shows up as a black
+            # scanline across the plane.  The console blends in Mode 7, so the
+            # map plane is the one texture that is filtered bilinearly.
+            rl.SetTextureFilter(tex, 1)  # TEXTURE_FILTER_BILINEAR
             assets.world_map = tex
 
     if assets.species_count > 0:

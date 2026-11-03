@@ -400,6 +400,26 @@ def main() -> int:
         check(hip_proc.returncode == 0,
               "hippogriff: fight check failed\n" + hip_proc.stdout[-800:])
 
+        # ---- Species $A5: Arma, the Earth Crest and the map room ----
+        arma_proc = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_arma.py"),
+             "--binary", str(binary), "--assets", str(assets),
+             "--tmp", str(out)],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=600)
+        check(arma_proc.returncode == 0,
+              "arma: crest/map check failed\n" + arma_proc.stdout[-800:])
+
+        # ---- The world map is drawn as a Mode 7 plane ----
+        mode7_proc = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_map_mode7.py"),
+             "--binary", str(binary), "--assets", str(assets),
+             "--tmp", str(out)],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=300)
+        check(mode7_proc.returncode == 0,
+              "mode7: map projection check failed\n" + mode7_proc.stdout[-800:])
+
         # ---- Room transition: the console's 28+64+28 INIDISP fade ----
         fade_proc = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "check_transition_fade.py"),
@@ -606,7 +626,8 @@ def main() -> int:
             print(f"  - {message}")
         return 1
     print("regression: PASS (demos 6,7,9,10,11,12,13, boss data/runtime, "
-          "hippogriff fight, boss defeat + multi-area loads)")
+          "hippogriff fight, arma crest/map chain, mode 7 map, "
+          "boss defeat + multi-area loads)")
     return 0
 
 

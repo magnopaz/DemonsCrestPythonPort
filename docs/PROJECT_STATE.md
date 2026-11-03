@@ -135,55 +135,71 @@ saves (`build/saves/arma_boss.sav`, `world_map.sav`).
   of BMPs), e.g.
   `SNESREC_AUTORECORD=1 SNESREC_INPUT_ONLY=1 SNESREC_RECORD_DIR=captures/rec_stage1_trace ./DemonsCrestSNESRecomp "../../roms/Demon's Crest (USA).sfc"`.
 
-## NEXT SESSION — MVP 2 continues with Arma (read this first)
+## Session 2026-11-03 (part 2) — Arma -> Earth Crest -> the map, in Mode 7
 
-The tree is green (`tools/run_regression.py` PASS: the room fade, the species
-`$67` ghoul, the wall cling and the new Hippogriff fight all have gates). The
-Hippogriff is done (part 6 above); this is the remaining queue.
+- **Arma was 1024 px below his own fight.** `room_area3.json` had the boss at
+  (856, 1180) — inside the solid block mass at the bottom of the room — while
+  `arma_boss.sav` has `$008D = 6`, camera y = 0, the player at (681, 156) and
+  the live Arma at **(856, 151)**. The (856, 1180) value came from the object
+  list's row-offset encoding; `tools/check_bosses.py` now carries the save's
+  numbers and `apply_boss_table.py` re-applies them.
+- **Arma now runs the ROM's state machine.** Handler `BE:E6EE`, dispatch table
+  `BE:E731` (the `$05` byte is a *byte offset*, so states are 0,2,4 … 24; 13
+  entries, `_idx = X / 2` in the recompiled dispatch). Ported: 0 entrance,
+  2 hover, 4 approach, 6 volley, 8 dive, 10 fall, 12 turn, 14 rise, 24 flee,
+  with the ROM's constants (`$00A0`, `$0280`, gravity `$28`, clamp `$0100`,
+  the 81 px hover post measured from the save). The oracle recording's cycle
+  (2 -> 6 -> 2 -> 8 -> 10 -> 12 -> 14 -> 2) is what the port runs.
+  `docs/ARMA_AI.md` lists every state, the attack chooser at `BE:ED13` (still
+  undecoded: it keys off `$809D8E`'s direction code) and what is not ported
+  (states 16/18/20/22 and the `$A6`/`$A7`/`$A8` spawns).
+- **The `$F0` gate is a map marker, not an area id.** New
+  `tools/dc_extract/apply_gate_table.py` re-reads `$81:97DA` for all 113 rooms,
+  resolves only verified markers ($F0 -> area 94, from `world_map.sav`), records
+  `gate_marker`/`gate_entry` for the rest and leaves unverified ones closed.
+  `build_assets.sh` runs it after the boss table.
+- **`Game_CompleteArea(3)` grants CREST_EARTH** (was `CREST_TIME`) and keeps
+  the player in control (the room has a gate): the crest text plays and the
+  player walks out to area 94. Area 0 no longer grants a crest — the colosseum
+  intro has none, and the duplicate was hiding Arma's drop.
+- **Area 94 is presented as a Mode 7 plane, and entering it opens the map.**
+  `dcpy/mode7.py` holds the projection (horizon 37, focal 46 500, depth clamp
+  2048, per-row texture slices with horizontal wrap); `_draw_world_map_view`
+  draws the sky, the plane and the projected nodes, with the winged cursor at
+  the bottom centre. `game_update_transition`/`game_init` switch to
+  `GAME_OVERWORLD` when area 94 finishes loading, so the raw room (whose
+  128x128 BG1 repeats) is never shown. The map texture is the one bilinear
+  texture, because a single dark row in the bake became a black scanline.
+- **New gates**: `tools/check_arma.py` (spawn, states 6/8/10/12, hp to 0, flee,
+  Earth Crest, fade to area 94, final mode 5) and `tools/check_map_mode7.py`
+  (projection invariants + a rendered frame with a dark sky band and a
+  continuous ground plane). Both are wired into `tools/run_regression.py`.
+- New hooks: `DC_DEMO=16` (stand and shoot, then walk right — the boss-then-gate
+  demo) and `DC_DIALOGUE_AUTO=<frames>` (page text without a controller).
 
-**The C build is frozen.** This queue now lands in `dcpy/` (Python). The
-checkers in `tools/` default to `tools/demonscrest-py`, so they run here exactly
-as before; `tools/parity_trace.py` is the only tool that still executes the C
-binary, and it is the gate to run after any behaviour change. Items below name
-C files and constants — translate them to the matching `dcpy/` module.
+## NEXT SESSION (updated)
 
-1. **Arma -> Earth Crest -> the map.** Area 3 has the boss (`$A5`, object at
-   (856, 1180) in the room JSON; `arma_boss.sav` puts the live one at (856, 151)
-   with its `$8B` companion) but `gate_next_area = -1` and no transitions, so
-   the kill cannot advance. `Game_CompleteArea` also awards `CREST_TIME` for
-   area 3; the original gives the **Earth Crest** and loads **area 94**, the map
-   room (`world_map.sav`: `$008D = $BC`).
-   - The ROM gate table `$81:97DA` is indexed by area and stores the **next room
-     byte** (`$008D`), so area 1 -> 4 = area 2. Area 3 stores **`$F0`**, a
-     special "return to the map" marker rather than an area id (areas 8 and 9
-     store `$F1`). The extractor rejects it, which is why the room says -1.
-   - Expected port flow: area 3's kill grants **CREST_EARTH** (`Game_CompleteArea`
-     `case 3` currently says `CREST_TIME`), marks the stage cleared, and loads
-     **area 94** (the map room) instead of showing the generic clear banner.
-     Decide whether the crest dialogue (`crest_text[CREST_EARTH]`) plays before
-     the map, and keep the save/password bookkeeping.
-   - Probes: `tools/oracle/trace_stage.py save ../DemonsCrestSNESRecomp/build/saves/arma_boss.sav --frames 300`
-     for area/species/player; `tools/oracle/probe_slot_record.py --save ... --slot N`
-     to read the live Arma record and its script bytes over time. The boot-start
-     take never reaches area 3, so the save is the source for this fight.
-   - Acceptance: with the save (or a demo starting at the arena), Arma runs his
-     ROM states, the kill grants the Earth Crest, and the game ends up in area
-     94 with the map on screen.
-2. **The map is area 94 in Mode 7.** `room_area94.json` is 1024x1024 with a
-   128x128 BG1; rendered as a normal room it is repeating garbage, which is why
-   the port bakes `world_map.png` (`build_world_map.py` from `captures/map11`)
-   and draws it through a `Camera2D`. The original is a **Mode 7 plane**: a
-   horizon, rows shrinking with distance, and the winged cursor at the bottom.
-   References: `docs/map_compare.png` (original vs port),
-   `docs/sprites/animated/map_mode7_animated.mp4` (400x348, 104 frames),
-   `world_map.sav` (player at 896,156). Acceptance: the Mode 7 projection
-   matches the recording (shrinking rows, horizon), the cursor sits at the
-   bottom, and the map is reachable from Arma's kill.
-3. **The 14 `$72` flames in area 1 are still dropped by the extractor.** They
-   are real level objects (present in the pool from gframe 7141 to 9441) but the
-   port has no species-`0x72` handler: typing them `"enemy"` today would give
-   them walk speed and the fallback silhouette. They need a stationary hazard
-   object and art before they are added.
+**Plan of record: [`docs/NEXT_STEPS.md`](NEXT_STEPS.md)** — the ordered queue to
+finish the game, with the coverage numbers (`python3 tools/report_coverage.py`)
+and the acceptance test for each step. Read that first; this block is only the
+short version.
+
+0. **Commit the tree.** `HEAD` is `c666823` with 11 modified + 7 new files
+   (Arma AI, crest, Mode 7 map and their checkers). Regression is green; commit
+   it before touching anything else.
+1. ~~Arma -> Earth Crest -> the map~~ — done, gated by `check_arma.py`.
+2. ~~The map in Mode 7~~ — the plane, horizon and cursor are in and gated by
+   `check_map_mode7.py`. Still open: the plane's **rotation** (the reference
+   shows none, so this is only needed if a later stage turns the map), the
+   horizon smear from the depth clamp, and the map's own interaction (nodes are
+   projected but landing still uses the old node list).
+3. **Object coverage** — the extractor types 262 of the 853 objects the ROM
+   lists and drops 591 (63 species). `tools/report_coverage.py` prints it. Fix
+   the extractor first (unknown species must still be placed), then port the 20
+   most common species, which are 451 of the 591.
+4. **Arma's remaining states** — 16/18/20/22 and the `$A6`/`$A7`/`$A8` spawns,
+   plus the crest-drop object. See `docs/ARMA_AI.md`.
+5. **The 14 `$72` flames in area 1** are still dropped by the extractor.
 
 Tools that answer questions without guessing:
 

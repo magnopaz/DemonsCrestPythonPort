@@ -195,6 +195,13 @@ def input_read(inp: Input, st: InputState) -> None:
         right = _demo_frame >= 20
         shot = _demo_frame >= 40 and (_demo_frame % 24) < 2
         jump = (_demo_frame % 180) >= 120 and (_demo_frame % 180) < 150
+    elif mode == 16:
+        # Boss-then-gate: hold the ground and shoot until the arena boss is
+        # gone, then walk right to the exit.  Used by check_arma.py.
+        _demo_frame += 1
+        shot = _demo_frame >= 40 and (_demo_frame % 20) < 2
+        right = _demo_frame >= 460
+        jump = (_demo_frame % 240) >= 200 and (_demo_frame % 240) < 212
     elif mode == 33:
         _demo_frame += 1
         start = _demo_frame == 640

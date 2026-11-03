@@ -244,6 +244,21 @@ def _species_default_frame(sheet, timer: int) -> int:
     return _species_cycle_frame(sheet, list(range(len(sheet.frames))), timer)
 
 
+# The boss banks use their `$05` byte as a byte offset into a state table, so a
+# species sheet's five animation slots do not match the state numbers.  These
+# maps turn the ROM state into the sheet's slot; `docs/ARMA_AI.md` has the
+# per-state meaning.
+_SPECIES_STATE_MAP = {
+    # Arma: 0 entrance, 2 hover, 4 approach, 6 volley, 8 dive, 10 fall,
+    # 12 turn, 14 rise, 24 flee.
+    0xA5: {0: 0, 2: 0, 4: 0, 6: 1, 8: 2, 10: 2, 12: 3, 14: 3, 24: 4},
+}
+
+
+def species_state_slot(species: int, state: int) -> int:
+    return _SPECIES_STATE_MAP.get(species, {}).get(state, state)
+
+
 def _draw_species_first_pose(assets, species: int, x: float, y: float,
                              tint) -> bool:
     sheet = assets_species_sheet(assets, species)
@@ -408,12 +423,13 @@ def _draw_objects(assets, camera, objects) -> None:
                 if _draw_species_parts(sheet, o, x, y, tint):
                     continue
                 frame = _species_default_frame(sheet, o.timer)
+                slot = species_state_slot(o.species, o.state)
                 if o.hit_flash > 0 and sheet.has_hurt and \
                         sheet.hurt_frame < len(sheet.frames):
                     frame = sheet.hurt_frame
-                elif sheet.has_states and 0 <= o.state < DC_SPECIES_STATES and \
-                        sheet.states[o.state]:
-                    idx = _species_cycle_frame(sheet, sheet.states[o.state],
+                elif sheet.has_states and 0 <= slot < DC_SPECIES_STATES and \
+                        sheet.states[slot]:
+                    idx = _species_cycle_frame(sheet, sheet.states[slot],
                                                o.timer)
                     if 0 <= idx < len(sheet.frames):
                         frame = idx

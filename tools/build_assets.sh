@@ -90,6 +90,12 @@ fi
 echo "== 4/7 boss objects from the check table =="
 "$PY" tools/dc_extract/apply_boss_table.py --rooms "$OUT"
 
+# Boss gates: $81:97DA stores the next room byte, except for the special
+# markers >= $F0.  Area 3 stores $F0, the "back to the map" marker, which the
+# extractor drops; this re-applies the verified destinations (area 3 -> 94).
+echo "== 4b/7 boss-gate table =="
+"$PY" tools/dc_extract/apply_gate_table.py --rom "$ROM" --rooms "$OUT"
+
 # Somulo's own art: the walk cycle comes from the reference GIF kept in
 # docs/reference, and its anchors are measured from the art's feet (the baker's
 # own anchor assumes screen-space numbers that drift when the camera moves).

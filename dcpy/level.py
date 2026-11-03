@@ -95,6 +95,8 @@ class Level:
         self.name = ""
         self.area_id = 1
         self.gate_next_area = -1
+        self.gate_marker = 0
+        self.gate_entry = 0
         self.world_w = 0
         self.world_h = 0
         self.backdrop = rl.rgb(8, 8, 16)
@@ -196,6 +198,8 @@ def _level_load_file(level: Level, assets, path: str) -> bool:
         level.name = name
     level.area_id = as_int(root.get("area_id"), 1)
     level.gate_next_area = as_int(root.get("gate_next_area"), -1)
+    level.gate_marker = as_int(root.get("gate_marker"), 0)
+    level.gate_entry = as_int(root.get("gate_entry"), 0)
     backdrop = root.get("backdrop")
     if isinstance(backdrop, list) and len(backdrop) >= 3:
         rgb = [as_int(v, (8, 8, 16)[i]) for i, v in enumerate(backdrop[:3])]
