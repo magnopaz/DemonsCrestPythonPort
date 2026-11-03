@@ -38,7 +38,8 @@ def main() -> int:
             continue
         doc = json.loads(path.read_text())
         objects = doc.setdefault("objects", [])
-        entry = {"type": "npc", "species": species, "flags": flags, "x": x, "y": y}
+        entry = {"type": "npc", "species": species, "flags": flags, "x": x,
+                 "y": y, "source": "npc_table"}
         replaced = False
         for i, obj in enumerate(objects):
             if obj.get("type") == "npc" and obj.get("species") == species:

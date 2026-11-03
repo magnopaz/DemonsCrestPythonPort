@@ -11,13 +11,29 @@ from .assets import (DC_BG_PALETTES, DC_SPECIES_STATES,
                      assets_has_area_bg2, assets_player_anim_for_form,
                      assets_species_sheet, species_part_index)
 from .consts import (ANIM_CLIP_COUNT, CREST_AIR, CREST_EARTH, CREST_TIME,
-                     CREST_ULTIMATE, CREST_WATER, OBJECT_BOSS, OBJECT_CREST_ITEM,
+                     CREST_ULTIMATE, CREST_WATER, LEVEL_OBJECT_UNKNOWN,
+                     OBJECT_BOSS, OBJECT_CREST_ITEM,
                      OBJECT_ENEMY, OBJECT_ENEMY_SHOT, OBJECT_NPC, OBJECT_PICKUP,
                      OBJECT_PLATFORM, OBJECT_POOL_SIZE, OBJECT_TALISMAN,
                      OBJECT_URN)
 from .util import eprint, env, env_int, lround
 
 _WHITE = rl.rgb(255, 255, 255)
+
+# Counters for the placeholder path: a room with a species the port has no
+# handler for must still show that the record is there.  ``_placeholder_drawn``
+# counts the boxes issued this frame, ``_placeholder_visible`` the ones inside
+# the 256x224 viewport (what a screenshot can actually prove).
+_placeholder_drawn = 0
+_placeholder_visible = 0
+
+
+def placeholders_drawn() -> int:
+    return _placeholder_drawn
+
+
+def placeholders_visible() -> int:
+    return _placeholder_visible
 
 
 # Reused structs: raylib-python-cffi builds a fresh ffi struct (with weakref
@@ -555,6 +571,26 @@ def render_game(assets, level, camera, player, projectiles, objects,
     for s in level.sprites:
         rl.DrawTexture(s.texture, int(s.x - camera.x), int(s.y - camera.y),
                        _WHITE)
+
+    global _placeholder_drawn, _placeholder_visible
+    _placeholder_drawn = 0
+    _placeholder_visible = 0
+    for o in level.objects:
+        if o.type != LEVEL_OBJECT_UNKNOWN:
+            continue
+        # Species the port cannot animate yet.  Keep the ROM's position on
+        # screen as a magenta box so a missing handler is visible instead of
+        # silently absent; the object pool never sees these.
+        if not (0.0 <= o.x < float(level.world_w) and
+                0.0 <= o.y < float(level.world_h)):
+            continue
+        px = lround(o.x - camera.x)
+        py = lround(o.y - camera.y)
+        _placeholder_drawn += 1
+        if -16 < px < 272 and -16 < py < 240:
+            _placeholder_visible += 1
+        rl.draw_rect_lines(px - 6, py - 12, 12, 12, rl.rgb(255, 80, 220))
+        rl.DrawRectangle(px - 2, py - 4, 4, 4, rl.rgb(255, 200, 245))
 
     _draw_player(assets, level, camera, player)
     _draw_objects(assets, camera, objects)

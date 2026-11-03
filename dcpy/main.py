@@ -10,6 +10,7 @@ from . import consts as C
 from . import rl
 from .game import (Game, game_init, game_password_selftest, game_render,
                    game_shutdown, game_update)
+from .render import placeholders_drawn, placeholders_visible
 
 
 def find_asset_dir(argv: list[str]) -> str:
@@ -118,6 +119,10 @@ def main(argv: list[str] | None = None) -> int:
             break
 
     game_shutdown(game)
+    if os.environ.get("DC_TRACE_PLACEHOLDERS"):
+        print(f"placeholders_drawn={placeholders_drawn()} "
+              f"placeholders_visible={placeholders_visible()}",
+              file=sys.stderr, flush=True)
     rl.CloseWindow()
     time.sleep(0.05)
     return 0

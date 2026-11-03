@@ -184,22 +184,23 @@ finish the game, with the coverage numbers (`python3 tools/report_coverage.py`)
 and the acceptance test for each step. Read that first; this block is only the
 short version.
 
-0. **Commit the tree.** `HEAD` is `c666823` with 11 modified + 7 new files
-   (Arma AI, crest, Mode 7 map and their checkers). Regression is green; commit
-   it before touching anything else.
+0. ~~**Commit the tree.**~~ Done: the Arma/map work is committed and the
+   object-coverage step landed on top of it.
 1. ~~Arma -> Earth Crest -> the map~~ — done, gated by `check_arma.py`.
 2. ~~The map in Mode 7~~ — the plane, horizon and cursor are in and gated by
    `check_map_mode7.py`. Still open: the plane's **rotation** (the reference
    shows none, so this is only needed if a later stage turns the map), the
    horizon smear from the depth clamp, and the map's own interaction (nodes are
    projected but landing still uses the old node list).
-3. **Object coverage** — the extractor types 262 of the 853 objects the ROM
-   lists and drops 591 (63 species). `tools/report_coverage.py` prints it. Fix
-   the extractor first (unknown species must still be placed), then port the 20
-   most common species, which are 451 of the 591.
+3. ~~**Object coverage**~~ — done: all 853 ROM records reach the room JSON
+   (`tools/check_objects.py` gates it), unknown species draw as placeholders,
+   `tools/report_coverage.py` reads 853/853 and 0 dropped. Next: port the 20
+   most common species, which are 451 of the 591 remaining placeholder records.
+   See `docs/OBJECT_COVERAGE.md`.
 4. **Arma's remaining states** — 16/18/20/22 and the `$A6`/`$A7`/`$A8` spawns,
    plus the crest-drop object. See `docs/ARMA_AI.md`.
-5. **The 14 `$72` flames in area 1** are still dropped by the extractor.
+5. ~~The 14 `$72` flames in area 1 are still dropped by the extractor.~~ They
+   are placed now and draw as placeholders until the species is ported.
 
 Tools that answer questions without guessing:
 

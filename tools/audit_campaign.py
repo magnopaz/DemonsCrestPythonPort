@@ -109,10 +109,19 @@ def audit_room(area: int, path: Path) -> dict:
         issues.append("no walkable ground below spawn")
 
     bad_objects = [o for o in doc.get("objects", [])
-                   if not (0 <= o.get("x", -1) < world.get("width", 0) and
-                           0 <= o.get("y", -1) < world.get("height", 0))]
+                   if o.get("type") != "unknown" and
+                   not (0 <= o.get("x", -1) < world.get("width", 0) and
+                        0 <= o.get("y", -1) < world.get("height", 0))]
     if bad_objects:
         issues.append(f"{len(bad_objects)} object(s) outside world")
+    objects = doc.get("objects", [])
+    # Placeholder species are kept even when the ROM's coordinate is outside
+    # the extracted world (three stale records): they cannot affect gameplay,
+    # so they are reported but not treated as a structural bug.
+    stray_placeholders = [o for o in objects
+                          if o.get("type") == "unknown" and
+                          not (0 <= o.get("x", -1) < world.get("width", 0) and
+                               0 <= o.get("y", -1) < world.get("height", 0))]
 
     transitions = doc.get("transitions", [])
     bad_trans = [t for t in transitions
@@ -137,7 +146,10 @@ def audit_room(area: int, path: Path) -> dict:
         "bg2": bg2_nonzero > 0,
         "spawn": [sx, sy],
         "ground": ground,
-        "objects": len(doc.get("objects", [])),
+        "objects": len(objects),
+        "objects_unknown": sum(1 for o in objects
+                               if o.get("type") == "unknown"),
+        "objects_stray_placeholders": len(stray_placeholders),
         "transitions": len(transitions),
         "gate": gate,
         "issues": issues,
@@ -159,11 +171,17 @@ def main() -> int:
              for k in ("playable", "partial", "empty")}
     with_bg2 = [r for r in rooms if r["bg2"]]
     bad = [r for r in rooms if r["issues"]]
+    placed_objects = sum(r["objects"] for r in rooms)
+    unknown_objects = sum(r["objects_unknown"] for r in rooms)
+    stray = sum(r["objects_stray_placeholders"] for r in rooms)
 
     print(f"campaign rooms: {len(rooms)}")
     for kind, items in kinds.items():
         print(f"  {kind:9s}: {len(items):3d}")
     print(f"  BG2 backdrop present: {len(with_bg2)}")
+    print(f"  objects placed: {placed_objects}"
+          f"  (unknown-species placeholders: {unknown_objects}"
+          f", outside the world: {stray})")
     print(f"  rooms with structural issues: {len(bad)}")
 
     def show(title, items, key=None):
@@ -223,6 +241,9 @@ def main() -> int:
                 "partial": len(kinds["partial"]),
                 "empty": len(kinds["empty"]),
                 "with_bg2": len(with_bg2),
+                "objects": placed_objects,
+                "objects_unknown": unknown_objects,
+                "objects_stray_placeholders": stray,
                 "with_issues": len(bad),
             },
         }, indent=1))

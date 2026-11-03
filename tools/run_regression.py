@@ -420,6 +420,17 @@ def main() -> int:
         check(mode7_proc.returncode == 0,
               "mode7: map projection check failed\n" + mode7_proc.stdout[-800:])
 
+        # ---- Object placement: every retail record reaches the room ----
+        obj_proc = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_objects.py"),
+             "--binary", str(binary), "--assets", str(assets),
+             "--tmp", str(out)],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=300)
+        check(obj_proc.returncode == 0,
+              "objects: placement/placeholder check failed\n"
+              + obj_proc.stdout[-800:])
+
         # ---- Room transition: the console's 28+64+28 INIDISP fade ----
         fade_proc = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "check_transition_fade.py"),
@@ -627,7 +638,7 @@ def main() -> int:
         return 1
     print("regression: PASS (demos 6,7,9,10,11,12,13, boss data/runtime, "
           "hippogriff fight, arma crest/map chain, mode 7 map, "
-          "boss defeat + multi-area loads)")
+          "object placement/placeholders, boss defeat + multi-area loads)")
     return 0
 
 

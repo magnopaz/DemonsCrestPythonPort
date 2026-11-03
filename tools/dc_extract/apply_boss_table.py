@@ -52,20 +52,28 @@ def main() -> int:
         objects = doc.setdefault("objects", [])
         expected = {species for _n, species, _f, _x, _y in entries}
         # Areas 52/54 shipped a placeholder boss ($96) at the real boss position.
-        # Any boss species the table does not list for this area is stale.
+        # Any boss species the table does not list for this area is a stale
+        # placeholder: retype it instead of deleting it, so the retail record
+        # stays in the room (it draws as an unknown-species placeholder) and the
+        # real boss can still be spawned next to it.
         stale = [i for i, obj in enumerate(objects)
                  if obj.get("type") == "boss" and obj.get("species") not in expected]
-        for i in reversed(stale):
-            print(f"area {area}: dropping stale boss {objects[i].get('species'):#04x}")
-            del objects[i]
+        for i in stale:
+            print(f"area {area}: stale boss {objects[i].get('species'):#04x} "
+                  f"kept as an unknown placeholder")
+            objects[i]["type"] = "unknown"
         for name, species, flags, x, y in entries:
             entry = {"type": "boss", "species": species,
-                     "flags": 0 if flags is None else flags, "x": x, "y": y}
+                     "flags": 0 if flags is None else flags, "x": x, "y": y,
+                     "source": "boss_table"}
             replaced = False
             for i, obj in enumerate(objects):
                 if obj.get("type") == "boss" and obj.get("species") == species:
                     if flags is None:
                         entry["flags"] = obj.get("flags", 0)
+                    # A replacement keeps the ROM's provenance: the position is
+                    # the object list's, not the table's.
+                    entry["source"] = obj.get("source", "rom")
                     objects[i] = entry
                     replaced = True
                     break

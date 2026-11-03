@@ -45,6 +45,7 @@ def main() -> int:
     rooms = sorted(args.assets.glob("room_area*.json"))
     placed = collections.Counter()
     placed_rooms = 0
+    placed_by_source = collections.Counter()
     for path in rooms:
         doc = json.loads(path.read_text())
         objs = doc.get("objects", [])
@@ -52,10 +53,12 @@ def main() -> int:
             placed_rooms += 1
         for o in objs:
             placed[int(o.get("species", 0))] += 1
+            placed_by_source[o.get("source", "rom")] += 1
 
     rom_species = collections.Counter()
     rom_total = 0
     areas_with_objects = 0
+    rom_records: list[tuple[int, int, int]] = []
     for area in range(113):
         try:
             recs = rom.object_list(area)
@@ -67,12 +70,31 @@ def main() -> int:
         rom_total += len(recs)
         for rec in recs:
             rom_species[rec["species"]] += 1
+            rom_records.append((area, rec["species"], rec["flags"]))
 
-    typed = sum(n for s, n in rom_species.items() if s in E.SPECIES_KIND_MAP)
-    dropped = rom_total - typed
-    missing = {s: n for s, n in rom_species.items()
-               if s not in E.SPECIES_KIND_MAP}
-    top20 = sum(n for _s, n in collections.Counter(missing).most_common(20))
+    # What actually reached the JSON: every ROM record is matched by area,
+    # species and flags.  X is not part of the identity because the verified
+    # boss table deliberately relocates a few bosses (Somulo, area 0) while
+    # keeping the record; a dropped or invented record still shows up here.
+    placed_rom = collections.Counter()
+    for path in rooms:
+        doc = json.loads(path.read_text())
+        area = int(doc.get("area_id", -1))
+        for o in doc.get("objects", []):
+            if o.get("source", "rom") != "rom":
+                continue
+            placed_rom[(area, int(o.get("species", 0)),
+                        int(o.get("flags", 0)))] += 1
+    missing = collections.Counter()
+    for rec in rom_records:
+        if placed_rom[rec] > 0:
+            placed_rom[rec] -= 1
+        else:
+            missing[rec[1]] += 1
+    dropped = sum(missing.values())
+    handlers = sum(1 for s in rom_species if s in E.SPECIES_KIND_MAP)
+    unknown = sum(n for s, n in rom_species.items()
+                  if s not in E.SPECIES_KIND_MAP)
 
     campaign = args.assets / "campaign.json"
     kinds = {}
@@ -96,19 +118,19 @@ def main() -> int:
 
     print(f"rooms extracted ............ {len(rooms)}  {kinds or ''}")
     print(f"rooms with objects ......... {placed_rooms}")
-    print(f"objects placed in JSON ..... {sum(placed.values())}"
-          f"  ({len(placed)} species)")
+    pct = 100.0 * (rom_total - dropped) / max(1, rom_total)
+    print(f"objects placed / ROM ....... {rom_total - dropped}/{rom_total}"
+          f"  ({pct:.1f}%)")
+    print(f"objects dropped ............ {dropped}"
+          f"  ({len(missing)} species)")
+    print(f"objects in room JSON ....... {sum(placed.values())}"
+          f"  ({len(placed)} species: "
+          + ", ".join(f"{k} {v}" for k, v in
+                      sorted(placed_by_source.items())) + ")")
     print(f"objects listed in the ROM .. {rom_total}"
           f"  ({len(rom_species)} species, {areas_with_objects} areas)")
-    print(f"typed by the extractor ..... {typed}"
-          f"  ({len(E.SPECIES_KIND_MAP)} species)")
-    print(f"DROPPED .................... {dropped}"
-          f"  ({len(missing)} species)")
-    print(f"  top 20 of those cover .... {top20} records"
-          f" ({100.0 * top20 / max(1, dropped):.0f}% of the gap)")
-    print(f"  most common dropped ...... " +
-          ", ".join(f"${s:02X}x{n}" for s, n in
-                    collections.Counter(missing).most_common(10)))
+    print(f"species with a handler ..... {handlers}/{len(rom_species)}"
+          f"  ({unknown} records drawn as placeholders)")
     print(f"rooms with a BG2 tilemap ... {bg2}/{len(rooms)}")
     print(f"species sprite sheets ...... {len(sheets)}")
     print(f"music tracks ............... {len(music)}")

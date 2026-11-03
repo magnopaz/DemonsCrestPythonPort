@@ -72,6 +72,10 @@ LEVEL_OBJECT_BOSS = 5
 LEVEL_OBJECT_EXIT = 6
 LEVEL_OBJECT_NPC = 7
 LEVEL_OBJECT_TALISMAN = 8
+# A species the port has no handler for yet.  The room keeps the record so the
+# placement is not lost; the renderer draws a placeholder and the pool ignores
+# it until a real handler exists.
+LEVEL_OBJECT_UNKNOWN = 9
 
 LEVEL_OBJECT_TYPE_NAMES = {
     "urn": LEVEL_OBJECT_URN,
@@ -82,6 +86,7 @@ LEVEL_OBJECT_TYPE_NAMES = {
     "exit": LEVEL_OBJECT_EXIT,
     "npc": LEVEL_OBJECT_NPC,
     "talisman": LEVEL_OBJECT_TALISMAN,
+    "unknown": LEVEL_OBJECT_UNKNOWN,
 }
 
 # Game states (game.h)

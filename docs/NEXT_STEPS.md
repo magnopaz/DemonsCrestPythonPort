@@ -1,66 +1,55 @@
 # Próximos passos para terminar o jogo
 
 *Escrito a 2026-11-03, no fim da sessão que fechou o Arma → Earth Crest →
-área 94 e o mapa em Mode 7. Números medidos nessa sessão com
-`python3 tools/report_coverage.py` — voltar a correr esse comando antes de
-planear, porque é ele que diz quanto falta de verdade.*
+área 94 e o mapa em Mode 7. Números re-medidos depois do Passo 1 (cobertura de
+objectos) com `python3 tools/report_coverage.py` — voltar a correr esse comando
+antes de planear, porque é ele que diz quanto falta de verdade.*
 
 ---
 
 ## 0. Antes de tocar em código
 
-- **`HEAD` é `c666823` e a árvore está suja**: 11 ficheiros modificados + 7
-  novos (`dcpy/mode7.py`, `docs/ARMA_AI.md`, `tools/check_arma.py`,
-  `tools/check_map_mode7.py`, `tools/dc_extract/apply_gate_table.py`,
-  `tools/report_coverage.py`, `docs/NEXT_STEPS.md`). Nada
-  disto está commitado. Primeiro passo da próxima sessão: rever e commitar o
-  que está verificado (`python3 tools/run_regression.py` → PASS), senão o
-  trabalho do Arma/mapa perde-se num `git checkout`.
+- **O Passo 1 está feito e commitado.** A árvore está limpa e
+  `python3 tools/run_regression.py` passa com o `check_objects.py` novo ligado.
+  Se aparecer trabalho por commitar, é da sessão corrente: rever e commitar
+  antes de mexer no extractor.
 - Verde de referência: `DISPLAY=:99 python3 tools/run_regression.py` (Xvfb em
   `:99`; sem ele os demos falham com "X11: Failed to open display").
 - Checkers do milestone: `tools/check_arma.py`, `tools/check_map_mode7.py`,
-  `tools/check_bosses.py`, `tools/check_campaign.py`.
+  `tools/check_bosses.py`, `tools/check_campaign.py`,
+  `tools/check_objects.py`.
 
 ## 1. Onde o jogo está (medido, não estimado)
 
 ```
 rooms extracted ............ 113  {'playable': 69, 'partial': 44, 'empty': 0}
-rooms with objects ......... 55
-objects placed in JSON ..... 269  (25 species)
+rooms with objects ......... 92
+objects placed / ROM ....... 853/853  (100.0%)
+objects dropped ............ 0  (0 species)
+objects in room JSON ....... 862  (82 species: boss_table 8, npc_table 1, rom 853)
 objects listed in the ROM .. 853  (80 species, 90 areas)
-typed by the extractor ..... 262  (17 species)
-DROPPED .................... 591  (63 species)
-  top 20 of those cover .... 451 records (76% of the gap)
-  most common dropped ...... $50x41, $9Cx38, $63x35, $79x35, $68x30, $73x27,
-                             $71x26, $9Bx24, $6Cx22, $65x22
+species with a handler ..... 17/80  (591 records drawn as placeholders)
 rooms with a BG2 tilemap ... 65/113
 species sprite sheets ...... 28
 music tracks ............... 1
 ```
 
-A leitura dura: **68% dos objectos que o original coloca nunca chegam ao
-port**, porque `SPECIES_KIND_MAP` (em `tools/dc_extract/extract.py`, 17
-entradas) descarta tudo o que não conhece. O jogo *parece* completo numa
-captura de ecrã e está vazio por dentro.
+A leitura mudou: **já não se perdem objectos**. Todos os 853 registos chegam ao
+port; 593 são espécies sem handler e aparecem como marcadores magenta até
+haver AI/arte. O trabalho que resta é substituir marcadores por handlers, não
+recuperar dados perdidos. O contrato está em `docs/OBJECT_COVERAGE.md`.
 
 ---
 
 ## 2. A fila, por ordem de dependência
 
-### Passo 1 — Parar de descartar objectos (1 sessão) — **fazer primeiro**
+### Passo 1 — Parar de descartar objectos (1 sessão) — **feito**
 
-Não vale a pena portar handlers enquanto o extractor os deita fora: não se
-consegue medir o progresso nem detectar regressões.
-
-- `tools/dc_extract/extract.py`: dar um `kind` a **todas** as espécies; as
-  desconhecidas ficam `"unknown"` em vez de serem saltadas. O `type` já é lido
-  no `room JSON`; o port tem de tolerar `"unknown"` e desenhar um placeholder
-  até haver handler/arte.
-- `tools/audit_campaign.py` + `tools/report_coverage.py`: o número que interessa
-  é "objectos colocados / 853", não "salas jogáveis".
-- **Aceitação**: soma dos `objects` nos 113 JSON == 853; `run_regression.py`
-  continua PASS; uma sala com espécie desconhecida carrega e desenha o
-  placeholder em vez de rebentar.
+`extract.py` tipifica todas as espécies (`"unknown"` quando não há handler),
+cada objecto leva `source` (`rom` / `boss_table` / `npc_table`), o port carrega
+e desenha o placeholder, e `tools/check_objects.py` fecha a porta: por área, a
+multiset de espécies tem de bater certo com `rom.object_list(area)`. Resultado:
+853/853, 0 em falta. Ver `docs/OBJECT_COVERAGE.md`.
 
 ### Passo 2 — As 20 espécies mais comuns (3–5 sessões)
 
@@ -153,8 +142,9 @@ Nada disto bloqueia; está aqui para não se perder.
 - **Mapa**: rotação do plano (a referência não roda), a "smear" do horizonte pelo
   clamp de profundidade, e a interacção — os nós são projectados mas o pouso
   ainda usa a lista antiga de nós.
-- **14 chamas `$72` da área 1** continuam descartadas pelo extractor (entram no
-  Passo 1).
+- **Placeholders**: as 14 chamas `$72` da área 1, os `$96` das áreas 46–55 e
+  todas as outras espécies sem handler aparecem agora como caixas magenta. É
+  intencional; cada handler novo (Passo 2) tira-as do ecrã.
 
 ---
 

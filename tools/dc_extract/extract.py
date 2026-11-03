@@ -936,17 +936,18 @@ def build_area_room_doc(rom: Rom, area: int, bg2_layer: dict,
 
     objects = []
     for rec in rom.object_list(area):
-        x = rec["x"]
-        y = rec["y"] - row_offset
-        kind = SPECIES_KIND_MAP.get(rec["species"])
-        if kind is None or not (0 <= x < world_w and 0 <= y < world_h):
-            continue
+        # Every record lands in the room, whether or not the port has a handler
+        # for its species: a species with no entry here becomes "unknown" and is
+        # drawn as a placeholder.  Dropping it here is how two thirds of the
+        # retail object placement used to disappear silently.
+        kind = SPECIES_KIND_MAP.get(rec["species"], "unknown")
         objects.append({
             "type": kind,
             "species": rec["species"],
             "flags": rec["flags"],
-            "x": x,
-            "y": y,
+            "x": rec["x"],
+            "y": rec["y"] - row_offset,
+            "source": "rom",
         })
 
     cam_x = max(0, min(max(0, world_w - 256), spawn0["x"] - 128))
@@ -1454,17 +1455,18 @@ def main() -> int:
                       else (row_index * 256) if args.full_room else 0)
         type_by_species = SPECIES_KIND_MAP
         for rec in rom.object_list(object_list_index):
+            # Same rule as build_area_room_doc: place every record, type the
+            # unknown species as "unknown" for the runtime placeholder.
             x = rec["x"]
             y = rec["y"] - row_offset
-            kind = type_by_species.get(rec["species"])
-            if kind is None or not (0 <= x < world_w and 0 <= y < world_h):
-                continue
+            kind = type_by_species.get(rec["species"], "unknown")
             objects.append({
                 "type": kind,
                 "species": rec["species"],
                 "flags": rec["flags"],
                 "x": x,
                 "y": y,
+                "source": "rom",
             })
         if any(obj["type"] == "urn" for obj in objects):
             # The visible OAM item is the same urn; the object pool owns it now.
