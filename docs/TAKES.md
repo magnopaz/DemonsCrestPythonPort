@@ -162,6 +162,22 @@ bit 0x10 na tabela do recomp) e as três têm `pad_mask: 8`. Ou seja `8` é o bi
 de up do ROM e o port tem de o respeitar — hoje ignora `pad_mask` e transita por
 proximidade (`dcpy/game.py::game_check_transitions`).
 
+O poço (área 8) é a arena do boss de olhos: no frame 14600 vê-se a massa verde
+com um olho central e pequenos olhos à volta, e no 17000 os olhos voam como
+projécteis. **Não é a espécie `$16`**: o dump de objectos durante a luta mostra
+a arena montada a partir das três espécies que o `room_area8.json` já lista:
+
+| slot | espécie | comportamento medido |
+|---|---|---|
+| 8 | `$69` (105) | fica em (128,640), fixo no fundo |
+| 9 | `$6B` (107) | sobe atrás do jogador: y 700 → 550 → 471 → 397 → 339 → 252 → 212 … |
+| 10–20+ | `$6C` (108) | muitos, ziguezagueiam à volta do jogador (os olhos que voam) |
+
+O `$6B` é o corpo/olho principal que persegue em Y; os `$6C` são os olhos
+lançados. A tabela `BOSSES` do `tools/check_bosses.py` põe o `$16` na **área
+54** (que no `room_area54.json` só tem as peças `$9B` inertes) — é outra
+entrada, a reconciliar; o poço não a usa.
+
 ### 6.2 `..._dark-avenue_to_..._reservoir_to_..._boneyard` — 23 056 frames (384 s)
 
 | área | loader | frames | tempo |
