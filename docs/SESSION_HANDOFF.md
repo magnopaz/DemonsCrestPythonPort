@@ -200,4 +200,29 @@ password retail.
   deixou de usar a área 49 como «boss» (não tem boss) e usa a 52.
 - **Próximo**: Passo C (poço: `$69`/`$6B`/`$6C`; Belth `$68`).
 
+## Passo C — poço de Ovununu, abertura (2026-11-04)
+
+| commit | conteúdo |
+|---|---|
+| `abfd192` | medição do boss: papéis das três espécies, handlers, máquina do `$6B` |
+| `bb258b8` | replay de WRAM: `$1DEA` em 14300, subida 700→209, tabela `$E203/$E20B` é constante |
+| `dec9bad` | abertura implementada: `$69` trigger, `$6B` sobe, pool/render, `check_pit_boss.py` na regressão; porta `8→10` removida |
+
+**O que funciona:** o `$69` liga `pool.pit_fight` quando o jogador está em
+`x<128` ou `y>=568`; o `$6B` sobe de y=700 a ~209 em ~1350 frames pela curva
+medida na take e faz bob 187..216; os três entram no pool (tipo unknown) e o
+render desenha na posição viva; a área 8 é jogável (a porta `8→10` que estava
+em cima do spawn foi removida; a única saída é `8→7`, pad 8).
+
+**O que falta:** a AI dos 11 `$6C` (4 estados, `$83:C7B2`), o dano/HP/morte do
+corpo, a arte (nenhum dos três tem sheet) e o lock da arena enquanto o boss
+estiver vivo. O `check_pit_boss.py` cobre só a abertura.
+
+**Armadilha:** a área 65 tem os mesmos 13 registos (mesma arena noutro id); o
+handler do poço corre lá também. A tabela de y e os frames estão em
+`docs/PIT_BOSS.md` §4.
+
+**Próxima sessão:** medir o `$6C` na take (slots 10+, posições/flags dos 11
+olhos), portar os 4 estados; depois dano/morte, arte e lock.
+
 
