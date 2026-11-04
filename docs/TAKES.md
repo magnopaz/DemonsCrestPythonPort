@@ -131,3 +131,80 @@ confirma `room_area4.json` objecto a objecto (hex): `$57@360,232`, quatro
 `$57` em 536/552/568/584, `$96@568,437` e os três `$24` em (424,420),
 (664,420) e (824,116). Nenhum dos 11 registos extraídos falta nem sobra. É a prova de que a
 área 4 está certa e de que `$24` é mesmo o controlador de porta.
+
+## 6. As duas takes de rota completa (2026-11-04)
+
+Ambas começam no boot (`gframe = frame + 1`) e são só input. Medidas com
+`tools/oracle/scan_take.py` (duas leituras por amostra, passo 20).
+
+### 6.1 `..._dark-avenue_to_..._pit-of-ovununu` — 25 076 frames (418 s)
+
+| área | loader | frames | tempo | extensão |
+|---|---|---|---|---|
+| boot | 0 | 1–501 | 8,3 s | — |
+| menu | 160 | 521–861 | 5,7 s | — |
+| password | 164 | 881–3161 | 38,0 s | — |
+| mapa | 188 | 3201–3681 | 8,0 s | — |
+| dark avenue | **4** | 3701–4541 | 14,0 s | x 0–973, y 0–429 |
+| reservoir | **5** | 4561–6521 | 32,7 s | x 35–1952 |
+| catacombs | **6** | 6541–11001 | 74,3 s | x 45–1894, y 92–861 |
+| darkened catacombs | **7** | 11021–14101 | 51,3 s | x 48–971, y 49–845 |
+| pit of ovununu | **8** | 14121–25061 | 182,3 s | x 16–971, y 77–768 |
+
+Portas: 4→5 em x≈1000 (o extractor tem `x=1008`), 5→6 em x≈1894 (fim da
+sala 5), 6→7 em (424,845), 7→8 em (971,140). O encadeamento
+`room_area{4→5→6→7→8}` do extractor bate certo com a take, sem portas em falta.
+
+O log de input mostra o que dispara cada porta, e confirma o `pad_mask` da
+`room_areaN.json`: 4→5 é só andar para a direita (`pad_mask 255`);
+5→6, 6→7 e 7→8 são precedidas de um toque de **up** de um frame (`inputs=16`,
+bit 0x10 na tabela do recomp) e as três têm `pad_mask: 8`. Ou seja `8` é o bit
+de up do ROM e o port tem de o respeitar — hoje ignora `pad_mask` e transita por
+proximidade (`dcpy/game.py::game_check_transitions`).
+
+### 6.2 `..._dark-avenue_to_..._reservoir_to_..._boneyard` — 23 056 frames (384 s)
+
+| área | loader | frames | tempo |
+|---|---|---|---|
+| dark avenue | **4** | 3961–5261 | 21,7 s |
+| **black lotus** | **48** | 5281–6361 | 18,0 s |
+| dark avenue | 4 | 6381–6821 | 7,3 s |
+| black lotus | 48 | 6841–7441 | 10,0 s |
+| dark avenue | 4 | 7461–7861 | 6,7 s |
+| reservoir | 5 | 7881–9561 | 28,0 s |
+| boneyard | **9** | 9581–23041 | 224,3 s |
+
+A entrada no Black Lotus é em **x≈829, y=124** — a terceira porta up, que até
+aqui só estava inferida por simetria com as outras duas. Fica confirmada.
+
+### 6.3 Morrer devolve o jogador ao spawn 0 da mesma sala
+
+Nas duas takes o jogador morre e volta ao **spawn 0 da mesma sala**, sem mudar
+de área:
+
+| take | morte | respawn |
+|---|---|---|
+| boneyard | (1905, 332) | (48, 412) em g22261 |
+| boneyard | (1952, 332) | (48, 412) em g17681 |
+| pit of ovununu | (161, 290) | (32, 668) em g17261 |
+| pit of ovununu | (163, 562) | (32, 668) em ~g24650 |
+
+O estado do jogador vai a `16` (sub 2/6) durante ~1–2 s e a seguir aparece um
+**menu de continue** sobre a cena congelada (frame 22171 da take do cemitério):
+
+```
+  RETRY
+  SELECT A STAGE
+  END
+```
+
+com um cursor na primeira opção e `00000000` no canto superior esquerdo. O log
+de input mostra `start` em g22153 e g22229 (a escolha) e depois `left`/`right`;
+escolhido RETRY, o ecrã vai a preto (frame 22271) e o jogador reaparece no
+**spawn 0 da mesma sala**, com a barra de vida cheia (frame 22331).
+
+Ou seja: morrer não é game over nenhum — é o menu de continue com RETRY. O port
+tem isto errado hoje: `Game_HandleDeath` (C e Python) só reinicia a área 0 e
+manda as outras para um `GAME_OVER` inventado que espera ENTER e não tem
+caminho de volta para a sala. `SELECT A STAGE` e `END` ficam por medir.
+
