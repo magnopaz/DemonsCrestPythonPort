@@ -627,7 +627,44 @@ def player_update(player: Player, level, inp) -> None:
                 player.state = C.PLAYER_JUMP
 
     _clamp_bounds(player, level)
+    _hold_player_hook(player)
     player.anim_time += 1.0 / 60.0
+
+
+_hold_player = None
+_hold_countdown = 0
+
+
+def _hold_player_hook(player: Player) -> None:
+    """DC_HOLD_PLAYER=x,y (DC_HOLD_AT=n): pin the player for arena checkers.
+
+    The pit's eye AI probes the player's position, so a checker that wants the
+    recorded fight's behaviour needs the player in the arena instead of idling
+    at the room's lower-left spawn.
+    """
+    global _hold_player, _hold_countdown
+    value = env("DC_HOLD_PLAYER")
+    if not value:
+        return
+    if _hold_player is None:
+        try:
+            hx, hy = value.split(",")
+            _hold_player = (float(hx), float(hy))
+            _hold_countdown = int(env("DC_HOLD_AT") or 2)
+        except ValueError:
+            _hold_player = (0.0, 0.0)
+            _hold_countdown = 2
+    if _hold_countdown > 0:
+        _hold_countdown -= 1
+        return
+    player.x_fx = float_to_fx(_hold_player[0])
+    player.y_fx = float_to_fx(_hold_player[1])
+    player.vx = 0.0
+    player.vy = 0.0
+    player.vx_fx = 0
+    player.vy_fx = 0
+    player.on_ground = True
+    _sync_public(player)
 
 
 def _clamp_bounds(player: Player, level) -> None:

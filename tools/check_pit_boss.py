@@ -11,7 +11,12 @@ body's core eye) rides the body at (+1, +28).
 The offsets below are the take's own numbers at t=600 and t=1200 (frames 14801
 and 15401 of the take, t = take frame - 14201), so this checker fails if the
 port's swarm drifts from the recording instead of comparing the port with
-itself.
+itself.  From t=1590 the four satellites the take launches (flags 0, 1, 7 and
+2) run the $83:C913 launch machine and the $CB6A/$CB7D/$CC00/$CAAE return
+states; the checks below assert they leave the park, climb at least 40 px and
+come back down.  The eye AI probes Firebrand's position, so the run pins him
+near the arena's centre (DC_HOLD_PLAYER) rather than letting him idle at the
+spawn: that is where the take's player was.
 
 The run uses the room's own spawn (32,668). Area 8's old 8->10 door-table
 entry sat on that spawn and exited the room on frame 1; it was removed from
@@ -38,7 +43,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 AREA = 8
-FRAMES = 1600
+# 4000 frames cover all four launches (1590/1620/1650/2450) plus each eye's
+# rise, dive and return to the park band.
+FRAMES = 4000
 BODY_SPECIES = 107  # $6B
 CORE_SPECIES = 105  # $69
 EYE_SPECIES = 108   # $6C
@@ -51,6 +58,15 @@ TRACK = {
     1200: (76.8, 27.6, 33.5, 60.4, 102.9, 45.1, 26.5, 41.1, 62.0, 50.9),
     1500: (92.9, 31.0, 32.4, 78.0, 123.4, 51.4, 24.9, 47.4, 78.4, 54.0),
 }
+# Fight frames at which the take's $1DDE[flag] reached 0 (15791/15821/15851/
+# 16651 minus 14201).  Only these four satellites launch in the measured
+# window; the other six keep swarming.
+LAUNCH = {0: 1590, 1: 1620, 7: 1650, 2: 2450}
+# The eye AI probes the player, so the fight runs with Firebrand held near the
+# arena's centre (the take's player hovers around 210,200) instead of idling at
+# the room's lower-left spawn.  Without the hold the eyes dive early and one of
+# them never completes the return.
+HOLD_PLAYER = "210,200"
 
 
 def parse_args() -> argparse.Namespace:
@@ -85,7 +101,9 @@ def main() -> int:
                DC_NO_STORY="1",
                DC_NO_SAVE="1",
                DC_TRACE_CSV=str(player_trace),
-               DC_TRACE_OBJECTS=str(object_trace))
+               DC_TRACE_OBJECTS=str(object_trace),
+               DC_HOLD_PLAYER=HOLD_PLAYER,
+               DC_HOLD_AT="2")
     for key in ("DC_STATE", "DC_TITLE", "DC_DEMO", "DC_RESUME",
                 "DC_START_X", "DC_START_Y", "DC_START_ONCE",
                 "DC_BOSS_CLEAR", "DC_BOSS_DEFEATED", "DC_KILL_AT"):
@@ -204,6 +222,49 @@ def main() -> int:
             errors.append(f"the core eye is in state {core_row['state']}, "
                           "expected 2")
 
+    # The four satellites the take launches: each leaves its park in the launch
+    # machine, climbs at least 40 px and comes back down.  The take's exact
+    # path depends on where Firebrand stands (the $809D8E homing and the
+    # $809CA4/$D137 probes), so this checks the machine's shape by position.
+    for flag, launch in LAUNCH.items():
+        rows_by_frame = by_eye.get(flag, {})
+        start = rows_by_frame.get(launch)
+        if start is None:
+            errors.append(f"eye {flag} has no row at its launch frame {launch}")
+            continue
+        if int(start["sub"]) != 6:
+            errors.append(f"eye {flag} is in $06={start['sub']} at its launch "
+                          f"frame {launch}, expected 6")
+        y0 = float(start["y"])
+        peak = None
+        for frame in range(launch, FRAMES):
+            row = rows_by_frame.get(frame)
+            if row is None:
+                continue
+            y = float(row["y"])
+            if peak is None or y < peak[1]:
+                peak = (frame, y, row)
+        if peak is None:
+            errors.append(f"eye {flag} has no rows after its launch")
+            continue
+        peak_frame, peak_y, peak_row = peak
+        if int(peak_row["sub"]) not in (6, 8, 10, 12, 14):
+            errors.append(f"eye {flag} peaks in $06={peak_row['sub']}, "
+                          "expected the launch/return machine")
+        if peak_y > y0 - 40.0:
+            errors.append(f"eye {flag} only rises {y0 - peak_y:.1f} px from its "
+                          f"park (y {y0:.1f} -> {peak_y:.1f}); expected >= 40")
+        back = None
+        for frame in range(peak_frame + 60, FRAMES):
+            row = rows_by_frame.get(frame)
+            if row is not None:
+                back = (frame, float(row["y"]))
+                if back[1] >= peak_y + 50.0:
+                    break
+        if back is None or back[1] < peak_y + 50.0:
+            errors.append(f"eye {flag} does not come back down after its peak "
+                          f"(peak y {peak_y:.1f} at frame {peak_frame})")
+
     if errors:
         print("pit boss: FAIL")
         for error in errors:
@@ -211,7 +272,9 @@ def main() -> int:
         return 1
     print("pit boss: PASS ($69 raises the fight, $6B waits 199 frames then "
           "climbs 700->~209 and bobs; the ten $6C eyes park on their measured "
-          "x and follow within 4 px of the take; the core eye rides the body)")
+          "x and follow within 4 px of the take; the four launched eyes run "
+          "the launch/return machine and come back to the park; the core eye "
+          "rides the body)")
     return 0
 
 

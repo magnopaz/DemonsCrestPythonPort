@@ -68,6 +68,20 @@ class Object:
         self.facing = 0  # $09: 1 right, -1 left
         self.hp = 0
         self.max_hp = 0
+        self.anim_frame = 0  # $3F: animation frame (sub 18 spin target)
+        self.anim_phase = 0  # $40: $CF6E animation phase
+        self.anim_timer = 0  # $41: frames left in the animation phase
+        self.eye_scale = 0  # $3D/$3E: 16-bit speed scale of the launch
+        self.probe_timer = 0  # $44: frames before the player probe runs
+        self.ret_timer = 0  # $47/$48: 16-bit flight timer ($D198/$D1AE)
+        self.tail = 0  # $49: $CCBF tail index (0/2/4)
+        self.tail_a = 0  # $4A: tail countdown
+        self.tail_b = 0  # $4B: tail animation
+        self.tail_c = 0  # $4C: tail animation id
+        self.tail_d = 0  # $4D: nonzero freezes movement
+        self.tail_e = 0  # $4E: return-state direction phase
+        self.tail_f = 0  # $4F: frames per animation step
+        self.launched = False  # $1DDE[flag]: this eye already left the park
         self.timer = 0
 
 
@@ -80,6 +94,7 @@ class ObjectPool:
         self.boss_present = False  # an OBJECT_BOSS was spawned in this room
         self.boss_phase = 0  # 1 until a two-form boss transforms
         self.pit_fight = False  # area 8: $69 raised $1DEA (the fight started)
+        self.pit_rng = 0  # $009C/$009D: the fight's 16-bit LCG seed
         self.last_fire_piece = 0
         self.last_talisman = 0  # 1..4 = Buster/Tornado/Claw/Demon Fire
 
@@ -157,6 +172,20 @@ def _reset_object(o: Object) -> None:
     o.facing = 0
     o.hp = 0
     o.max_hp = 0
+    o.anim_frame = 0
+    o.anim_phase = 0
+    o.anim_timer = 0
+    o.eye_scale = 0
+    o.probe_timer = 0
+    o.ret_timer = 0
+    o.tail = 0
+    o.tail_a = 0
+    o.tail_b = 0
+    o.tail_c = 0
+    o.tail_d = 0
+    o.tail_e = 0
+    o.tail_f = 0
+    o.launched = False
     o.timer = 0
 
 
@@ -942,11 +971,559 @@ def _pit_eye_offset(index, t):
     return float(track[-1][1 + index])
 
 
+# --------------------------------------------------------------------------
+# The $6C launch and return machines ($83:C913 .. $83:CCBE)
+#
+# The satellites leave their park in $06=4 when $1DDE[flag] reaches 0 and then
+# run ten substates under $06=6 ($38 through the $C918 table), the return
+# states $06=8/10/12/14 and the shared $49 tail.  Everything below is the ROM
+# transcribed; the only measured numbers are the four release frames (the $69
+# release controller's $40/$3F machine is not ported yet, so docs/PIT_BOSS.md
+# §7.7 keeps the take's schedule) and the $06=4 swarm track above.
+#
+# Bank-$81 tables (docs/PIT_BOSS.md §7.6):
+_PIT_SPEED = (0, 48, 95, 143, 181, 212, 235, 251,
+              255, 5, 6, 10, 9, 6, 8, 10)              # $81:E357
+_PIT_DIRBITS = (0x05, 0x06, 0x0A, 0x09, 0x06, 0x08, 0x0A, 0x0C,
+                0x0E, 0x10, 0x02, 0x04, 0x0D, 0x0D, 0x0D, 0x0D)  # $81:E360
+_PIT_ANIM_FRAME = (6, 8, 10, 12, 14, 16, 2, 4,
+                   13, 13, 13, 13, 13, 13, 14, 15)      # $81:E364
+_PIT_E407 = (0, 0, 0, 0, 0, 0, 2, 2, 4, 4, 4, 4, 2, 2, 2, 2)  # $81:E407
+_PIT_SCALE = (0x0400, 0x0580, 0x0300)                   # $81:E417 (words)
+_PIT_RETURN = (0x016C, 0x01F4, 0x026C)                  # $81:E41D/$E41E (words)
+_PIT_RESTART = (0x0C, 0x0A, 0x0C, 0x0C, 0x08, 0x08, 0x08, 0x0A,
+                0x0A, 0x0C, 0x0A, 0x0A, 0x0C, 0x0C, 0x0A, 0x08)  # $81:E423
+# $81:8149: 8 groups of 8 direction codes (0..31) for $809D8E/$809E2C.
+_PIT_CODE8 = (0, 1, 2, 3, 4, 0, 0, 0,
+              8, 7, 6, 5, 4, 0, 0, 0,
+              16, 15, 14, 13, 12, 0, 0, 0,
+              8, 9, 10, 11, 12, 0, 0, 0,
+              0, 31, 30, 29, 28, 0, 0, 0,
+              24, 25, 26, 27, 28, 0, 0, 0,
+              16, 17, 18, 19, 20, 0, 0, 0,
+              24, 23, 22, 21, 20, 0, 0, 0)
+
+# The four satellites the take launches draw their $E407/$E417 scale, their
+# $E41D/$E41E return timer and (for the three that get there) their $E423
+# restart state from the fight's LCG.  Those draws are measured per eye from
+# the take's slots (docs/PIT_BOSS.md §7.7); the $009C seed at 14201 is not
+# measured, so the port replays the values instead of the sequence.  Eyes
+# without an entry keep using $BC904B.
+_PIT_EYE_DRAW = {
+    0: (0, 2, 10),   # $3D=0400, $47=026C, $06=10
+    1: (2, 2, 12),   # $3D=0300, $47=026C, $06=12
+    7: (1, 0, 10),   # $3D=0580, $47=016C, $06=10
+    2: (1, 2, None), # $3D=0580, $47=026C (the take resets before sub 18)
+}
+# $D07C's line at each launched eye's x, measured where the probe fires: the
+# eye's y at the sub 2 -> sub 4 transition (the ROM's line is $1DD1 - $1DCE,
+# and the scroll $1DCE is not simulated by the port).
+_PIT_EYE_REACH = {0: 206.0, 1: 179.0, 7: 181.0, 2: 191.0}
+
+# Fight frames (take frame - 14201) at which $1DDE[flag] hit 0 in the take:
+# flags 0, 1, 7 and 2, one every 30 frames and then a late fourth.  The other
+# six satellites keep swarming for the whole measured window.
+_PIT_EYE_LAUNCH = {0: 1590, 1: 1620, 7: 1650, 2: 2450}
+
+
+def _pit_draw(pool: ObjectPool, o: Object, which: int) -> int:
+    """One of the eye's three measured draws, or a fresh $BC904B byte."""
+    draws = _PIT_EYE_DRAW.get(o.flags & 0x0F)
+    if draws is not None and draws[which] is not None:
+        return draws[which]
+    draw = _pit_rng(pool) & 0x0F
+    return _PIT_E407[draw] // 2
+
+
+def _pit_rng(pool: ObjectPool) -> int:
+    """$BC904B: 16-bit LCG in $009C/$009D, returns the byte it hands out."""
+    seed = pool.pit_rng & 0xFFFF
+    r = ((seed * 3) >> 8) & 0xFF
+    pool.pit_rng = ((r << 8) | ((seed & 0xFF) + r & 0xFF)) & 0xFFFF
+    return r
+
+
+def _pit_direction_code(dx: float, dy: float) -> int:
+    """$809D8E/$809E2C: an 8-way direction code (0..31) into $81:8149.
+
+    The ROM folds the sign of dy into bit 2, the sign of dx into bit 1 and the
+    vertical/horizontal dominance into bit 0, then picks one of five steps
+    from floor(8*min/max).
+    """
+    group = 0
+    if dy < 0:
+        dy = -dy
+        group = 4
+    if dx < 0:
+        dx = -dx
+        group += 2
+    if dx < dy:
+        group += 1
+        dx, dy = dy, dx
+    step = dx / 8.0
+    x = 0
+    acc = step
+    for x in range(5):
+        if acc >= dy:
+            break
+        acc += step * 2.0
+    return _PIT_CODE8[group * 8 + x]
+
+
+def _pit_velocity(code: int, scale: int) -> tuple[int, int, int]:
+    """$D0BE: direction byte $09 and the 8.8 velocities $20/$22."""
+    a = code & 0xFF
+    bits = _PIT_DIRBITS[(a >> 3) & 0x0F]
+    low = a & 0x07
+    high = 8 - low
+    if a & 0x08:
+        vx = (_PIT_SPEED[low & 0x0F] * scale) >> 8
+        vy = (_PIT_SPEED[high & 0x0F] * scale) >> 8
+    else:
+        vx = (_PIT_SPEED[high & 0x0F] * scale) >> 8
+        vy = (_PIT_SPEED[low & 0x0F] * scale) >> 8
+    return bits, vx, vy
+
+
+def _pit_anim_step(o: Object) -> None:
+    """$CFDF: every $4F frames nudge the animation step $3C toward $43."""
+    o.burst = (o.burst + 1) & 0xFF
+    if o.burst < o.tail_f:
+        return
+    o.burst = 0
+    target = ((o.hide_timer + 1) >> 1) & 0x0F
+    if (target - o.spit_cd) & 0x0F == 0:
+        return
+    if (target - o.spit_cd) & 0x0F < 8:
+        o.spit_cd = (o.spit_cd + 1) & 0x0F
+    else:
+        o.spit_cd = (o.spit_cd - 1) & 0x0F
+    if o.spit_cd == 0 or o.spit_cd >= 8:
+        return
+    o.burst = 3
+
+
+def _pit_anim_dispatch(o: Object) -> None:
+    """$CF6E: walk the sprite frame $3F toward the animation id in $43."""
+    if o.anim_phase == 0:
+        o.anim_phase = 2
+        o.anim_timer = 0x0A
+        return
+    if o.anim_phase == 2:
+        o.anim_timer -= 1
+        if o.anim_timer != 0:
+            return
+        # $00 bit 4 (set for both $12 and $16): ten frames per frame.
+        o.anim_timer = 0x0A
+        a = ((o.hide_timer + 2) >> 2) & 0x07
+        if a == o.anim_frame:
+            return
+        if ((a + 1) & 7) == o.anim_frame:
+            o.anim_frame = (a + 1) & 7
+            return
+        if ((a - 1) & 7) == o.anim_frame:
+            o.anim_frame = (a - 1) & 7
+            return
+        o.anim_frame = a
+        o.anim_phase = 4
+        o.anim_timer = 0x0C
+        return
+    o.anim_timer -= 1
+    if o.anim_timer != 0:
+        return
+    o.anim_phase = 2
+    o.anim_timer = 8
+
+
+def _pit_set_frame(o: Object, frame: int) -> None:
+    """$CFBF: latch $3F = Y and its $E364 sprite frame (art still absent)."""
+    o.anim_frame = frame & 0x07
+
+
+def _pit_animate(o: Object, code: int) -> None:
+    """$CBA8: $43 = code and the $CF6E animation, with no movement."""
+    o.hide_timer = code
+    _pit_anim_step(o)
+    _pit_anim_dispatch(o)
+
+
+def _pit_move(o: Object, code: int, anim: int | None = None) -> None:
+    """$CA08/$CC82: animate with $43 = code, then integrate $20/$22."""
+    o.hide_timer = code if anim is None else anim
+    _pit_anim_step(o)
+    if not o.tail_d:
+        bits, vx, vy = _pit_velocity(code, o.eye_scale)
+        o.facing = bits
+        if bits & 0x03:
+            o.x_fx += vx if bits & 0x01 else -vx
+            o.vx_fx = vx if bits & 0x01 else -vx
+        else:
+            o.vx_fx = 0
+        if bits & 0x0C:
+            o.y_fx += vy if bits & 0x04 else -vy
+            o.vy_fx = vy if bits & 0x04 else -vy
+        else:
+            o.vy_fx = 0
+    _pit_anim_dispatch(o)
+
+
+def _pit_tail(o: Object) -> None:
+    """$CCBF: the $49 tail shared by the $06=6 substates."""
+    if o.tail == 0:
+        o.tail = 2
+        o.tail_d = 2
+        o.tail_a = 0
+        o.tail_b = 3
+        return
+    if o.tail == 2:
+        o.tail_a = (o.tail_a - 0x19) & 0xFFFF
+        if o.tail_a & 0x8000:
+            o.tail_d = 0
+            o.tail = 4
+            return
+        code = o.tail_c
+        _pit_move(o, code * 2)
+        return
+    # $49 = 4 is a plain rts.
+
+
+def _pit_radius(player, o: Object, radius: int) -> bool:
+    """$D137: true when the player is at least `radius` px away."""
+    dx = abs(player.x - fx_to_float(o.x_fx))
+    if dx >= radius:
+        return True
+    dy = abs(player.y - fx_to_float(o.y_fx))
+    if dy >= radius:
+        return True
+    return dx * dx + dy * dy >= radius * radius
+
+
+def _pit_player_box(player, o: Object) -> bool:
+    """$809CA4($E2C0): player inside the eye's +-$40 x / +-$28 y box."""
+    return (abs(player.x - fx_to_float(o.x_fx)) < 0x80 and
+            abs(player.y - fx_to_float(o.y_fx)) < 0x50)
+
+
+# $81:DFCE: the half-width of the pit's screen-space mouth, folded around
+# x = $40 (index = |x - $40|, mirrored at $40).  $D07C/$D013 index it with the
+# eye's own x and compare the resulting line with the eye's y.
+_PIT_DFCE = (0, 1, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9,
+             9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17,
+             17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 23, 24, 24, 25,
+             25, 26, 26, 27, 27, 27, 28, 28, 28, 28, 29, 29, 29, 29, 29, 29)
+
+
+def _pit_eye_reached(o: Object) -> bool:
+    """$D07C($1C) for the launched eyes, at the take's measured line."""
+    target = _PIT_EYE_REACH.get(o.flags & 0x0F)
+    if target is not None:
+        return fx_to_float(o.y_fx) <= target
+    return _pit_floor_probe(o)
+
+
+def _pit_floor_probe(o: Object, reach: int = 0x1C) -> bool:
+    """$D07C/$D013: the eye has reached the pit's screen anchor.
+
+    $1DD1 is 188 (and $1DCE 0) from take frame 15711 through the whole launch
+    window; $0004 is $1C for $D07C and 0 for $D013.  The comparison is the
+    ROM's unsigned `cmp $34`, so a negative line reads as a hit.
+    """
+    x = _c_int(fx_to_float(o.x_fx))
+    idx = x - 0x40
+    if idx < 0x40:
+        idx = max(0, idx)
+    else:
+        idx = 0x80 - idx
+    line = 188 - 8 - _PIT_DFCE[idx & 0x3F] + reach
+    return line < 0 or fx_to_float(o.y_fx) <= line
+
+
+def _pit_park_y(body_y: float, row) -> float:
+    return body_y - 216.0 + row[1] + row[2]
+
+
 def _pit_body(pool):
     for other in pool.slots:
         if other.active and other.species == PIT_BODY_SPECIES:
             return other
     return None
+
+
+def _pit_eye_body(pool):
+    body = _pit_body(pool)
+    return (fx_to_float(body.x_fx) if body is not None else 128.0,
+            fx_to_float(body.y_fx) if body is not None else 700.0)
+
+
+def _pit_eye_state6(pool, o: Object, player) -> None:
+    """$83:C913: the ten launch substates ($38)."""
+    sub = o.hops
+    if sub == 0:
+        # $C92C
+        o.hops = 2
+        o.tail_f = 0x12
+        o.eye_scale = 0x3C
+        o.tail = 4
+        o.tail_d = 0
+        o.spit_cd = 0x0C
+    elif sub == 2:
+        # $C945: animate, then probe the floor; contact -> sub 4 + a $6D.
+        _pit_move(o, o.spit_cd * 2)
+        if _pit_eye_reached(o):
+            o.hops = 4
+    elif sub == 4:
+        # $C963: the scale bleeds down 6 a frame; at zero pick one of
+        # $E417's three scales at random and enter the ramp.
+        o.eye_scale = (o.eye_scale - 6) & 0xFFFF
+        if o.eye_scale & 0x8000:
+            o.hops = 6
+            o.saved_state = (o.saved_state + 1) & 0xFF
+            draw = _pit_draw(pool, o, 0)
+            o.eye_scale = _PIT_SCALE[draw]
+        else:
+            _pit_move(o, o.spit_cd * 2)
+    elif sub == 6:
+        # $C996
+        o.eye_scale = (o.eye_scale - 0x25) & 0xFFFF
+        if o.eye_scale < 0x40:
+            o.hops = 8
+        else:
+            _pit_move(o, o.spit_cd * 2)
+    elif sub == 8:
+        # $C9B5
+        o.hops = 10
+        o.burst = 0
+        o.ret_timer = _PIT_RETURN[_pit_draw(pool, o, 1)]
+        o.probe_timer = 0x40
+    elif sub == 10:
+        _pit_launch_body(pool, o, player, 6)
+    elif sub == 12:
+        # $CA2C
+        o.eye_scale = (o.eye_scale - 7) & 0xFFFF
+        if o.eye_scale >= 0xB8:
+            _pit_launch_probe(pool, o, player)
+        else:
+            o.hops = 14
+            o.phase = 0x10
+    elif sub == 14:
+        # $CA45
+        o.phase -= 1
+        if o.phase != 0:
+            _pit_launch_probe(pool, o, player)
+        else:
+            o.hops = 10
+    elif sub == 16:
+        # $CA4E: dive until the scale runs out, then spin the animation.
+        o.eye_scale = (o.eye_scale - 8) & 0xFFFF
+        if o.eye_scale & 0x8000:
+            o.hops = 18
+            o.phase = 8
+            o.eye_scale = o.anim_frame
+            o.eye_scale |= (_pit_rng(pool) & 0xFF) << 8
+        else:
+            _pit_move(o, o.spit_cd * 2, anim=_pit_sight_code(o, player))
+    elif sub == 18:
+        # $CA74: one full turn of the animation frame, then the return state.
+        o.phase -= 1
+        if o.phase == 0:
+            o.phase = 8
+            frame = o.anim_frame
+            if (o.eye_scale >> 8) & 0x80:
+                frame = (frame - 1) & 0x07
+            else:
+                frame = (frame + 1) & 0x07
+            _pit_set_frame(o, frame)
+            if o.anim_frame == (o.eye_scale & 0xFF):
+                o.eye_scale = 0
+                restart = _PIT_EYE_DRAW.get(o.flags & 0x0F)
+                if restart is not None and restart[2] is not None:
+                    o.substate = restart[2]
+                else:
+                    o.substate = _PIT_RESTART[_pit_rng(pool) & 0x0F]
+                o.hops = 0
+    _pit_tail(o)
+
+
+def _pit_sight_code(o: Object, player) -> int:
+    """$809D8E: the animation/direction code toward the player (-8 y)."""
+    return _pit_direction_code(player.x - fx_to_float(o.x_fx),
+                               (player.y - 8.0) - fx_to_float(o.y_fx))
+
+
+def _pit_launch_probe(pool, o: Object, player) -> None:
+    """$C9E8: the $44 countdown, the player box and the $47 flight timer."""
+    if o.probe_timer != 0:
+        o.probe_timer -= 1
+    else:
+        if not _pit_player_box(player, o):
+            o.hops = 16
+    _pit_timer_d198(o)
+    _pit_move(o, o.spit_cd * 2, anim=_pit_sight_code(o, player))
+
+
+def _pit_launch_body(pool, o: Object, player, step: int) -> None:
+    """$C9D4/$CA2C/$CA45: the shared climb/turn/probe body of 10/12/14."""
+    if step == 10:
+        o.eye_scale = (o.eye_scale + 6) & 0xFFFF
+        if o.eye_scale >= 0x150:
+            o.hops = 12
+    _pit_launch_probe(pool, o, player)
+
+
+def _pit_timer_d198(o: Object) -> None:
+    """$D198: the 16-bit return timer; at zero the eye stops and hovers."""
+    if o.ret_timer == 0:
+        o.substate = 0x0E
+        o.hops = 0
+    else:
+        o.ret_timer = (o.ret_timer - 1) & 0xFFFF
+
+
+def _pit_timer_d1ae(o: Object) -> None:
+    if o.ret_timer != 0:
+        o.ret_timer = (o.ret_timer - 1) & 0xFFFF
+
+
+def _pit_eye_state10(pool, o: Object, player) -> None:
+    """$CB7D: the return swoop; $38 = 0,2,4,6 through $CB85."""
+    sub = o.hops
+    if sub == 0:
+        o.hops = 2
+        o.phase = 0x20
+    elif sub == 2:
+        o.phase -= 1
+        if o.phase != 0:
+            # $CBA8: animate only; the swoop waits for $38 = 4.
+            _pit_animate(o, _pit_sight_code(o, player))
+        else:
+            o.hops = 4
+            frame = o.anim_frame
+            o.hide_timer = frame * 4
+            _pit_set_frame(o, frame)
+    elif sub == 4:
+        o.eye_scale = (o.eye_scale + 7) & 0xFFFF
+        if o.eye_scale >= 0x200:
+            o.hops = 6
+        if not o.tail_d:
+            _pit_move(o, o.hide_timer)
+    else:
+        o.eye_scale = (o.eye_scale - 8) & 0xFFFF
+        if o.eye_scale & 0x8000:
+            _pit_return_restart(o)
+        elif not o.tail_d:
+            _pit_move(o, o.hide_timer)
+    _pit_timer_d1ae(o)
+
+
+def _pit_return_restart(o: Object, probe: int = 0xC0) -> None:
+    """$CB6A/$CB6E: back into the launch machine at $38 = $0A."""
+    o.probe_timer = probe
+    o.eye_scale = 0
+    o.hops = 0x0A
+    o.substate = 6
+    o.anim_phase = 0
+
+
+def _pit_eye_state12(pool, o: Object, player) -> None:
+    """$CC00: the circling attack; $38 = 0,2,4,6 through $CC08."""
+    sub = o.hops
+    if sub == 0:
+        o.hops = 2
+        o.probe_timer = 0xC0
+        y = 0xFF
+        if _pit_rng(pool) < 0x80:
+            y = 0x100
+        o.tail_e = y & 0xFF
+        o.tail_f = y >> 8
+    elif sub == 2:
+        o.eye_scale = (o.eye_scale + 4) & 0xFFFF
+        if o.eye_scale >= 0x1C0:
+            o.hops = 4
+        _pit_circle_move(o, player)
+        _pit_circle_probe(o, player)
+    elif sub == 4:
+        o.eye_scale = (o.eye_scale - 5) & 0xFFFF
+        if o.eye_scale < 0x100:
+            o.hops = 2
+        _pit_circle_move(o, player)
+        _pit_circle_probe(o, player)
+    else:
+        o.eye_scale = (o.eye_scale - 6) & 0xFFFF
+        if o.eye_scale & 0x8000:
+            o.probe_timer = 0
+            _pit_return_restart(o, probe=0)
+        else:
+            _pit_circle_move(o, player)
+    _pit_timer_d1ae(o)
+
+
+def _pit_circle_move(o: Object, player) -> None:
+    """$CC82: circle the player, nudged by the random $4E phase."""
+    if o.tail_d:
+        return
+    code = _pit_sight_code(o, player)
+    o.hide_timer = code
+    if o.tail_e & 0x80:
+        code = (code + 8) & 0x1F
+    else:
+        code = (code - 8) & 0x1F
+    if not _pit_radius(player, o, 0x28):
+        code = (code + o.tail_e) & 0x1F
+    _pit_move(o, code & 0x1F, anim=o.hide_timer)
+
+
+def _pit_circle_probe(o: Object, player) -> None:
+    """$CC72: outside 96 px, or $44 expired, drop into the dive."""
+    if _pit_radius(player, o, 0x60):
+        o.hops = 6
+    else:
+        o.probe_timer -= 1
+        if o.probe_timer == 0:
+            o.hops = 6
+
+
+def _pit_eye_state14(pool, o: Object, player, row, body_y: float) -> None:
+    """$CAAE: slow down, then fly home to the park band."""
+    sub = o.hops
+    if sub == 0:
+        o.eye_scale = (o.eye_scale - 6) & 0xFFFF
+        if o.eye_scale & 0x8000:
+            o.hops = 2
+            o.phase = 0x20
+            _pit_face_park(o, row, body_y)
+        else:
+            _pit_move(o, o.spit_cd * 2, anim=_pit_sight_code(o, player))
+    elif sub == 2:
+        o.phase -= 1
+        if o.phase == 0:
+            o.hops = 4
+            o.tail_f = 3
+            _pit_set_frame(o, o.anim_frame)
+    else:
+        o.eye_scale = 0x0120       # $3D=$20, $3E=1
+        if not _pit_floor_probe(o, reach=0):
+            o.eye_scale = 0x0058   # $3D=$58, $3E=0
+        _pit_face_park(o, row, body_y)
+        _pit_move(o, o.spit_cd * 2, anim=o.hide_timer)
+        px = row[0]
+        py = _pit_park_y(body_y, row)
+        if 0 <= (fx_to_float(o.x_fx) + 4.0 - px) < 8 and \
+                0 <= (py + 4.0 - fx_to_float(o.y_fx)) < 8:
+            o.substate = 4
+            o.hops = 0
+            o.saved_state = 0
+            o.tail = 0
+            o.tail_d = 0
+
+
+def _pit_face_park(o: Object, row, body_y: float) -> None:
+    """$CF49 + $809E2C: the direction code and animation toward the park."""
+    code = _pit_direction_code(
+        row[0] - fx_to_float(o.x_fx),
+        _pit_park_y(body_y, row) - fx_to_float(o.y_fx))
+    o.spit_cd = (code + 1) >> 1 & 0x0F
+    o.anim_frame = ((code + 1) >> 2) & 0x07
+    o.hide_timer = code
 
 
 def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
@@ -962,6 +1539,9 @@ def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
     if o.species == PIT_CORE_SPECIES:
         if not pool.pit_fight and (player.x < 128.0 or player.y >= 568.0):
             pool.pit_fight = True
+            # $BC904B's seed at the take's 14201 was not measured; a fixed
+            # seed keeps the fight deterministic (docs/PIT_BOSS.md §7.7).
+            pool.pit_rng = 0x12A5
         o.timer += 1
         return
     if o.species == PIT_BODY_SPECIES:
@@ -987,9 +1567,7 @@ def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
         o.y_fx = float_to_fx(640.0)
         return
     o.timer += 1
-    body = _pit_body(pool)
-    body_x = fx_to_float(body.x_fx) if body is not None else 128.0
-    body_y = fx_to_float(body.y_fx) if body is not None else 700.0
+    body_x, body_y = _pit_eye_body(pool)
     if index >= PIT_EYE_CORE_INDEX:
         # state 2 ($83:CD14): x = $1DD3 + 1, y = $1DD5 + $1C.
         o.state = 2
@@ -999,17 +1577,41 @@ def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
         return
     row = _PIT_EYE_ROWS[index]
     o.state = 0
-    o.x_fx = float_to_fx(float(row[0]))
-    if o.timer < PIT_EYE_RELEASE:
-        # sub 2: park at $1DD5 - $D8 + A + B, exactly the ROM's formula.
+    if o.substate == 0:
+        # $C7E3: init.  $06=2, animation $0C, $36=3, $0A=$20, $42=0.
         o.substate = 2
-        o.y_fx = float_to_fx(body_y - 216.0 + row[1] + row[2])
-    else:
-        # sub 4: the band clamp and the per-eye velocity are decoded but their
-        # phase ($1DEF) and acceleration are not exact yet (docs/PIT_BOSS.md
-        # §7.6); the measured track holds the take to 2 px meanwhile.
-        o.substate = 4
-        o.y_fx = float_to_fx(body_y + _pit_eye_offset(index, o.timer))
+        o.spit_cd = 0x0C
+        o.anim_phase = 0
+        o.anim_frame = 5           # $E2EA[record] -> $CFBF(Y=5)
+        o.x_fx = float_to_fx(128.0)
+        o.y_fx = float_to_fx(640.0)
+    elif o.substate == 2:
+        # $C80E: park at $1DD5 - $D8 + A + B; the body's rise frees them.
+        o.x_fx = float_to_fx(float(row[0]))
+        o.y_fx = float_to_fx(_pit_park_y(body_y, row))
+        if o.timer >= PIT_EYE_RELEASE:
+            o.substate = 4
+    elif o.substate == 4:
+        # $C838: the band clamp is still measured (docs/PIT_BOSS.md §7.6);
+        # $1DDE[flag] = 0 launches this eye.
+        launch = _PIT_EYE_LAUNCH.get(index)
+        if launch is not None and not o.launched and o.timer >= launch:
+            o.launched = True
+            o.substate = 6
+            o.hops = 0
+        else:
+            o.x_fx = float_to_fx(float(row[0]))
+            o.y_fx = float_to_fx(body_y + _pit_eye_offset(index, o.timer))
+    elif o.substate == 6:
+        _pit_eye_state6(pool, o, player)
+    elif o.substate == 8:
+        _pit_return_restart(o)
+    elif o.substate == 10:
+        _pit_eye_state10(pool, o, player)
+    elif o.substate == 12:
+        _pit_eye_state12(pool, o, player)
+    elif o.substate == 14:
+        _pit_eye_state14(pool, o, player, row, body_y)
 
 
 def objects_update(pool: ObjectPool, level, player) -> None:

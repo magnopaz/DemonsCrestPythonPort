@@ -475,7 +475,7 @@ def main() -> int:
               "death menu: continue hub check failed\n"
               + death_proc.stdout[-800:])
 
-        # ---- Pit of Ovununu: the measured boss opening ----
+        # ---- Pit of Ovununu: the boss opening + the $6C launch/return ----
         pit_proc = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "check_pit_boss.py"),
              "--binary", str(binary), "--assets", str(assets),
@@ -483,7 +483,7 @@ def main() -> int:
             cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, timeout=300)
         check(pit_proc.returncode == 0,
-              "pit boss: measured opening check failed\n"
+              "pit boss: opening/launch check failed\n"
               + pit_proc.stdout[-800:])
 
         # ---- End-to-end campaign playthrough ----
@@ -692,7 +692,7 @@ def main() -> int:
     print("regression: PASS (demos 6,7,9,10,11,12,13, boss data/runtime, "
           "hippogriff fight, arma crest/map chain, mode 7 map, "
           "object placement/placeholders, $72 flames, up-door pad_mask, "
-          "death continue hub, pit boss opening, "
+          "death continue hub, pit boss opening/launch, "
           "boss defeat + multi-area loads)")
     return 0
 

@@ -278,3 +278,49 @@ indexados, confirmar o sufixo antes de acreditar no desvio.
 
 **Regressão:** `DISPLAY=:99 python3 tools/run_regression.py` → PASS (EXIT=0),
 com `pit boss` no resumo.
+
+
+## Passo C — lançamento dos olhos `$6C` (2026-11-04, sessão 3)
+
+**Feito:** a máquina de lançamento e o regresso estão portados em
+`dcpy/object.py` — `_pit_eye_state6` (os dez `$38` de `$83:C913`), os estados
+`$06=8/10/12/14` (`$CB6A/$CB7D/$CC00/$CAAE`), a cauda `$49` (`$CCBF`) e os
+auxiliares `$D0BE`, `$CFDF`, `$CF6E`, `$CFBF`, `$809D8E/$809E2C`
+(`$81:8149`), `$D137`, `$809CA4`, `$D198`/`$D1AE` e `$BC904B`. O `Object`
+ganhou o bloco `$3D..$4F` que só estes olhos usam.
+
+**O que a take ensinou** (tudo em `docs/PIT_BOSS.md` §7.8):
+- `$1DDE` é **por flag** (`ldx $03; lda $1DDE,X`), não um contador global; o
+  controlador do `$69` (`$B9F1`, `$40` 0/2/4, tabelas `$81:E015/$E075`,
+  `$1DE9`, gate `$1DF8==10`) lança 2–4 por rajada, um de cada 30 frames.
+  **Não está portado** — os quatro frames ficam medidos (`_PIT_EYE_LAUNCH`).
+- `$D07C` compara com `$1DD1 - $1DCE - 8 - $DFCE[x] + A`; `$1DD1` satura em
+  188 e `$1DCE` (scroll) não é simulado → linha medida por olho
+  (`_PIT_EYE_REACH` 206/179/181/191).
+- Os sorteios `$3D/$3E`, `$47/$48` e `$06` de regresso dos quatro olhos foram
+  lidos do slot cru e ficam em `_PIT_EYE_DRAW` (a semente `$009C` não foi
+  medida e o `$69` também consome o LCG).
+- `tools/oracle/measure_pit_eyes.py` passou a despejar `px/py` (jogador) e o
+  slot cru de `$50` bytes — é o que permite ler `$3D/$3E`/`$47/$48`/`$38`.
+
+**Verificação:** antes da rampa o erro é 0,7–5,5 px nos quatro olhos. O voo
+completo da take depende da posição do jogador (~(220,200)); com
+`DC_HOLD_PLAYER=210,200` (hook novo em `dcpy/player.py`) os quatro sobem e
+voltam: 0 `253→139→261`, 1 `207→143→221`, 7 `208→71→227`, 2 `243→81→225`.
+`check_pit_boss.py` foi a `FRAMES = 4000` e afirma, por olho, `$06=6` no
+lançamento, subida ≥ 40 px e descida ≥ 50 px após o pico.
+
+**O que falta (por ordem):**
+1. O controlador do `$69` (§7.8): substituir `_PIT_EYE_LAUNCH` pela regra
+   `$40/$3F` + RNG.
+2. Fechar `sub 4` com as tabelas e apagar `_PIT_EYE_TRACK` (replay a passo 1
+   em 14421–15791).
+3. Dano/HP/morte do corpo, arte (nenhum dos três tem sheet) e o lock da arena.
+
+**Armadilha:** o trace de objectos do port (`DC_TRACE_OBJECTS`) passou a levar
+`sub,phase,scale,anim` — a coluna do frame de animação chama-se `anim`; se
+fosse `frame` colidia com `gframe` no `DictReader` e lia-se a animação em vez
+do frame. O `$1030`/`$1033` é que são o x/y do jogador (`$1031` é só a parte
+inteira; ler `$1031` dá lixo).
+
+**Regressão:** ver o fim deste ficheiro.

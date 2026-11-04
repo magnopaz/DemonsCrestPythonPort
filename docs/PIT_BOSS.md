@@ -235,11 +235,13 @@ nos 11 000 frames medidos — ficam descodificados, não portados.
 ### 7.5 O que falta (por ordem)
 
 1. ~~Tabelas `$E2D5/$E2DF/$E2E1/$E2E3/$E2E5/$E2E7`~~ — **resolvido**, ver §7.6.
-2. **Lançamento (`sub 6`+)**: falta portar `$D0BE` (anim), `$D07C`/`$D198`
-   (sondas/timers), `$809CA4` (probe rectangular), `$809D8E`, `$808C95`/
-   `$808C99` (integradores) e `$BC904B` (RNG). É o que faz os olhos voar e
-   ferir o jogador.
-3. Dano/HP/morte do corpo, arte (`$69`/`$6B`/`$6C` sem sheet) e o lock da
+2. ~~Lançamento (`sub 6`+)~~ — **portado**, ver §7.7/§7.8.
+3. **Controlador de lançamento do `$69`** (`$B9F1`, §7.8): a rajada de 2–4
+   olhos, `$1DDE`/`$1DE9`/`$1DF8` e as tabelas `$E015`/`$E075`. É o que
+   substitui os quatro frames de lançamento medidos por uma regra.
+4. **`sub 4` exacto** (banda + `$1DEE`/`$1DEF` + integradores): ainda com a
+   tabela medida, erro ~25 px na regra pura (§7.6).
+5. Dano/HP/morte do corpo, arte (`$69`/`$6B`/`$6C` sem sheet) e o lock da
    arena.
 
 ### 7.6 As tabelas dos olhos (resolvido, 2026-11-04 tarde)
@@ -296,7 +298,12 @@ a luta e o handler zera `$22`/`$23` quando muda — ler a 1 frame) e o
 `$808C95`/`$808C99` exacto por fase. Um replay a passo 1 em 14421–15791 (~10
 min) deve chegar lá; depois `_PIT_EYE_TRACK` desaparece.
 
-### 7.7 A máquina de lançamento descodificada (pronta a portar)
+### 7.7 A máquina de lançamento descodificada (portada, 2026-11-04 noite)
+
+*Nota: as secções 7.7/7.8 descrevem o que ficou portado em `dcpy/object.py`
+(`_pit_eye_state6`, `_pit_eye_state10/12/14`, `_pit_launch_probe` e os
+auxiliares `$D0BE`/`$CFDF`/`$CF6E`/`$809D8E`/`$D137`/`$809CA4`/`$BC904B`) e o
+que continua medido em vez de derivado.*
 
 **Gatilho.** `$1DDE` vale 9 durante o enxame e passa a **0 em 15791** — é isso
 que faz cada satélite sair do `sub 4` para o `sub 6` (`$C83D: lda $1DDE; bne`).
@@ -352,3 +359,68 @@ anim `$4C`, `jsl $808C77/$808C8B`) e `$CD13` (`rts`).
 Com isto falta só escrever os dez subestados no port e verificar o voo dos
 quatro olhos que lançam ([0] 15791, [1] 15821, [7] 15851, [2] 16651). A arte
 continua por cozer, por isso o voo verifica-se por posição, não por imagem.
+
+### 7.8 O lançamento portado: o que a take ainda ensinou (2026-11-04 noite)
+
+O `$1DDE` **é indexado por flag** (`$C83D: ldx $03; lda $1DDE,X`): não é um
+contador global, é o "estacionado" de cada olho — 9/1 = no parque, 0 = lançado.
+Quem o desce é o controlador do `$69` (`$B9F1`, tabela `$B9F6` em `$40`):
+
+| `$40` | o que faz |
+|---|---|
+| 0 | `$3F = $81:E075[$40 + RNG&$0F]` (2..4, tamanho da rajada); `$40=2`, `$3E=$20` |
+| 2 | espera `$3E`; `Y = $81:E015[RNG&$1F]`; procura o primeiro `$1DDE[Y] != 0` (10 tentativas, `Y++ mod 10`); achando: `$1DDE[Y]=0`, `$1DE9++`, `$3E=$20`, `$3F--`; `$3F` a 0 ou nenhum estacionado: `$40=4`, `$3E=$80` |
+| 4 | espera `$3E`, volta a `$40=0` |
+
+`$1DF8 == 10` é o gate do "nenhum estacionado" (`$BA4E`), que na janela medida
+nunca se aplica. Na take o RNG deu uma rajada de **4**; `$1DE9` conta 1/2/3/4
+em 15791/15821/15851/16651. O controlador **não está portado**: os quatro
+frames ficam medidos em `_PIT_EYE_LAUNCH` (1590/1620/1650/2450 = take−14201).
+
+Os sorteios dos quatro olhos também ficaram medidos (lidos do slot cru:
+`$3D/$3E`, `$47/$48`, `$06` de regresso), porque a semente `$009C` em 14201
+não foi lida e o controlador do `$69` também consome o LCG:
+
+| flag | `$3D/$3E` | `$47/$48` | reinício `$06` |
+|---|---|---|---|
+| 0 | `$0400` | 620 | 10 |
+| 1 | `$0300` | 620 | 12 |
+| 7 | `$0580` | 364 | 10 |
+| 2 | `$0580` | 620 | (a take reinicia antes) |
+
+**Sondas.** `$D07C(A)` compara o y do olho com
+`$1DD1 - $1DCE - 8 - $DFCE[|x-$40|] + A` (`$DFCE` é `$81:DFCE`, uma rampa
+0..29 dobrada em `$40`); carry = chegou. `$1DD1` satura em **188** de 15711 até
+ao fim da luta e `$1DCE` é o scroll (não simulado pelo port), por isso a linha
+ficou medida por olho: `_PIT_EYE_REACH` = 206/179/181/191 (y em que o `sub 2`
+passa a `sub 4`). `$D137(A)` é `dist² >= A²` (carry = fora) e `$809CA4($E2C0)`
+é a caixa ±`$40`/±`$28` à volta do olho. `$D198` faz o timer `$47` de 16 bits
+chegar a 0 → `$06=14`; `$D1AE` só decrementa.
+
+**Regresso** (não estava na §7.7): `$06=8` (`$CB6A`: `$44=$C0`, `$3D=0`,
+`$38=$0A`, `$06=6`); `$06=10` (`$CB7D`, `$38` 0/2/4/6: aponta 0x20 frames e
+depois voa na direcção `$43` com `$3D += 7` até `$200`); `$06=12` (`$CC00`:
+`$3D` oscila `$100..$1C0`, `$CC82` roda o código ±8 e ±`$4E`, `$D137($60)` ou
+`$44` esgotado → `$38=6`); `$06=14` (`$CAAE`: abranda, espera, voa para o
+parque com `$3D=$120` e, quando `0 <= x+4-park_x < 8` e
+`0 <= park_y+4-y < 8`, volta a `$06=4`, `$1DDE=1`).
+
+**Verificação (`tools/oracle/measure_pit_eyes.py`, janela 15700–17000).**
+Antes da rampa o port segue a take quase à letra: no frame de lançamento e 100
+frames depois o erro é 0,7 px (flag 1), 2,2 (7), 2,9 (2) e −5,5 (0, porque a
+tabela do enxame satura em t=1580). A partir da rampa o voo da take é puxado
+pelo jogador (que anda em ~(220,200)); com o jogador parado no spawn o port
+mergulha mais cedo e um olho fica a pairar. Com
+`DC_HOLD_PLAYER=210,200` os quatro sobem e voltam:
+
+| flag | parque → mínimo → regresso |
+|---|---|
+| 0 | 253 → 139 → 261 |
+| 1 | 207 → 143 → 221 |
+| 7 | 208 → 71 → 227 |
+| 2 | 243 → 81 → 225 (re-parqueia em 3853) |
+
+`tools/check_pit_boss.py` passou a `FRAMES = 4000` e afirma, por olho lançado:
+`$06=6` no frame de lançamento, subida ≥ 40 px e descida ≥ 50 px depois do
+pico. O jogador é fixado com o hook novo `DC_HOLD_PLAYER` (o mesmo sítio da
+take); sem ele a luta não é a mesma e o flag 1 não fecha o ciclo.

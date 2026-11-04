@@ -154,7 +154,7 @@ def main() -> int:
         # Slots 8..25 in one contiguous read: no per-slot round trip.
         start_addr = BASE + FIRST_SLOT * STRIDE
         n_bytes = SLOT_COUNT * STRIDE
-        out = ["gframe,area8d,slot,flags,species,state,sub,x,y"]
+        out = ["gframe,px,py,area8d,slot,flags,species,state,sub,x,y,raw"]
         extra = None
         if args.extra:
             extra = ["gframe,globals,e2,e3"]
@@ -163,6 +163,9 @@ def main() -> int:
                 continue
             c.run_to(g)
             area8d = c.read(0x008D, 1)[0]
+            player = c.read(0x1030, 0x06)
+            px = (player[0] | player[1] << 8 | player[2] << 16) / 256.0
+            py = (player[3] | player[4] << 8 | player[5] << 16) / 256.0
             pool = c.read(start_addr, n_bytes)
             if args.extra:
                 # $1DD0..$1E08: the fight's shared globals (phases, flags,
@@ -179,8 +182,10 @@ def main() -> int:
                 if rec[2] not in PIT_SPECIES:
                     continue
                 out.append(",".join(str(v) for v in (
-                    g, area8d, FIRST_SLOT + i, rec[0], rec[2], rec[5], rec[6],
-                    round(fx24(rec, 0x30), 2), round(fx24(rec, 0x33), 2))))
+                    g, round(px, 2), round(py, 2), area8d, FIRST_SLOT + i,
+                    rec[0], rec[2], rec[5], rec[6],
+                    round(fx24(rec, 0x30), 2), round(fx24(rec, 0x33), 2)))
+                    + "," + rec.hex())
         args.out.write_text("\n".join(out) + "\n")
         print(f"measure_pit_eyes: {len(out) - 1} rows -> {args.out}")
         if extra is not None:

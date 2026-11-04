@@ -562,7 +562,7 @@ def game_init(game: Game, asset_dir: str) -> bool:
         try:
             game.object_trace = open(object_trace_path, "w")
             game.object_trace.write("frame,slot,type,x,y,vx,vy,state,hp,flash,"
-                                    "species,flags\n")
+                                    "species,flags,sub,phase,scale,anim\n")
         except OSError:
             eprint(f"game: cannot open object trace {object_trace_path}",
                   flush=True)
@@ -804,7 +804,8 @@ def game_update_simulation(game: Game) -> None:
                 f"{game.frame},{i},{o.type},{o.x_fx / 256.0:.3f},"
                 f"{o.y_fx / 256.0:.3f},{o.vx_fx / 256.0:.3f},"
                 f"{o.vy_fx / 256.0:.3f},{o.state},{o.hp},{o.hit_flash},"
-                f"{o.species},{o.flags}\n")
+                f"{o.species},{o.flags},{o.substate},{o.hops},"
+                f"{o.eye_scale},{o.anim_frame}\n")
     game.frame += 1
 
 
