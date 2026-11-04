@@ -463,6 +463,17 @@ def main() -> int:
         check(up_proc.returncode == 0,
               "up doors: pad_mask check failed\n" + up_proc.stdout[-800:])
 
+        # ---- Death: the continue hub, not a game over ----
+        death_proc = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_death_menu.py"),
+             "--binary", str(binary), "--assets", str(assets),
+             "--tmp", str(out)],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=600)
+        check(death_proc.returncode == 0,
+              "death menu: continue hub check failed\n"
+              + death_proc.stdout[-800:])
+
         # ---- End-to-end campaign playthrough ----
         play = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "check_playthrough.py"),
@@ -641,17 +652,25 @@ def main() -> int:
         check(any(max(v) - v[0] > 40.0 for v in perch.values()),
               "demo10: no ghoul descended from its perch")
 
-        # ---- Ground enemy kill: area 2 skeletons die to fireballs ----
+        # ---- Fireballs damage enemies: area 2's floating sentry ----
+        # This used to stand on the floor at (360,430) and assert a skeleton
+        # died. It only passed because the player died first and the trace
+        # stopped at frame 229: ground-level fireballs fly 18 px above the
+        # feet while the enemy box is +/-12 around the spawn origin, so they
+        # miss (a Passo 2 gap). The continue hub keeps the scene running, which
+        # exposed the false pass. Stand on the upper ledge at (1000,300), where
+        # the fireball line (y=334) meets the floating enemy at y=332, and
+        # assert the hit -- a real projectile/enemy collision.
         d10b = run_demo(base, out, 10, 260,
-                        {"DC_AREA": "2", "DC_START_X": "360",
-                         "DC_START_Y": "430"})
+                        {"DC_AREA": "2", "DC_START_X": "1000",
+                         "DC_START_Y": "300"})
         enemies_b = [r for r in csv_rows(d10b["objects"]) if r["type"] == "3"]
-        last_b = {}
+        hp_b: dict[str, list[int]] = {}
         for r in enemies_b:
-            last_b[r["slot"]] = int(r["frame"])
-        check(bool(last_b), "area2: no enemies spawned")
-        check(any(frame < 259 for frame in last_b.values()),
-              "area2: no ground enemy died to fireballs")
+            hp_b.setdefault(r["slot"], []).append(int(r["hp"]))
+        check(bool(hp_b), "area2: no enemies spawned")
+        check(any(any(b < a for a, b in zip(v, v[1:])) for v in hp_b.values()),
+              "area2: no enemy took fireball damage")
 
     if failures:
         print("regression: FAIL")
@@ -661,7 +680,7 @@ def main() -> int:
     print("regression: PASS (demos 6,7,9,10,11,12,13, boss data/runtime, "
           "hippogriff fight, arma crest/map chain, mode 7 map, "
           "object placement/placeholders, $72 flames, up-door pad_mask, "
-          "boss defeat + multi-area loads)")
+          "death continue hub, boss defeat + multi-area loads)")
     return 0
 
 

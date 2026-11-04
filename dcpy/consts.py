@@ -112,6 +112,12 @@ GAME_OPTIONS = 8
 GAME_OVER = 9
 GAME_ENDING = 10
 GAME_DIALOGUE = 11
+# The continue hub shown after the death animation: RETRY / SELECT A STAGE /
+# END (docs/TAKES.md §6.3). GAME_OVER stays for the colosseum's scripted
+# restart path only.
+GAME_CONTINUE = 12
+# Display-only PASS WORD screen (4x4), reached from the END option.
+GAME_PASSWORD_VIEW = 13
 
 # Audio
 SFX_JUMP = 0

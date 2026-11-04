@@ -50,7 +50,7 @@ As takes de estágio II (`docs/TAKES.md` §6) fecharam o mapa da zona: áreas
 4→5→6→7→8 e 4→46/47/48, com coordenadas e `pad_mask` medidos. A ordem abaixo é
 por dependência: cada passo desbloqueia o seguinte.
 
-### Passo A — `pad_mask` e as três portas up da avenida (meia sessão)
+### Passo A — `pad_mask` e as três portas up da avenida (meia sessão) — **feito**
 
 O que está medido: `pad_mask: 8` é o bit de **up** do ROM (5→6, 6→7 e 7→8 são
 precedidas de um toque de up de um frame; 4→5 é só andar e tem `255`). As
@@ -70,7 +70,14 @@ spawn 0 do destino.
   no mesmo sítio sem carregar **não** muda; (664,428)→47 e (824,124)→48 idem.
   Regressão: as portas 5→6/6→7/7→8 deixam de disparar sem up.
 
-### Passo B — menu de morte `RETRY / SELECT A STAGE / END` (uma sessão)
+**Resultado (2026-11-04):** feito em `15c6c4d`. `apply_door_table.py` tem a
+tabela `TAKE_DOORS` (`source: "take_door"`, 16×16, spawn 0, `pad_mask` 8);
+`game_check_transitions` (C e Python) exige o botão; `check_up_doors.py` cobre
+os seis casos (três portas novas e as três 5→6/6→7/7→8) e está na regressão.
+`DC_DEMO=41` toca up; `DC_START_ONCE=1` mantém o `DC_START_X/Y` na sala de
+boot.
+
+### Passo B — menu de morte `RETRY / SELECT A STAGE / END` (uma sessão) — **feito**
 
 Substitui o `GAME_OVER` inventado (`dcpy/game.py::game_handle_death` e o
 equivalente C). Comportamento medido/confirmado:
@@ -85,6 +92,16 @@ equivalente C). Comportamento medido/confirmado:
 - **Aceitação**: `tools/check_death_menu.py` (na regressão) — mata na área 9,
   vê o menu, RETRY repõe posição (48,412) e HP cheio; SELECT A STAGE entra em
   `GAME_OVERWORLD`; END desenha o ecrã com as 16 letras.
+
+**Resultado (2026-11-04):** `GAME_CONTINUE` (12) e `GAME_PASSWORD_VIEW` (13)
+em C e Python. A morte corre 90 frames de animação e abre o hub; RETRY usa o
+restart existente (mesma área, spawn 0, HP cheio, fade de 90 frames); SELECT A
+STAGE abre o mapa; END mostra o 4×4 com o codec nativo zero-padded (6 `B` +
+10 símbolos — o retail continua por inverter) e START volta ao mapa. O spawn
+ROM (48,412) aparece no trace do port como (48,432) porque `Player_Init`
+assenta os pés na floor, o mesmo +20 das spawns da avenida. Checker
+`tools/check_death_menu.py` na regressão; hooks `DC_KILL_AT` e
+`DC_STATE=continue`.
 
 ### Passo C — bosses do estágio II (2–3 sessões cada, só depois de A e B)
 
@@ -235,6 +252,15 @@ Nada disto bloqueia; está aqui para não se perder.
 - **Placeholders**: as 14 chamas `$72` da área 1, os `$96` das áreas 46–55 e
   todas as outras espécies sem handler aparecem agora como caixas magenta. É
   intencional; cada handler novo (Passo 2) tira-as do ecrã.
+- **Tiro rasteiro não acerta inimigos no chão** (achado no Passo B): o fireball
+  nasce a `player.y - 18` (pés) e a colisão com inimigos usa `±12` em torno do
+  `o.y`, que também é a origem/spawn (pés). Um esqueleto na mesma floor fica
+  fora do alcance por ~6 px. O `run_regression` escondia isto: o antigo teste da
+  área 2 passava porque o jogador morria primeiro e o trace parava no frame
+  229, o que parecia a morte do inimigo. Com o hub de morte a simulação
+  continua e o falso positivo desapareceu. O teste passou a provar um hit real
+  no inimigo flutuante da área 2 (ledge em x=1000); corrigir o hitbox dos
+  inimigos é Passo 2 — precisa da convenção do ROM, não de um offset adivinhado.
 
 ---
 

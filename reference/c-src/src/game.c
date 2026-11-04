@@ -50,6 +50,8 @@ static void Game_Reset(Game *game) {
     Camera_Init(&game->camera, &game->level);
     game->objects.boss_alive = false;
     game->objects.boss_defeated = false;
+    game->death_timer = 0;
+    game->continue_cursor = 0;
     game->transition_phase = 0;
     game->transition_timer = 0;
     Render_SetFade(0.0f);
@@ -111,6 +113,8 @@ bool Game_TransitionToArea(Game *game, int area_id, int spawn_id) {
     Camera_Init(&game->camera, &game->level);
     game->objects.boss_alive = false;
     game->objects.boss_defeated = false;
+    game->death_timer = 0;
+    game->continue_cursor = 0;
     game->state = GAME_PLAYING;
     game->state_timer = 0;
     return true;
@@ -636,10 +640,17 @@ bool Game_Init(Game *game, const char *asset_dir) {
             Game_CompleteArea(game);
         } else if (strcmp(state_env, "gameover") == 0)
             game->state = GAME_OVER;
-        else if (strcmp(state_env, "ending") == 0)
+        else if (strcmp(state_env, "continue") == 0) {
+            /* Test hook: open the death hub without waiting for a death. */
+            game->campaign_mode = true;
+            game->player.hp = 0;
+            game->state = GAME_CONTINUE;
+            game->continue_cursor = 0;
+        } else if (strcmp(state_env, "ending") == 0)
             Game_StartEnding(game);
     }
     game->state_timer = 0;
+    game->kill_at = getenv("DC_KILL_AT") ? atoi(getenv("DC_KILL_AT")) : 0;
 
     /* Dev hook: jump straight into a story page for deterministic captures
      * (`DC_STORY_TEST=<crest index>`, optional `DC_STORY_PAGE`). */
@@ -1033,14 +1044,67 @@ static void Game_HandleDeath(Game *game) {
         return;
     if (game->restart_timer > 0)
         return;
-    /* The colosseum restarts the room (with Somulo's entrance) on death; other
-     * areas keep the game-over screen for now. */
+    /* The colosseum restarts the room (with Somulo's entrance) on death; the
+     * other areas show the continue hub after the death animation. */
     if (game->level.area_id == 0 && getenv("DC_DEATH_GAMEOVER") == NULL) {
         game->restart_timer = 90;
         return;
     }
-    game->state = GAME_OVER;
+    if (game->death_timer == 0) {
+        game->death_timer = 1;
+        return;
+    }
+    if (game->death_timer < DC_DEATH_MENU_DELAY) {
+        game->death_timer++;
+        return;
+    }
+    game->state = GAME_CONTINUE;
+    game->continue_cursor = 0;
     game->state_timer = 0;
+}
+
+/* The native code laid out in the retail 4x4 PASS WORD shape. The retail
+ * codec is still not inverted; encoding the same 40-bit value with 16 base-20
+ * digits only adds six leading zero symbols ('B'). */
+static void Game_PasswordGrid(Game *game) {
+    char code[DC_PASSWORD_LEN + 1];
+    Game_EncodePassword(game, code);
+    int pad = DC_PASSWORD_VIEW_CELLS - DC_PASSWORD_LEN;
+    for (int i = 0; i < pad; i++)
+        game->password_grid[i] = 'B';
+    snprintf(game->password_grid + pad, sizeof(game->password_grid) - pad,
+             "%s", code);
+}
+
+static void Game_ShowPassword(Game *game) {
+    Game_EncodePassword(game, game->password_code);
+    Game_PasswordGrid(game);
+    game->state = GAME_PASSWORD_VIEW;
+    game->state_timer = 0;
+    Render_SetFade(0.0f);
+}
+
+static void Game_UpdateContinue(Game *game, bool up_pressed,
+                                bool down_pressed) {
+    if (up_pressed && game->continue_cursor > 0)
+        game->continue_cursor--;
+    if (down_pressed && game->continue_cursor < 2)
+        game->continue_cursor++;
+    if (!game->input.start_pressed)
+        return;
+    if (game->continue_cursor == 0) {
+        /* RETRY reloads the same area at spawn 0 with full HP; the restart
+         * path already does both, behind its 90-frame black fade. */
+        game->state = GAME_PLAYING;
+        game->state_timer = 0;
+        game->death_timer = 0;
+        game->restart_timer = 90;
+    } else if (game->continue_cursor == 1) {
+        game->death_timer = 0;
+        Game_OpenOverworld(game);
+    } else {
+        Game_ShowPassword(game);
+    }
 }
 
 /* Dev hooks: place the ship for deterministic landing tests. */
@@ -1636,6 +1700,17 @@ void Game_Update(Game *game) {
         Game_UpdateTitle(game, up_pressed, down_pressed);
         break;
     case GAME_PLAYING: {
+        /* DC_KILL_AT: test hook that kills the player on a given frame. */
+        if (game->kill_at > 0 && game->frame == (unsigned)game->kill_at &&
+            game->player.hp > 0)
+            game->player.hp = 0;
+        /* Death animation / retry fade: the scene keeps running, but the
+         * player has no control and no door may fire. */
+        if (game->death_timer > 0 || game->restart_timer > 0) {
+            Game_UpdateSimulation(game);
+            Game_HandleDeath(game);
+            break;
+        }
         /* A room change owns the frame until its fade finishes: the console
          * runs the room loader inside the black stretch. */
         if (Game_UpdateTransition(game))
@@ -1768,6 +1843,14 @@ void Game_Update(Game *game) {
             Game_OpenOverworld(game);
         }
         break;
+    case GAME_CONTINUE:
+        Game_UpdateContinue(game, up_pressed, down_pressed);
+        break;
+    case GAME_PASSWORD_VIEW:
+        /* The password leads back to the map (docs/TAKES.md §6.3). */
+        if (game->input.start_pressed || game->input.pause_pressed)
+            Game_OpenOverworld(game);
+        break;
     case GAME_DIALOGUE: {
         int pages = game->script.page_count[game->dialogue_text];
         if (game->talk_len > 0) {
@@ -1873,6 +1956,14 @@ static void DrawCentered(const char *text, int y, int size, Color color) {
     Vector2 measure = MeasureTextEx(GetFontDefault(), text, (float)size, 1.0f);
     DrawTextEx(GetFontDefault(), text,
                (Vector2){(256.0f - measure.x) * 0.5f, (float)y},
+               (float)size, 1.0f, color);
+}
+
+static void DrawCenteredAt(const char *text, float cx, int y, int size,
+                           Color color) {
+    Vector2 measure = MeasureTextEx(GetFontDefault(), text, (float)size, 1.0f);
+    DrawTextEx(GetFontDefault(), text,
+               (Vector2){cx - measure.x * 0.5f, (float)y},
                (float)size, 1.0f, color);
 }
 
@@ -2238,6 +2329,41 @@ static void DrawOverlay(const Game *game) {
                      156, 10, c2);
         if (game->pause_flash > 0)
             DrawCentered("SAVED", 184, 10, (Color){150, 230, 170, 255});
+    } else if (game->state == GAME_CONTINUE) {
+        /* The death hub over the frozen scene (docs/TAKES.md §6.3). */
+        static const char *const kContinue[] = {"RETRY", "SELECT A STAGE",
+                                                "END"};
+        DrawRectangle(0, 0, 256, 224, (Color){0, 0, 0, 160});
+        for (int i = 0; i < 3; i++) {
+            bool selected = game->continue_cursor == i;
+            Color col = selected ? (Color){255, 230, 120, 255}
+                                 : (Color){200, 200, 200, 255};
+            DrawCentered(TextFormat("%s%s", selected ? "> " : "  ",
+                                    kContinue[i]),
+                         92 + i * 18, 12, col);
+        }
+    } else if (game->state == GAME_PASSWORD_VIEW) {
+        DrawRectangle(0, 0, 256, 224, (Color){6, 10, 16, 245});
+        DrawCentered("PASS WORD", 22, 20, (Color){230, 220, 170, 255});
+        const int cell = 20;
+        const int x0 = 128 - (4 * cell) / 2;
+        const int y0 = 64;
+        for (int i = 0; i < DC_PASSWORD_VIEW_CELLS; i++) {
+            int cx = x0 + (i % 4) * cell;
+            int cy = y0 + (i / 4) * cell;
+            DrawRectangleLines(cx, cy, cell - 2, cell - 2,
+                               (Color){60, 90, 120, 255});
+            char ch[2] = {game->password_grid[i]
+                              ? game->password_grid[i] : 'B', 0};
+            DrawCenteredAt(ch, (float)cx + (cell - 2) * 0.5f, cy + 3, 14,
+                           (Color){150, 230, 255, 255});
+        }
+        if ((game->state_timer / 30) % 2 == 0)
+            DrawCentered("PUSH START BUTTON", 176, 10,
+                         (Color){255, 255, 255, 255});
+        if (getenv("DC_PASSWORD_NATIVE_HUD"))
+            DrawCentered(TextFormat("NATIVE %s", game->password_code), 196, 8,
+                         (Color){170, 170, 185, 255});
     } else if (game->state == GAME_CLEAR) {
         DrawRectangle(0, 0, 256, 224, (Color){0, 0, 0, 185});
         DrawCentered("AREA CLEAR", 62, 24, (Color){238, 232, 214, 255});

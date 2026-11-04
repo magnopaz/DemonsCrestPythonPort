@@ -137,6 +137,31 @@ void Input_Read(Input *in, InputState *st) {
          * contact and slides; B jumps off, Down releases. */
         demo_frame++;
         left = demo_frame >= 5;
+    } else if (demo_mode == 41) {
+        /* Up-door probe: stand on the door and tap up at frame 20, the way
+         * the stage II take does (position from DC_START_X/DC_START_Y). */
+        demo_frame++;
+        up = demo_frame >= 20 && demo_frame < 22;
+    } else if (demo_mode == 42) {
+        /* Death hub, RETRY: the menu opens ~90 frames after the kill. */
+        demo_frame++;
+        start = demo_frame == 140;
+    } else if (demo_mode == 43) {
+        /* Death hub, SELECT A STAGE: one down, then start. */
+        demo_frame++;
+        down = demo_frame == 20;
+        start = demo_frame == 40;
+    } else if (demo_mode == 44) {
+        /* Death hub, END: two downs, then start. */
+        demo_frame++;
+        down = demo_frame == 20 || demo_frame == 30;
+        start = demo_frame == 50;
+    } else if (demo_mode == 45) {
+        /* Death hub, END then leave the PASS WORD screen: the second start
+         * must open the map. */
+        demo_frame++;
+        down = demo_frame == 20 || demo_frame == 30;
+        start = demo_frame == 50 || demo_frame == 110;
     } else if (demo_mode == 36) {
         /* Navigation: walk right through a door merged from the level saves. */
         demo_frame++;

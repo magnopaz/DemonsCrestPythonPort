@@ -64,6 +64,13 @@ _SHOP_STOCK = [
 ]
 SHOP_STOCK_COUNT = len(_SHOP_STOCK)
 
+# The continue hub after death. The console holds the death animation for
+# ~1.5 s and then shows RETRY / SELECT A STAGE / END over the frozen scene
+# (docs/TAKES.md §6.3); it is the game's hub, not a game over.
+DEATH_MENU_DELAY = 90
+CONTINUE_ITEMS = ("RETRY", "SELECT A STAGE", "END")
+PASSWORD_VIEW_CELLS = 16
+
 
 class Game:
     def __init__(self):
@@ -95,6 +102,10 @@ class Game:
         self.shake = 0
         self.shake_phase = 0
         self.restart_timer = 0
+        self.death_timer = 0
+        self.continue_cursor = 0
+        self.password_grid = ""
+        self.kill_at = env_int("DC_KILL_AT") or 0
         self.transition_phase = 0
         self.transition_timer = 0
         self.transition_area = 0
@@ -160,6 +171,8 @@ def game_reset(game: Game) -> None:
     camera_init(game.camera, game.level)
     game.objects.boss_alive = False
     game.objects.boss_defeated = False
+    game.death_timer = 0
+    game.continue_cursor = 0
     game.transition_phase = 0
     game.transition_timer = 0
     render_set_fade(0.0)
@@ -216,6 +229,8 @@ def game_transition_to_area(game: Game, area_id: int, spawn_id: int) -> bool:
     camera_init(game.camera, game.level)
     game.objects.boss_alive = False
     game.objects.boss_defeated = False
+    game.death_timer = 0
+    game.continue_cursor = 0
     game.state = C.GAME_PLAYING
     game.state_timer = 0
     return True
@@ -620,6 +635,12 @@ def game_init(game: Game, asset_dir: str) -> bool:
             game_complete_area(game)
         elif state_env == "gameover":
             game.state = C.GAME_OVER
+        elif state_env == "continue":
+            # Test hook: open the death hub without waiting for a death.
+            game.campaign_mode = True
+            game.player.hp = 0
+            game.state = C.GAME_CONTINUE
+            game.continue_cursor = 0
         elif state_env == "ending":
             game_start_ending(game)
     game.state_timer = 0
@@ -921,11 +942,62 @@ def game_handle_death(game: Game) -> None:
         return
     if game.restart_timer > 0:
         return
+    # The colosseum restarts the room (with Somulo's entrance) on death; the
+    # other areas show the continue hub after the death animation.
     if game.level.area_id == 0 and "DC_DEATH_GAMEOVER" not in os.environ:
         game.restart_timer = 90
         return
-    game.state = C.GAME_OVER
+    if game.death_timer == 0:
+        game.death_timer = 1
+        return
+    if game.death_timer < DEATH_MENU_DELAY:
+        game.death_timer += 1
+        return
+    game.state = C.GAME_CONTINUE
+    game.continue_cursor = 0
     game.state_timer = 0
+
+
+def game_password_grid(game: Game) -> str:
+    """The native code laid out in the retail 4x4 PASS WORD shape.
+
+    The retail codec is 16 letters in four groups and is still not inverted;
+    the native codec is 10 base-20 symbols. Encoding the same 40-bit value
+    with 16 digits only adds six leading zero symbols ('B'), so the screen
+    keeps the 4x4 shape without pretending to be a retail code.
+    """
+    code = game_encode_password(game)
+    return "B" * max(0, PASSWORD_VIEW_CELLS - len(code)) + code
+
+
+def game_show_password(game: Game) -> None:
+    game.password_code = game_encode_password(game)
+    game.password_grid = game_password_grid(game)
+    game.state = C.GAME_PASSWORD_VIEW
+    game.state_timer = 0
+    render_set_fade(0.0)
+
+
+def game_update_continue(game: Game, up_pressed: bool,
+                         down_pressed: bool) -> None:
+    if up_pressed and game.continue_cursor > 0:
+        game.continue_cursor -= 1
+    if down_pressed and game.continue_cursor < len(CONTINUE_ITEMS) - 1:
+        game.continue_cursor += 1
+    if not game.input.start_pressed:
+        return
+    if game.continue_cursor == 0:
+        # RETRY reloads the same area at spawn 0 with full HP; the restart
+        # path already does both, behind its 90-frame black fade.
+        game.state = C.GAME_PLAYING
+        game.state_timer = 0
+        game.death_timer = 0
+        game.restart_timer = 90
+    elif game.continue_cursor == 1:
+        game.death_timer = 0
+        game_open_overworld(game)
+    else:
+        game_show_password(game)
 
 
 def game_overworld_hook_position(game: Game) -> None:
@@ -1481,6 +1553,12 @@ def game_update(game: Game) -> None:
             game.player.hp = game.player.max_hp
             game.campaign_mode = True
             game_open_overworld(game)
+    elif game.state == C.GAME_CONTINUE:
+        game_update_continue(game, up_pressed, down_pressed)
+    elif game.state == C.GAME_PASSWORD_VIEW:
+        # The password leads back to the map (docs/TAKES.md §6.3).
+        if game.input.start_pressed or game.input.pause_pressed:
+            game_open_overworld(game)
     elif game.state == C.GAME_DIALOGUE:
         _game_dialogue_step(game, up_pressed, down_pressed)
     elif game.state == C.GAME_ENDING:
@@ -1496,6 +1574,14 @@ def game_update(game: Game) -> None:
 
 
 def _game_playing_step(game: Game) -> None:
+    if game.kill_at and game.frame == game.kill_at and game.player.hp > 0:
+        game.player.hp = 0
+    if game.death_timer > 0 or game.restart_timer > 0:
+        # Death animation / retry fade: the scene keeps running, but the
+        # player has no control and no door may fire.
+        game_update_simulation(game)
+        game_handle_death(game)
+        return
     if game.input.subscreen_pressed:
         game.state = C.GAME_SUBSCREEN
         game.state_timer = 0
@@ -1614,6 +1700,15 @@ def _draw_centered(text: str, y: int, size: int, color) -> None:
     measure = rl.MeasureTextEx(font, encoded, float(size), 1.0)
     rl.DrawTextEx(font, encoded,
                   rl.Vector2((256.0 - measure.x) * 0.5, float(y)),
+                  float(size), 1.0, color)
+
+
+def _draw_centered_at(text: str, cx: float, y: int, size: int, color) -> None:
+    font = rl.GetFontDefault()
+    encoded = rl.cstr(text)
+    measure = rl.MeasureTextEx(font, encoded, float(size), 1.0)
+    rl.DrawTextEx(font, encoded,
+                  rl.Vector2(cx - measure.x * 0.5, float(y)),
                   float(size), 1.0, color)
 
 
@@ -1934,6 +2029,33 @@ def _draw_overlay(game: Game) -> None:
             _draw_centered(label, 124 + i * 16, 10, col)
         if game.pause_flash > 0:
             _draw_centered("SAVED", 184, 10, rl.rgb(150, 230, 170))
+    elif game.state == C.GAME_CONTINUE:
+        # The death hub over the frozen scene (docs/TAKES.md §6.3).
+        rl.DrawRectangle(0, 0, 256, 224, rl.rgb(0, 0, 0, 160))
+        for i, label in enumerate(CONTINUE_ITEMS):
+            selected = game.continue_cursor == i
+            col = rl.rgb(255, 230, 120) if selected else rl.rgb(200, 200, 200)
+            _draw_centered(("> " if selected else "  ") + label,
+                           92 + i * 18, 12, col)
+    elif game.state == C.GAME_PASSWORD_VIEW:
+        rl.DrawRectangle(0, 0, 256, 224, rl.rgb(6, 10, 16, 245))
+        _draw_centered("PASS WORD", 22, 20, rl.rgb(230, 220, 170))
+        cell = 20
+        x0 = 128 - (4 * cell) // 2
+        y0 = 64
+        grid = (game.password_grid + "B" * PASSWORD_VIEW_CELLS)
+        for i in range(PASSWORD_VIEW_CELLS):
+            cx = x0 + (i % 4) * cell
+            cy = y0 + (i // 4) * cell
+            rl.draw_rect_lines(cx, cy, cell - 2, cell - 2,
+                               rl.rgb(60, 90, 120))
+            _draw_centered_at(grid[i], cx + (cell - 2) * 0.5, cy + 3, 14,
+                              rl.rgb(150, 230, 255))
+        if (game.state_timer // 30) % 2 == 0:
+            _draw_centered("PUSH START BUTTON", 176, 10, rl.rgb(255, 255, 255))
+        if "DC_PASSWORD_NATIVE_HUD" in os.environ:
+            _draw_centered(f"NATIVE {game.password_code}", 196, 8,
+                           rl.rgb(170, 170, 185))
     elif game.state == C.GAME_CLEAR:
         rl.DrawRectangle(0, 0, 256, 224, rl.rgb(0, 0, 0, 185))
         _draw_centered("AREA CLEAR", 62, 24, rl.rgb(238, 232, 214))

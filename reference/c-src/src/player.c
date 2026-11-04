@@ -27,6 +27,10 @@
 #define FX_TO_FLOAT(v) ((float)(v) / (float)FX_ONE)
 #define FLOAT_TO_FX(v) ((int32_t)lroundf((v) * (float)FX_ONE))
 
+/* Set by the first Player_Init that honours DC_START_X/Y; DC_START_ONCE uses
+ * it to keep the hook on the boot room only. */
+static bool start_hook_used = false;
+
 static const char *const kFormNames[CREST_COUNT] = {
     "FIRE GARGOYLE",
     "EARTH GARGOYLE",
@@ -238,9 +242,15 @@ void Player_Init(Player *player, const Level *level) {
     player->x_fx = FLOAT_TO_FX(level->spawn_x);
     player->y_fx = FLOAT_TO_FX(level->spawn_y);
     const char *start_x = getenv("DC_START_X");
+    const char *start_y = getenv("DC_START_Y");
+    if (start_hook_used && getenv("DC_START_ONCE")) {
+        start_x = NULL;
+        start_y = NULL;
+    }
+    if ((start_x && *start_x) || (start_y && *start_y))
+        start_hook_used = true;
     if (start_x && *start_x)
         player->x_fx = FLOAT_TO_FX(strtof(start_x, NULL));
-    const char *start_y = getenv("DC_START_Y");
     if (start_y && *start_y)
         player->y_fx = FLOAT_TO_FX(strtof(start_y, NULL));
     player->walk_speed_fx = PLAYER_WALK_MAX_FX;

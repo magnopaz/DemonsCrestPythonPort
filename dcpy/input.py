@@ -162,6 +162,27 @@ def input_read(inp: Input, st: InputState) -> None:
         # comes from DC_START_X/DC_START_Y.
         _demo_frame += 1
         up = 20 <= _demo_frame < 22
+    elif mode == 42:
+        # Death hub, RETRY: the menu opens ~90 frames after the kill, so a
+        # start at 140 picks the first entry. Used by check_death_menu.py.
+        _demo_frame += 1
+        start = _demo_frame == 140
+    elif mode == 43:
+        # Death hub, SELECT A STAGE: one down, then start.
+        _demo_frame += 1
+        down = _demo_frame == 20
+        start = _demo_frame == 40
+    elif mode == 44:
+        # Death hub, END: two downs, then start.
+        _demo_frame += 1
+        down = _demo_frame in (20, 30)
+        start = _demo_frame == 50
+    elif mode == 45:
+        # Death hub, END then leave the PASS WORD screen: the second start
+        # must open the map (docs/TAKES.md §6.3).
+        _demo_frame += 1
+        down = _demo_frame in (20, 30)
+        start = _demo_frame in (50, 110)
     elif mode == 36:
         _demo_frame += 1
         right = _demo_frame >= 5

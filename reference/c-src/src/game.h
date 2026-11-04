@@ -16,6 +16,12 @@
 
 /* Native password: 10 symbols, see Game_PasswordEncode. */
 #define DC_PASSWORD_LEN 10
+/* The continue hub after death: the console holds the death animation for
+ * ~1.5 s, then shows RETRY / SELECT A STAGE / END (docs/TAKES.md §6.3). */
+#define DC_DEATH_MENU_DELAY 90
+/* The retail PASS WORD screen is 4x4 letters; the native codec is padded to
+ * this width with its zero symbol (see Game_PasswordGrid). */
+#define DC_PASSWORD_VIEW_CELLS 16
 
 typedef struct Game {
     Assets assets;
@@ -50,6 +56,11 @@ typedef struct Game {
     /* Death in an arena restarts the room (entrance included) instead of
      * showing GAME OVER, which is what the recording of Somulo shows. */
     int restart_timer;
+    /* Frames the death animation has run; at DC_DEATH_MENU_DELAY the
+     * continue hub opens. 0 = alive. */
+    int death_timer;
+    int continue_cursor; /* 0 RETRY, 1 SELECT A STAGE, 2 END */
+    int kill_at;         /* DC_KILL_AT: frame that kills the player (test) */
     /* Room change fade, measured from the oracle: 28 frames out, 64 black
      * (the load happens there), 28 in. 0 = idle, 1 = out, 2 = black, 3 = in. */
     int transition_phase;
@@ -67,6 +78,7 @@ typedef struct Game {
     uint8_t stages_cleared;
     uint8_t area_cleared[DC_CAMPAIGN_AREAS]; /* per-area clear flags */
     char password_code[20];
+    char password_grid[DC_PASSWORD_VIEW_CELLS + 1];
     char password_entry[DC_PASSWORD_LEN + 1];
     int password_pos;
     int password_status; /* 0 neutral, 1 accepted, -1 invalid */
@@ -137,7 +149,12 @@ typedef enum GameState {
     GAME_OPTIONS = 8,
     GAME_OVER = 9,
     GAME_ENDING = 10,
-    GAME_DIALOGUE = 11
+    GAME_DIALOGUE = 11,
+    /* The continue hub after the death animation (docs/TAKES.md §6.3).
+     * GAME_OVER stays for the colosseum's scripted restart path only. */
+    GAME_CONTINUE = 12,
+    /* Display-only PASS WORD screen (4x4), reached from the END option. */
+    GAME_PASSWORD_VIEW = 13
 } GameState;
 
 #endif

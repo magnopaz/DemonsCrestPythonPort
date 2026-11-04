@@ -224,8 +224,9 @@ As três opções, confirmadas pelo utilizador:
 | SELECT A STAGE | vai para o mapa em Mode 7 |
 | END | mostra o ecrã `PASS WORD` (4×4, `PUSH START BUTTON`); o password gerado leva sempre ao mapa |
 
-Ou seja: morrer não é game over nenhum — é o hub do jogo. O port tem isto
-errado hoje: `Game_HandleDeath` (C e Python) só reinicia a área 0 e manda as
-outras para um `GAME_OVER` inventado que espera ENTER e não tem caminho de volta
-para a sala nem para o mapa.
+Ou seja: morrer não é game over nenhum — é o hub do jogo. O port implementa-o
+desde o Passo B: `GAME_CONTINUE` corre 90 frames de animação de morte e abre
+`RETRY / SELECT A STAGE / END`; RETRY recarrega a mesma sala no spawn 0 com HP
+cheio, SELECT A STAGE abre o mapa e END mostra o `PASS WORD` 4×4. O `GAME_OVER`
+antigo ficou só como estado de debug (`DC_STATE=gameover`).
 
