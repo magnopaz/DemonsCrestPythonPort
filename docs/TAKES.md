@@ -125,3 +125,9 @@ Falta só a **porta de ida**. Dois caminhos:
    **Bloqueia** em `dcpy/game.py::game_check_transitions`: hoje o port ignora
    `pad_mask` e dispara por proximidade — sem `pad_mask` o jogador é
    teleportado ao passar ao lado da porta.
+
+O dump de objectos da take (`trace_stage.py replay --objects`, passo 200)
+confirma `room_area4.json` objecto a objecto (hex): `$57@360,232`, quatro
+`$57` em 536/552/568/584, `$96@568,437` e os três `$24` em (424,420),
+(664,420) e (824,116). Nenhum dos 11 registos extraídos falta nem sobra. É a prova de que a
+área 4 está certa e de que `$24` é mesmo o controlador de porta.
