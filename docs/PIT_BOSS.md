@@ -70,12 +70,53 @@ O estado 1 (`$83:C198`) chama `$809D8E`, `$C45C`, calcula
 `$1DD1 + $0C - $1DD7` para `$34` e fixa `$31 = $0080`; o estado 2 (`$83:C1C2`)
 ainda não foi lido.
 
-## 4. O que falta medir (bloqueia a implementação fiel)
+## 4. O que a take mediu (fino, 2026-11-04)
 
-1. **Tabelas `$E203`/`$E20B`**: são WRAM, não ROM (o banco `$E2` não existe no
-   cartucho). O init de outro sítio escreve os 8 alvos e os 8 tempos. Sem eles
-   a subida tem de vir da take (y medido), não da ROM. Precisam de um
-   `set_wram_watch`/dump durante a luta.
+Replay da take com leituras de WRAM em $E203 (16 bytes), $1DEA e do registo
+do slot 9 a cada 100 frames (a área 8 começa em ~14200):
+
+| frame | $1DEA | $6B x,y | $6B $05/$06 | nota |
+|---|---|---|---|---|
+| 14200 | 0 | (128,700) | 0/0 | entra na área |
+| 14300 | **1** | (128,700) | 0/2 | $69 liga a luta |
+| 14400 | 1 | (128,700) | 0/2 | $40=7 |
+| 14500 | 1 | (128,687) | 0/6 | começa a subir |
+| 14600 | 1 | (128,642) | 0/6 | |
+| 14700 | 1 | (128,596) | 0/6 | |
+| 14800 | 1 | (128,551) | 0/6 | |
+| 14900 | 1 | (128,514) | 0/12 | |
+| 15000 | 1 | (128,471) | 0/8 | |
+| 15100 | 1 | (128,432) | 0/8 | |
+| 15200 | 1 | (128,398) | 0/8 | |
+| 15300 | 1 | (128,365) | 0/6 | |
+| 15400 | 1 | (128,339) | 0/12 | |
+| 15500 | 1 | (128,296) | 0/12 | |
+| 15600 | 1 | (128,252) | 0/12 | |
+| 15700 | 1 | (128,209) | 0/12 | topo |
+| 15800 | 1 | (128,212) | **2/0** | passa ao estado 2 |
+| 15900–16900 | 1 | y 187–216 | 2/0 | oscila (bob) |
+| 17000 | **0** | (128,216) | 2/0 | a luta acaba |
+| 17300 | 0 | (128,700) | 0/0 | o corpo volta ao fundo |
+
+A subida leva ~1400 frames (23 s) de y=700 a y=209; depois o estado 2 oscila
+entre ~187 e ~216. O `$69` liga `$1DEA` quando o jogador está em
+`$1031 < 0x80` ou `$1034 >= 0x238` (x<128 ou y≥568), que é o caso ao entrar no
+poço.
+
+**Correcção da hipótese das tabelas:** `$E203`/`$E20B` são **constantes** na
+luta (`15 04 15 05 15 26 15 27` / `15 00 15 01 15 22 15 23`); não são a tabela
+de 8 passos da subida. O `$C020` lê-as para `$48`/`$3B` (provável índice de
+animação/tempo), mas o movimento vertical vem dos estágios de `$3E` e do scroll
+`$1DF0`/`$1DF2`, não delas. A sequência acima é a fonte para a implementação
+enquanto o mapeamento de `$3E`→y não estiver feito.
+
+## 5. O que falta medir (bloqueia a implementação fiel)
+
+1. **Mapa `$3E` → y**: os estágios de `$3E` (`$C073` +14/frame até `$160`,
+   `$C145` -48, `$C0B0` -10, `$C0DF` +32 até `$2A0`) e o scroll `$1DF0`/`$1DF2`
+   movem o corpo, mas ainda não se sabe a relação exacta com o y do objecto.
+   A tabela WRAM já foi despejada (é constante, ver §4); falta este mapa para
+   reproduzir a subida pela ROM em vez de interpolar a take.
 2. **`$1DD0`–`$1DF7`**: são os globais de objecto/scroll do motor (posição,
    OAM, câmara). É preciso mapeá-los para os campos do `Object` do port antes de
    transcrever `$C0DF`/`$C15D`.
@@ -86,14 +127,14 @@ ainda não foi lido.
 5. **Arte**: `$69`/`$6B`/`$6C` não têm sheet. A take tem os frames; é preciso
    `capture_boss_window.py`/`replay_capture.py` para os cozer.
 
-## 5. Plano da próxima sessão
+## 6. Plano da próxima sessão
 
-1. Reproduzir a take com watch em `$E203`, `$E20B`, `$1DEA`, `$1DF0` e dump das
-   duas tabelas de 8 bytes.
-2. Mapear `$1DD0`–`$1DF7` para o `Object` (provavelmente posição/OAM, não
-   estado de AI).
-3. Implementar `$6B` com a máquina acima; `$69` fixo como núcleo; `$6C` como
-   olhos (4 estados, `$83:C7B2`).
+1. ~~Reproduzir a take com watch em `$E203`, `$E20B`, `$1DEA`, `$1DF0`~~ —
+   feito: as tabelas são constantes e a sequência de y está em §4.
+2. Fechar o mapa `$3E`/`$1DF0` → y do objecto (uma sessão de watch em
+   `$1DF0`/`$1DF2` durante a subida).
+3. Implementar `$69` (trigger `$1DEA`) e `$6B` (subida medida + estado 2 de
+   bob); `$6C` como olhos (4 estados, `$83:C7B2`).
 4. Cozer a arte da take e ligar o sheet.
 5. `tools/check_pit_boss.py` na regressão: afirma a sequência de y medida, os
    11 olhos e o dano ao jogador.
