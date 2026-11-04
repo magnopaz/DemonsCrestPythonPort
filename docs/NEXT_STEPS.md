@@ -9,6 +9,9 @@ antes de planear, porque é ele que diz quanto falta de verdade.*
 
 ## 0. Antes de tocar em código
 
+- **Ler `docs/SESSION_HANDOFF.md`** — estado, commits, comandos e armadilhas da
+  sessão anterior (2026-11-03). A árvore está limpa em `942e978` e a regressão
+  passa.
 - **O Passo 1 está feito e commitado.** A árvore está limpa e
   `python3 tools/run_regression.py` passa com o `check_objects.py` novo ligado.
   Se aparecer trabalho por commitar, é da sessão corrente: rever e commitar
