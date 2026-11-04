@@ -254,11 +254,18 @@ a take o erro máximo é 2 px; o olho central é `state 2` preso ao corpo.
 `check_pit_boss.py` afirma agora o parque, o desvio em t=600/1200/1500
 (tolerância 4 px), o olho central e o atraso de 199 frames.
 
+**Resolvido na mesma sessão:** as tabelas são do banco **`$81`** (o `$7E:E2D5`
+era uma tabela de tiles e enganou a sessão anterior) e o `$03` de cada slot é a
+flag do registo. O registo de 12 bytes em `$81:E2DF` dá (x, A, B, C, D) e
+reproduz os dez parques 10/10 — `docs/PIT_BOSS.md` §7.6, que também lista as
+tabelas do lançamento (`$81:E357/E360/E364/E407/E41D/E41E/E423`). O port já usa
+`_PIT_EYE_ROWS`; a regra de `sub 4` com esta tabela ainda dá ~25 px de erro
+(falta `$1DEE` e o integrador por fase a 1 frame), por isso o `_PIT_EYE_TRACK`
+medido fica até lá.
+
 **O que falta (por ordem):**
-1. As tabelas `$E2D5/$E2DF/$E2E1/$E2E3/$E2E5/$E2E7`: o handler faz
-   `ldy $E2D5,X` e indexa `$E2E1,Y`; em WRAM só há uma tabela de words `$15xx`
-   (números de tile), portanto o valor de `$03`/o DBR ainda não fechou. Fechar
-   isto troca `_PIT_EYE_TRACK` pela regra do ROM.
+1. Fechar `sub 4` com as tabelas (replay a passo 1 em 14421–15791) e apagar
+   `_PIT_EYE_TRACK`.
 2. O lançamento (`sub 6`+, `$83:C918`): faltam `$D0BE` (anim), `$D07C`/`$D198`
    (sondas/timers), `$809CA4` (probe), `$809D8E`, `$808C95`/`$808C99`
    (integradores) e `$BC904B` (RNG). É o que faz os olhos voar e ferir.

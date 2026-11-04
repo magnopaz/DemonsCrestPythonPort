@@ -812,9 +812,30 @@ def _pit_body_y(t: int) -> float:
 PIT_EYE_CORE_INDEX = 10   # record flag of the eleventh $6C (the body's eye)
 PIT_EYE_RELEASE = 220     # frames of fight before $1DF7: the body starts up
 
-# Park x, one per satellite (records with flags 0..9), measured at 14201.
-_PIT_EYE_PARK_X = (96.0, 104.0, 112.0, 115.0, 122.0, 136.0, 143.0, 153.0,
-                   162.0, 166.0)
+# One row per satellite (records with flags 0..9), straight from the ROM's
+# table at $81:E2DF: (x, A, B, C, D) with a 12-byte stride.  The handler reads
+# it as `ldy $E2D5,X` (X = the slot's $03, which is the record flag) and then
+# `lda $E2DF,Y` / `$E2E1,Y` / `$E2E3,Y` / `$E2E5,Y` / `$E2E7,Y`:
+#
+#   park x = x
+#   park y = $1DD5 - $D8 + A + B          ($D8 = 216)
+#   band   = [$1DD5 - $D8 + A - B, ... + B]  (the +-1 px clamp of $C8D5/$C8F4)
+#   C      = velocity cap, D = acceleration step
+#
+# Data bank at object-update time is $81 (verified: these rows reproduce the ten
+# measured park positions 10/10, docs/PIT_BOSS.md §7.6).
+_PIT_EYE_ROWS = (
+    ( 96, 226,  8,  52, 1),
+    (104, 208, 16,  88, 2),
+    (112, 216, 32, 128, 3),
+    (115, 205,  8,  48, 1),
+    (122, 236, 10,  40, 1),
+    (136, 220, 14,  80, 2),
+    (143, 206, 32, 112, 3),
+    (153, 220, 10,  80, 2),
+    (162, 212,  6,  51, 1),
+    (166, 216, 32,  88, 3),
+)
 
 # y offset below the body, sampled every 20 frames from the fight's start
 # (take frame 14201).  Ten columns, one per satellite, in record order.
@@ -976,10 +997,19 @@ def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
         o.x_fx = float_to_fx(body_x + 1.0)
         o.y_fx = float_to_fx(body_y + 28.0)
         return
+    row = _PIT_EYE_ROWS[index]
     o.state = 0
-    o.substate = 2 if o.timer < PIT_EYE_RELEASE else 4
-    o.x_fx = float_to_fx(_PIT_EYE_PARK_X[index])
-    o.y_fx = float_to_fx(body_y + _pit_eye_offset(index, o.timer))
+    o.x_fx = float_to_fx(float(row[0]))
+    if o.timer < PIT_EYE_RELEASE:
+        # sub 2: park at $1DD5 - $D8 + A + B, exactly the ROM's formula.
+        o.substate = 2
+        o.y_fx = float_to_fx(body_y - 216.0 + row[1] + row[2])
+    else:
+        # sub 4: the band clamp and the per-eye velocity are decoded but their
+        # phase ($1DEF) and acceleration are not exact yet (docs/PIT_BOSS.md
+        # §7.6); the measured track holds the take to 2 px meanwhile.
+        o.substate = 4
+        o.y_fx = float_to_fx(body_y + _pit_eye_offset(index, o.timer))
 
 
 def objects_update(pool: ObjectPool, level, player) -> None:

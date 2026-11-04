@@ -234,14 +234,64 @@ nos 11 000 frames medidos — ficam descodificados, não portados.
 
 ### 7.5 O que falta (por ordem)
 
-1. **Tabelas `$E2D5/$E2DF/$E2E1/$E2E3/$E2E5/$E2E7`**: o handler faz
-   `ldy $E2D5,X` (X = `$03`) e indexa `$E2E1,Y` etc. Em WRAM `$E2C0..$E300` só
-   existe uma tabela de words `$15xx` (números de tile), pelo que o valor de
-   `$03`/o banco de dados (DBR) ainda não está fechado — daí o port usar a
-   take. Fechar isto substitui `_PIT_EYE_TRACK` pela regra do ROM.
+1. ~~Tabelas `$E2D5/$E2DF/$E2E1/$E2E3/$E2E5/$E2E7`~~ — **resolvido**, ver §7.6.
 2. **Lançamento (`sub 6`+)**: falta portar `$D0BE` (anim), `$D07C`/`$D198`
    (sondas/timers), `$809CA4` (probe rectangular), `$809D8E`, `$808C95`/
    `$808C99` (integradores) e `$BC904B` (RNG). É o que faz os olhos voar e
    ferir o jogador.
 3. Dano/HP/morte do corpo, arte (`$69`/`$6B`/`$6C` sem sheet) e o lock da
    arena.
+
+### 7.6 As tabelas dos olhos (resolvido, 2026-11-04 tarde)
+
+**Banco de dados do update de objectos = `$81`.** Foi encontrado por tentativa:
+para cada banco do ROM, aplicar a fórmula do handler com as posições medidas e
+contar quantos dos 10 satélites batem. `$81` (e o seu espelho `$01`) dá
+**10/10**; todos os outros dão 0. As leituras `$E2xx` do handler são deste
+banco, não de WRAM — o que estava em `$7E:E2D5` era uma tabela de tiles `$15xx`
+e enganou a sessão anterior.
+
+O `$03` de cada slot é a **flag do registo** (0..10), lida do pool em 14451:
+`slot 10 → $03=0`, `11 → 1`, …, `19 → 9`, `20 → $0A`. Portanto
+`ldy $E2D5,X` = byte em `$81:E2D5+X`, e os bytes são 0, 12, 24, … 108 (o stride
+de 12 bytes).
+
+Registo por satélite em `$81:E2DF + 12·flag`:
+
+| campo | endereço | significado |
+|---|---|---|
+| x | `$E2DF,Y` | x de parque |
+| A | `$E2E1,Y` | offset base do y |
+| B | `$E2E3,Y` | meia-largura da banda |
+| C | `$E2E5,Y` | tecto da velocidade (`$26`) |
+| D | `$E2E7,Y` | passo de aceleração (`$24`) |
+
+Com `base = $1DD5 - $D8` (216): parque `y = base + A + B`, banda
+`[base + A - B, base + A + B]`, e o `+1/−1` px/frame de `$C8D5`/`$C8F4` puxa o
+olho para dentro dela. Os dez pares (x, y) saem 10/10 iguais aos medidos:
+
+```
+(96,226,8,52,1) (104,208,16,88,2) (112,216,32,128,3) (115,205,8,48,1)
+(122,236,10,40,1) (136,220,14,80,2) (143,206,32,112,3) (153,220,10,80,2)
+(162,212,6,51,1) (166,216,32,88,3)
+```
+
+O port já usa esta tabela (`_PIT_EYE_ROWS`) para o parque e para o x.
+
+Tabelas do lançamento, todas no mesmo banco:
+
+| tabela | conteúdo |
+|---|---|
+| `$81:E357` | 0, 48, 95, 143, 181, 212, 235, 251 — velocidade por passo de animação |
+| `$81:E360` | 16 bytes — `$09` (frente) por id de animação |
+| `$81:E364` | 16 bytes — frame de animação por passo (`$CFBF`) |
+| `$81:E407` | 16 bytes (0,0,0,0,0,0,2,2,4,4,4,4,2,2,2,2) — índice em `$E41D`/`$E41E` |
+| `$81:E41D`/`$E41E` | valores para `$47`/`$48` (timer de retorno e desvio) |
+| `$81:E423` | 16 valores (8..12) — `$06` de regresso (`$CA9D`) |
+
+**Ainda não fecha**: a regra do `sub 4` com esta tabela (banda + velocidade)
+reproduz o y de cada olho com erro máximo de **~25 px** (o `_PIT_EYE_TRACK`
+medido dá 2 px). Faltam duas coisas para fechar: `$1DEE` (muda de valor durante
+a luta e o handler zera `$22`/`$23` quando muda — ler a 1 frame) e o
+`$808C95`/`$808C99` exacto por fase. Um replay a passo 1 em 14421–15791 (~10
+min) deve chegar lá; depois `_PIT_EYE_TRACK` desaparece.

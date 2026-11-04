@@ -126,8 +126,11 @@ lançamento (`sub 6`+, dez sub-subestados) descodificada mas não portada.
 ~1350 frames com bob; os 11 `$6C` parqueiam no x medido e seguem o corpo dentro
 de 4 px da take (`tools/oracle/measure_pit_eyes.py` mede, `_PIT_EYE_TRACK`
 guarda). Também se removeu a porta `8→10` que expulsava o jogador no frame 1.
-**Falta:** o lançamento dos olhos (`sub 6`+, precisa de `$D0BE`, `$809CA4`,
-`$809D8E`, `$808C95/99`), o dano/HP/morte do corpo, a arte e o lock da arena.
+As tabelas dos olhos estão resolvidas (banco `$81`, `$81:E2DF` com stride 12,
+`docs/PIT_BOSS.md` §7.6). **Falta:** o lançamento dos olhos (`sub 6`+, precisa de
+`$D0BE`, `$809CA4`, `$809D8E`, `$808C95/99`), fechar a regra de `sub 4` com a
+tabela (hoje ~25 px de erro; o medido dá 2 px), o dano/HP/morte do corpo, a arte
+e o lock da arena.
 
 - **Poço (área 8)**: `$6B` sobe atrás do jogador (y 700→212 medido), `$6C` são
   os olhos que voam, `$69` fica fixo no fundo. Não é `$16`; a entrada da área 54
