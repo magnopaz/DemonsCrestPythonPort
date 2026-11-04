@@ -112,3 +112,21 @@ com elas, por ordem:
   (`$B3AC`), precisa de `$80A0FF` e de contexto de sala para a arte.
 - **Espécies que derrubam o guest ao injectar**: `$9C`, `$79`, `$73`, `$70`,
   `$30` (connection reset). Precisam de contexto/script, não de injecção nua.
+
+## Fecho da sessão (continuação): a take do estágio II
+
+- A take `captures/rec_stage2_trace/stage_II_ruined-city-dark-avenue` foi
+  reproduzida desde o boot e mapeada — formato, comandos, armadilhas e
+  resultados medidos em `docs/TAKES.md`.
+- Corrigido `tools/oracle/trace_stage.py replay`: gravava o replay em JSON com
+  espaços, o `sscanf` do debug server descartava todas as linhas e a corrida
+  acontecia **sem input** (`samples: 0`, sem erro). Agora escreve compacto, usa
+  `gframe` e falha alto quando carrega 0 amostras. `--objects` lista
+  `slot:espécie@x,y`.
+- Achado que muda o mapa: `$008D` é offset de bytes (área = `$008D/2`). A avenida
+  do estágio II é a **área 4** (não 8); biblioteca/wise man/black lotus são
+  **46/47/48**. `docs/INTERIOR_DOORS.md` corrigido; `docs/FullMaps/room_names.md`
+  ainda tem os valores duplicados.
+- Bloqueio seguinte: `pad_mask` em `game_check_transitions` antes de acrescentar
+  as três portas up da área 4 em (424,428), (664,428) e (824,124).
+

@@ -113,17 +113,28 @@ def launch(exe: Path, rom: Path, port: int, extra: list[str]) -> subprocess.Pope
                             stderr=subprocess.DEVNULL)
 
 
-def sample(c: Client, gframe: int) -> dict:
+def sample(c: Client, gframe: int, objects: bool = False) -> dict:
     area8d = c.read(0x008D, 1)[0]
     win = c.read(0x1000, 0x0D50)   # player task + object pool in one read
     x = (win[0x30] | win[0x31] << 8 | win[0x32] << 16) / 256.0
     y = (win[0x33] | win[0x34] << 8 | win[0x35] << 16) / 256.0
     pool = win[0x80:]
-    species = [pool[i * 0x50 + 2] for i in range(26)
-               if any(pool[i * 0x50:(i + 1) * 0x50])]
-    return dict(gframe=gframe, area8d=area8d, area=area8d // 2,
-                state=win[5], sub=win[6], x=round(x, 1), y=round(y, 1),
-                species=";".join(str(s) for s in sorted(set(species))))
+    slots = []
+    for i in range(26):
+        rec = pool[i * 0x50:(i + 1) * 0x50]
+        if not any(rec):
+            continue
+        slots.append((i, rec[2],
+                      (rec[0x30] | rec[0x31] << 8 | rec[0x32] << 16) / 256.0,
+                      (rec[0x33] | rec[0x34] << 8 | rec[0x35] << 16) / 256.0))
+    row = dict(gframe=gframe, area8d=area8d, area=area8d // 2,
+               state=win[5], sub=win[6], x=round(x, 1), y=round(y, 1),
+               species=";".join(str(s) for s in sorted({s[1] for s in slots})))
+    if objects:
+        # `|` keeps the field readable; csv quotes it because of the commas.
+        row["objects"] = "|".join(f"{i}:{s:02x}@{sx:.0f},{sy:.0f}"
+                                  for i, s, sx, sy in slots)
+    return row
 
 
 def write_csv(rows: list[dict], out: Path) -> None:
@@ -174,7 +185,10 @@ def mode_replay(args) -> int:
         if not line.strip():
             continue
         rec = json.loads(line)
-        samples.append({"frame": int(rec["frame"]),
+        # The recorder logs the input frame in `frame` (0-based) and the guest
+        # frame in `gframe`; replay_input applies a sample at the guest frame,
+        # so gframe is the one that lines up.
+        samples.append({"frame": int(rec.get("gframe", rec["frame"])),
                         "inputs": int(rec["inputs"]),
                         "active": 1})
     if samples and samples[0]["frame"] > 1:
@@ -182,17 +196,24 @@ def mode_replay(args) -> int:
               "will not line up (record with SNESREC_AUTORECORD=1)")
     replay = Path(args.out).with_suffix(".replay.jsonl")
     replay.parent.mkdir(parents=True, exist_ok=True)
-    replay.write_text("\n".join(json.dumps(s) for s in samples) + "\n")
+    # No spaces: the debug server parses each line with
+    # sscanf("{\"frame\":%d,\"inputs\":%u,\"active\":%d}"), which silently
+    # skips a line written by plain json.dumps (spaces after the colons).
+    replay.write_text("\n".join(json.dumps(s, separators=(",", ":"))
+                                for s in samples) + "\n")
 
     proc = launch(args.exe, args.rom, args.port, [])
     try:
         c = connect(args.port)
-        c.cmd(f"replay_input {replay.as_posix()}")
+        reply = c.cmd(f"replay_input {replay.as_posix()}")
+        if not reply.get("samples"):
+            raise SystemExit("trace_stage: replay_input loaded 0 samples "
+                             "(compact JSON required)")
         last = args.limit or samples[-1]["frame"]
         rows = []
         for g in range(1, last + 1, args.step):
             c.run_to(g)
-            rows.append(sample(c, g))
+            rows.append(sample(c, g, args.objects))
         write_csv(rows, Path(args.out))
     finally:
         proc.terminate()
@@ -215,6 +236,8 @@ def main() -> int:
                     help="replay mode: sample every N frames (default 20)")
     ap.add_argument("--limit", type=int, default=0,
                     help="replay mode: stop at this guest frame")
+    ap.add_argument("--objects", action="store_true",
+                    help="replay mode: also dump every live slot (species@x,y)")
     ap.add_argument("--port", type=int, default=4478)
     ap.add_argument("--rom", default="")
     ap.add_argument("--exe", type=Path, default=None)
