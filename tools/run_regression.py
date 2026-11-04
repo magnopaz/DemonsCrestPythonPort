@@ -322,9 +322,10 @@ def main() -> int:
         # Area 4's observed door (x=2025) lies outside the extracted world
         # (1024 wide) -- see the "needs wider extraction" report in
         # check_navigation.py; it is skipped until the room is re-extracted.
+        # The old 8->10 hop was removed with its door: the save belonged to
+        # the avenue (area 4) and the box sat on the pit's spawn.
         for src_area, sx, sy, dst_area in ((2, 1706, 300, 4),
                                            (0, 740, 190, 34),
-                                           (8, 32, 664, 10),
                                            (10, 1264, 104, 18),
                                            (20, 440, 144, 22),
                                            (76, 226, 141, 78),
@@ -473,6 +474,17 @@ def main() -> int:
         check(death_proc.returncode == 0,
               "death menu: continue hub check failed\n"
               + death_proc.stdout[-800:])
+
+        # ---- Pit of Ovununu: the measured boss opening ----
+        pit_proc = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_pit_boss.py"),
+             "--binary", str(binary), "--assets", str(assets),
+             "--tmp", str(out)],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=300)
+        check(pit_proc.returncode == 0,
+              "pit boss: measured opening check failed\n"
+              + pit_proc.stdout[-800:])
 
         # ---- End-to-end campaign playthrough ----
         play = subprocess.run(
@@ -680,7 +692,8 @@ def main() -> int:
     print("regression: PASS (demos 6,7,9,10,11,12,13, boss data/runtime, "
           "hippogriff fight, arma crest/map chain, mode 7 map, "
           "object placement/placeholders, $72 flames, up-door pad_mask, "
-          "death continue hub, boss defeat + multi-area loads)")
+          "death continue hub, pit boss opening, "
+          "boss defeat + multi-area loads)")
     return 0
 
 

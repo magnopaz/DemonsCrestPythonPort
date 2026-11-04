@@ -361,6 +361,15 @@ def _draw_objects(assets, camera, objects) -> None:
         x = o.x_fx / 256.0 - camera.x
         y = o.y_fx / 256.0 - camera.y
 
+        if o.type == LEVEL_OBJECT_UNKNOWN:
+            # Pooled species with a partial handler (the pit boss trio): keep
+            # the debug box, but at the live position.
+            rl.draw_rect_lines(lround(x - 6), lround(y - 12), 12, 12,
+                               rl.rgb(255, 80, 220))
+            rl.DrawRectangle(lround(x - 2), lround(y - 4), 4, 4,
+                             rl.rgb(255, 200, 245))
+            continue
+
         if o.type == OBJECT_ENEMY_SHOT:
             if o.species == 0x34 and \
                     (len(assets.boss_flame) if o.state == 1
@@ -592,6 +601,10 @@ def render_game(assets, level, camera, player, projectiles, objects,
     _decor_visible = 0
     _decor_clock += 1
     for index, o in enumerate(level.objects):
+        if o.species in (0x69, 0x6B, 0x6C):
+            # The pit boss trio is pooled by objects_init: the handler owns
+            # the live position, so the static record is not drawn here.
+            continue
         if o.type == LEVEL_OBJECT_INERT:
             # Retail-list records that draw nothing and are driven by a boss
             # script (species $9B): no sprite, no placeholder.

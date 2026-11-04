@@ -115,11 +115,14 @@ assenta os pés na floor, o mesmo +20 das spawns da avenida. Checker
 
 ### Passo C — bosses do estágio II (2–3 sessões cada, só depois de A e B) — **em curso**
 
-**Poço (2026-11-04):** a medição da primeira sessão está em `docs/PIT_BOSS.md`
-— papéis das três espécies, handlers (`$69 $83:B96E`, `$6B $83:BFDD`,
-`$6C $83:C7B2`), a máquina de estados do `$6B` decodificada e a lista do que
-falta medir (tabelas WRAM `$E203/$E20B`, globais `$1DD0–$1DF7`, helpers,
-HP/morte, arte). Ainda não há código do boss.
+**Poço (2026-11-04):** a medição está em `docs/PIT_BOSS.md` — papéis das três
+espécies, handlers (`$69 $83:B96E`, `$6B $83:BFDD`, `$6C $83:C7B2`), a máquina
+do `$6B` e a sequência de y medida na take. A **abertura está implementada**:
+o `$69` liga o combate pela condição do ROM (`x<128` ou `y>=568`), o `$6B` sobe
+700→209 em ~1350 frames e faz bob, os três entram no pool e
+`tools/check_pit_boss.py` está na regressão. Também se removeu a porta `8→10`
+que expulsava o jogador do poço no frame 1. **Falta:** a AI dos 11 `$6C`, o
+dano/HP/morte do corpo, a arte e o lock da arena.
 
 - **Poço (área 8)**: `$6B` sobe atrás do jogador (y 700→212 medido), `$6C` são
   os olhos que voam, `$69` fica fixo no fundo. Não é `$16`; a entrada da área 54

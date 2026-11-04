@@ -44,7 +44,11 @@ from pathlib import Path
 DOORS: tuple[tuple[int, float, float, int, str], ...] = (
     (2, 1706, 300, 4, "murkland cemetery before_door (save_lvl_I_room0)"),
     (0, 740, 190, 34, "murkland colosseum after-boss save; second arena chunk"),
-    (8, 32, 664, 10, "ruined city dark avenue before_door"),
+    # The old (8, 32, 664, 10) entry was removed: its save is named "ruined
+    # city dark avenue before_door" (the avenue is area 4), and area 8's ROM
+    # transition table has no 8->10. The derived box sat on the pit's spawn
+    # (32,668) and exited the room on frame 1, which made the pit boss
+    # unreachable in campaign mode.
     (10, 1264, 104, 18, "ruined city reservoir before_door"),
     (20, 440, 144, 22, "dark forest thorn grove before_door"),
     (76, 226, 141, 78, "phalanx fortress western bell tower before_door"),
@@ -251,6 +255,35 @@ def apply(rooms: Path, dry_run: bool = False) -> int:
     return applied
 
 
+def prune_door_table(rooms: Path, dry_run: bool = False) -> int:
+    """Drop stale ``door_table`` entries whose pair left the DOORS table.
+
+    ``apply`` only opens the source rooms still listed in DOORS, so a removed
+    entry would otherwise survive in the generated JSON forever. This makes
+    the tool idempotent after a table edit.
+    """
+    keep = {(src, dst) for src, _x, _y, dst, _prov in DOORS}
+    pruned = 0
+    for path in sorted(rooms.glob("room_area*.json")):
+        data = json.loads(path.read_text())
+        src = int(data.get("area_id", -1))
+        transitions = data.get("transitions", [])
+        kept = [tr for tr in transitions
+                if not (tr.get("source") == "door_table" and
+                        (src, tr.get("next_area")) not in keep)]
+        if len(kept) != len(transitions):
+            removed = len(transitions) - len(kept)
+            pruned += removed
+            print(f"prune {src}: removed {removed} stale door_table "
+                  f"transition(s)")
+            if not dry_run:
+                data["transitions"] = kept
+                path.write_text(json.dumps(data))
+    print(f"door_table: {pruned} stale transition(s) "
+          f"{'found' if dry_run else 'removed'}")
+    return pruned
+
+
 def apply_take_doors(rooms: Path, dry_run: bool = False) -> int:
     """Write the take-measured up-doors, replacing previous ``take_door`` ones."""
     by_source: dict[int, list[tuple[int, float, float, int, int, str]]] = {}
@@ -312,6 +345,7 @@ def main() -> int:
                     help="report the doors without writing the room JSONs")
     args = ap.parse_args()
     apply(args.rooms, args.dry_run)
+    prune_door_table(args.rooms, args.dry_run)
     apply_take_doors(args.rooms, args.dry_run)
     return 0
 

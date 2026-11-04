@@ -14,7 +14,8 @@ import re
 from .consts import (
     CREST_TIME, CREST_ULTIMATE, LEVEL_OBJECT_BOSS, LEVEL_OBJECT_ENEMY,
     LEVEL_OBJECT_NPC, LEVEL_OBJECT_PICKUP_CREST, LEVEL_OBJECT_PLATFORM,
-    LEVEL_OBJECT_TALISMAN, LEVEL_OBJECT_URN, OBJECT_BOSS, OBJECT_CREST_ITEM,
+    LEVEL_OBJECT_TALISMAN, LEVEL_OBJECT_UNKNOWN, LEVEL_OBJECT_URN,
+    OBJECT_BOSS, OBJECT_CREST_ITEM,
     OBJECT_ENEMY, OBJECT_ENEMY_SHOT, OBJECT_EVENT_BOSS_DEFEATED,
     OBJECT_EVENT_BREAK, OBJECT_EVENT_CREST_PICKUP, OBJECT_EVENT_ENEMY_HIT,
     OBJECT_EVENT_FIRE_PIECE, OBJECT_EVENT_PICKUP, OBJECT_EVENT_TALISMAN,
@@ -78,6 +79,7 @@ class ObjectPool:
         self.boss_defeated = False
         self.boss_present = False  # an OBJECT_BOSS was spawned in this room
         self.boss_phase = 0  # 1 until a two-form boss transforms
+        self.pit_fight = False  # area 8: $69 raised $1DEA (the fight started)
         self.last_fire_piece = 0
         self.last_talisman = 0  # 1..4 = Buster/Tornado/Claw/Demon Fire
 
@@ -402,6 +404,26 @@ def _spawn_npc(pool: ObjectPool, src) -> None:
     o.facing = -1
 
 
+def _spawn_unknown(pool: ObjectPool, src) -> None:
+    """Pool a species whose handler is only partly ported.
+
+    The pit boss trio ($69/$6B/$6C) needs a live position for its measured
+    opening; the renderer draws these as debug boxes (render.py)."""
+    o = _alloc(pool)
+    if o is None:
+        return
+    _reset_object(o)
+    o.active = True
+    o.type = LEVEL_OBJECT_UNKNOWN
+    o.species = src.species
+    o.flags = src.flags
+    o.x_fx = float_to_fx(src.x)
+    o.y_fx = float_to_fx(src.y)
+    o.origin_x_fx = o.x_fx
+    o.origin_y_fx = o.y_fx
+    o.hp = 1
+
+
 def objects_init(pool: ObjectPool, level) -> None:
     # memset(pool, 0, sizeof(*pool)), then the phase default.
     for slot in pool.slots:
@@ -410,6 +432,7 @@ def objects_init(pool: ObjectPool, level) -> None:
     pool.boss_alive = False
     pool.boss_defeated = False
     pool.boss_present = False
+    pool.pit_fight = False
     pool.last_fire_piece = 0
     pool.last_talisman = 0
     pool.boss_phase = 1
@@ -443,6 +466,10 @@ def objects_init(pool: ObjectPool, level) -> None:
             _spawn_npc(pool, src)
         elif src.type == LEVEL_OBJECT_TALISMAN:
             _spawn_talisman(pool, src)
+        elif src.type == LEVEL_OBJECT_UNKNOWN and \
+                src.species in (PIT_CORE_SPECIES, PIT_BODY_SPECIES,
+                                PIT_EYE_SPECIES):
+            _spawn_unknown(pool, src)
     if env_flag("DC_DEBUG_OBJ"):
         n = 0
         for i, o in enumerate(pool.slots):
@@ -717,6 +744,74 @@ def _ghoul_update(o: Object, level, p, pool: ObjectPool) -> None:
         o.substate = 0
 
 
+PIT_CORE_SPECIES = 0x69
+PIT_BODY_SPECIES = 0x6B
+PIT_EYE_SPECIES = 0x6C
+
+# The body's climb, sampled every 20 frames from the pit take (frame 14400 is
+# the room entry; 15750 is the top). The ROM's internal stages are $3E/scroll
+# driven and not mapped yet (docs/PIT_BOSS.md §5); this is the measured curve.
+_PIT_RISE = (
+    (0, 700.0), (20, 698.5), (40, 693.5), (60, 690.0),
+    (80, 688.1), (100, 687.1), (120, 671.4), (140, 650.8),
+    (160, 644.1), (180, 644.1), (200, 641.7), (220, 622.0),
+    (240, 604.8), (260, 600.6), (280, 600.6), (300, 595.6),
+    (320, 573.7), (340, 559.4), (360, 557.0), (380, 557.0),
+    (400, 551.3), (420, 531.3), (440, 519.5), (460, 514.9),
+    (480, 513.5), (500, 513.5), (520, 512.3), (540, 497.2),
+    (560, 482.4), (580, 474.1), (600, 470.6), (620, 469.9),
+    (640, 469.9), (660, 465.0), (680, 444.2), (700, 431.7),
+    (720, 427.0), (740, 426.4), (760, 426.4), (780, 419.0),
+    (800, 398.4), (820, 386.5), (840, 382.8), (860, 382.8),
+    (880, 382.0), (900, 365.2), (920, 351.8), (940, 343.5),
+    (960, 339.9), (980, 339.2), (1000, 339.2), (1020, 336.8),
+    (1040, 317.2), (1060, 301.1), (1080, 296.2), (1100, 295.7),
+    (1120, 294.6), (1140, 277.6), (1160, 258.8), (1180, 252.1),
+    (1200, 252.1), (1220, 250.6), (1240, 232.7), (1260, 214.0),
+    (1280, 208.6), (1300, 208.6), (1320, 210.8), (1340, 214.6),
+    (1350, 216.1),
+)
+
+
+def _pit_body_y(t: int) -> float:
+    if t >= _PIT_RISE[-1][0]:
+        # State 2 in the take: a slow bob between 187 and 216 (period ~300
+        # frames). The exact $3E/scroll mapping is still open.
+        phase = (t - _PIT_RISE[-1][0]) % 300
+        if phase < 150:
+            return 216.0 - 29.0 * (phase / 150.0)
+        return 187.0 + 29.0 * ((phase - 150) / 150.0)
+    for (t0, y0), (t1, y1) in zip(_PIT_RISE, _PIT_RISE[1:]):
+        if t <= t1:
+            return y0 + (y1 - y0) * (t - t0) / float(t1 - t0)
+    return _PIT_RISE[-1][1]
+
+
+def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
+    """Area 8's opening: $69 raises the fight flag, $6B rises from the pit.
+
+    Measured on the pit take (docs/PIT_BOSS.md §4): $1DEA goes 1 when the
+    player is at x<128 or y>=568; the body then climbs from y=700 to ~209
+    over ~1350 frames and bobs at 187..216. $6C (the eyes) is still a
+    placeholder; its 4-state handler at $83:C7B2 is not ported yet.
+    """
+    if o.species == PIT_CORE_SPECIES:
+        if not pool.pit_fight and (player.x < 128.0 or player.y >= 568.0):
+            pool.pit_fight = True
+        o.timer += 1
+        return
+    if o.species == PIT_BODY_SPECIES:
+        if not pool.pit_fight:
+            o.state = 0
+            o.timer = 0
+            o.y_fx = float_to_fx(700.0)
+        else:
+            o.timer += 1
+            o.y_fx = float_to_fx(_pit_body_y(o.timer))
+        return
+    o.timer += 1  # $6C: placeholder until the eye AI is ported
+
+
 def objects_update(pool: ObjectPool, level, player) -> None:
     pool.boss_alive = False
     for o in pool.slots:
@@ -726,6 +821,10 @@ def objects_update(pool: ObjectPool, level, player) -> None:
         if o.type == OBJECT_NPC:
             o.timer += 1
             continue  # talkable but inert
+
+        if o.species in (PIT_CORE_SPECIES, PIT_BODY_SPECIES, PIT_EYE_SPECIES):
+            _update_pit_boss(pool, o, player)
+            continue
 
         if o.type == OBJECT_PLATFORM:
             o.timer += 1

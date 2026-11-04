@@ -25,11 +25,25 @@ não a usa.
 
 ## 2. O que o port tem hoje
 
-`room_area8.json` lista os 14 registos como `"unknown"`: aparecem como
-placeholders magenta e não têm AI. Não há `OBJECT_BOSS` na sala, por isso
-`boss_present` é falso e as duas transições (`8→10` e `8→7`) funcionam — o que
-também quer dizer que o port não tem como “prender” o jogador na arena
-enquanto o boss estiver vivo.
+`room_area8.json` lista os 14 registos como `"unknown"`. Desde 2026-11-04 o
+`objects_init` põe os três (`$69`/`$6B`/`$6C`) no pool como
+`LEVEL_OBJECT_UNKNOWN` e o `render.py` desenha-os na posição viva (caixa
+magenta). O `$69` liga `pool.pit_fight` pela condição medida; o `$6B` sobe
+pela tabela de y da take; o `$6C` continua placeholder (11 olhos parados em
+(128,640)). Não há `OBJECT_BOSS` na sala, por isso `boss_present` é falso e o
+port ainda não “prende” o jogador na arena enquanto o boss estiver vivo.
+
+A porta `8→10` da door table foi **removida**: o save chamava-se "ruined city
+dark avenue before_door" (a avenida é a área 4), a tabela do ROM da área 8 não
+tem `8→10`, e a caixa derivada caía em cima do spawn (32,668), expulsando o
+jogador no frame 1. Sem ela a área 8 é jogável e a única saída é `8→7`
+(pad_mask 8), como no ROM.
+
+**Implementado nesta sessão:** o trigger do `$69` (`player.x < 128` ou
+`player.y >= 568`), a subida do `$6B` pela tabela medida (700→209 em ~1350
+frames + bob 187..216), os três no pool com render na posição viva, e
+`tools/check_pit_boss.py` na regressão. **Falta:** a AI dos 11 `$6C`, o
+dano/HP/morte do corpo, a arte e o “lock” da arena enquanto o boss está vivo.
 
 ## 3. Handlers (ROM)
 
