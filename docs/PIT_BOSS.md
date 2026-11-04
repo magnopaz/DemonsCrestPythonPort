@@ -295,3 +295,60 @@ medido dá 2 px). Faltam duas coisas para fechar: `$1DEE` (muda de valor durante
 a luta e o handler zera `$22`/`$23` quando muda — ler a 1 frame) e o
 `$808C95`/`$808C99` exacto por fase. Um replay a passo 1 em 14421–15791 (~10
 min) deve chegar lá; depois `_PIT_EYE_TRACK` desaparece.
+
+### 7.7 A máquina de lançamento descodificada (pronta a portar)
+
+**Gatilho.** `$1DDE` vale 9 durante o enxame e passa a **0 em 15791** — é isso
+que faz cada satélite sair do `sub 4` para o `sub 6` (`$C83D: lda $1DDE; bne`).
+`$1DE9` conta os que já saíram (1 em 15791, 2 em 15821, 3 em 15851, 4 em 16651):
+os olhos lançam **um de cada vez**, pela ordem das flags. `$1DEE` alterna 4↔8
+durante a luta e o handler zera `$22`/`$23` quando muda.
+
+**Subestados** (`$38`, tabela `$83:C918`, 10 entradas de 2 bytes):
+
+| `$38` | handler | o que faz |
+|---|---|---|
+| 0 | `$C92C` | `$38=2`, `$4F=$12`, `$3D=$3C`, `$3E=0`, `$49=4`, `$4D=0`, `$3C=$0C` |
+| 2 | `$C945` | anim `$18`; sonda vertical `$D07C($1C)`; se acertar → `$38=4` e cria um `$6D` (`$82877B`) |
+| 4 | `$C963` | `$3D -= 6`; se negativo → `$38=6`, `$39=0`, sorteio `$E407[x]`, `$3D = $E417[$E407[x]]` (0x400/0x580/0x300), `$42++`, `$37=$18`; senão anim `$18` |
+| 6 | `$C996` | `$3D -= $25`; quando `< $40` → `$38=8`, `$0A=$30` |
+| 8 | `$C9B5` | `$38=10`, `$3A=0`, sorteio → `$47=$E41D[y]`, `$48=$E41E[y]`, `$44=$40` |
+| 10 | `$C9D4` | `$3D += 6` até `$150` → `$38=12`; `$44` conta; sonda `$809CA4($E2C0)`; sem toque → `$38=16`; `$D198`; `$809D8E` |
+| 12 | `$CA2C` | `$3D -= 7`; se `>= $B8` → corpo do 10; senão `$38=14`, `$3B=$10` |
+| 14 | `$CA45` | `$3B -= 1`; a 0 → `$38=10` |
+| 16 | `$CA4E` | `$3D -= 8`; se negativo → `$38=18`, `$3B=8`, `$3D=$3F`, `$3E=sorteio`; senão `$CA04` |
+| 18 | `$CA74` | `$3B -= 1`; de 8 em 8 avança `$3F` (`$CFBF`); quando `$3F == $3D` → `$3D=$3E=0`, sorteio `$E423[x]` → `$06`, `$38=0` |
+
+**Movimento** (`$CA08`, chamado pelos subestados 2/4/10/12/16):
+
+```
+$43 = A (id de animação)
+jsr $CFDF                       ; passo de animação ($4F/$3A/$3C)
+se $4D == 0:
+    $0000/$0001 = $3D/$3E       ; escala
+    jsr $D0BE($3C*2)            ; $09 = $E360[A>>3]; e a multiplicação:
+                                ;   $20 = $E357[Y] * escala >> 8
+                                ;   $22 = $E357[X] * escala >> 8
+    jsl $808C77                 ; x += $20 pela frente em $09 (bits 0-1)
+    jsl $808C8B                 ; y += $22 pela frente em $09 (bits 2-3)
+jmp $CF6E                       ; sub-dispatch em $40
+```
+
+`$D0FF` é a multiplicação por hardware (`$4202/$4203`): `resultado =
+$E357[i] * $3D/$3E`, e o resultado volta como word (o handler guarda a metade
+alta). `$E357` = 0, 48, 95, 143, 181, 212, 235, 251; `$E360` diz a direcção;
+`$E364` o frame de animação. Ou seja: **a velocidade do voo é
+`speed[passo] × $3D >> 8`** e `$3D` é a rampa (desce no mergulho, sobe na
+subida).
+
+**Cauda partilhada** (subestados >= 6): depois do handler corre
+`ldx $49; jmp ($CCBF,X)` — `$49` 0/2/4 → `$CCC5` (arma `$49/$4D/$4A/$4B`),
+`$CCD4` (`$4A -= $19`; se negativo `$4D=0`, `$49=4`; senão `$0000 = $4A>>2`,
+anim `$4C`, `jsl $808C77/$808C8B`) e `$CD13` (`rts`).
+
+**RNG**: `$BC904B` — LCG de 16 bits em `$009C/$009D`:
+`r = (3*seed >> 8) & $FF; seed = (seed + r) & $FF; return r`.
+
+Com isto falta só escrever os dez subestados no port e verificar o voo dos
+quatro olhos que lançam ([0] 15791, [1] 15821, [7] 15851, [2] 16651). A arte
+continua por cozer, por isso o voo verifica-se por posição, não por imagem.
