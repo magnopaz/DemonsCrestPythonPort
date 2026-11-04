@@ -120,9 +120,12 @@ def main() -> int:
         check("stage select travels to Area 16", int(rows[-1]["area"]) == 16 and
               GAME_PLAYING in modes(rows), f"last area {rows[-1]['area']}")
 
-        rows = run(binary, assets, tmp, "clear49",
-                   {"DC_AREA": 49, "DC_CAMPAIGN": 1, "DC_BOSS_DEFEATED": 1}, 60)
-        check("Area 49 boss defeat clears the area", GAME_CLEAR in modes(rows),
+        # Area 49 is an NPC interior whose only "boss" record was the phantom
+        # $96 controller; with $96 spawned as an NPC there is no boss to
+        # defeat. Use area 52, whose Holothurion comes from the boss table.
+        rows = run(binary, assets, tmp, "clear52",
+                   {"DC_AREA": 52, "DC_CAMPAIGN": 1, "DC_BOSS_DEFEATED": 1}, 60)
+        check("Area 52 boss defeat clears the area", GAME_CLEAR in modes(rows),
               f"modes={sorted(set(modes(rows)))}")
 
         code = encode_password(0x0F, 8, 0x3F, 2, 5, 1, 0x1F)

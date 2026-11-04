@@ -191,6 +191,13 @@ password retail.
   a provar um hit real no inimigo flutuante (ledge em x=1000); o tiro rasteiro
   continua a não acertar inimigos no chão (fireball a 18 px dos pés, caixa
   ±12 em torno da origem) — Passo 2.
+- **Achado**: `$96` (actor de script/NPC) estava tipado `boss` no extractor.
+  Isso punha `boss_alive` verdadeiro e **fechava todas as transições** da
+  avenida (4) e dos interiores (46–49/55) sem `DC_BOSS_CLEAR`. `objects_init`
+  (C e Python) passa a spawnar `$96` como NPC quando a sala não tem boss a
+  sério e a ignorá-lo quando tem (controlador da arena). `check_up_doors.py`
+  ganhou duas corridas sem `DC_BOSS_CLEAR` (4→46, 46→4); `check_playthrough`
+  deixou de usar a área 49 como «boss» (não tem boss) e usa a 52.
 - **Próximo**: Passo C (poço: `$69`/`$6B`/`$6C`; Belth `$68`).
 
 

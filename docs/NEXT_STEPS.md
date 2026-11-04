@@ -77,6 +77,16 @@ os seis casos (três portas novas e as três 5→6/6→7/7→8) e está na regre
 `DC_DEMO=41` toca up; `DC_START_ONCE=1` mantém o `DC_START_X/Y` na sala de
 boot.
 
+**Correcção do `$96`**: o extractor tipa todos os registos `$96` como `boss`,
+mas a espécie é o actor de script/NPC (lojistas e velho da biblioteca em
+46–49/55, o habitante da avenida na área 4, o controlador da arena em
+52/53/54). Como boss, `boss_alive` ficava verdadeiro e **todas as transições
+da sala eram saltadas** — a avenida e os interiores estavam fechados sem
+`DC_BOSS_CLEAR`. `objects_init` (C e Python) passa a spawnar `$96` como NPC
+quando a sala não tem um boss a sério, e a ignorá-lo quando tem (é o
+controlador). `check_up_doors.py` ganhou duas corridas sem `DC_BOSS_CLEAR`
+(4→46 e 46→4) que falham se o fantasma voltar.
+
 ### Passo B — menu de morte `RETRY / SELECT A STAGE / END` (uma sessão) — **feito**
 
 Substitui o `GAME_OVER` inventado (`dcpy/game.py::game_handle_death` e o

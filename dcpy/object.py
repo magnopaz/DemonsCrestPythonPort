@@ -413,6 +413,14 @@ def objects_init(pool: ObjectPool, level) -> None:
     pool.last_fire_piece = 0
     pool.last_talisman = 0
     pool.boss_phase = 1
+    # $96 is the script/NPC actor: the shopkeepers and the library old man in
+    # 46..49/55, the avenue's townsperson in area 4, and the arena controller
+    # in the boss rooms (52/53/54, where it shares the boss's position). The
+    # extractor types every $96 record "boss", which blocks every door in the
+    # room and shows a boss placeholder. In a room with a real boss it is the
+    # controller and stays invisible; anywhere else it is a talkable NPC.
+    room_has_boss = any(o.type == LEVEL_OBJECT_BOSS and o.species != 0x96
+                        for o in level.objects)
     if env_flag("DC_DEBUG_OBJ"):
         eprint(f"objects: init with {len(level.objects)} level objects",
               flush=True)
@@ -426,7 +434,11 @@ def objects_init(pool: ObjectPool, level) -> None:
         elif src.type == LEVEL_OBJECT_PICKUP_CREST:
             _spawn_crest_item(pool, src)
         elif src.type == LEVEL_OBJECT_BOSS:
-            _spawn_boss(pool, src)
+            if src.species == 0x96:
+                if not room_has_boss:
+                    _spawn_npc(pool, src)
+            else:
+                _spawn_boss(pool, src)
         elif src.type == LEVEL_OBJECT_NPC:
             _spawn_npc(pool, src)
         elif src.type == LEVEL_OBJECT_TALISMAN:

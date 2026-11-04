@@ -114,20 +114,25 @@ def check_data(assets: Path, errors: list[str]) -> dict[int, dict]:
 
 
 def run(binary: Path, assets: Path, area: int, x: float, y: float,
-        frames: int, trace: Path, demo: int | None = None) -> list[dict[str, str]]:
+        frames: int, trace: Path, demo: int | None = None,
+        boss_hooks: bool = True) -> list[dict[str, str]]:
     env = dict(os.environ,
                DC_AREA=str(area),
                DC_START_X=str(x),
                DC_START_Y=str(y),
                DC_START_ONCE="1",
                DC_CAMPAIGN="1",
-               DC_BOSS_CLEAR="1",
-               DC_MVP_KEEP_CONTROL="1",
                DC_RUN_FRAMES=str(frames),
                DC_NO_AUDIO="1",
                DC_NO_STORY="1",
                DC_NO_SAVE="1",
                DC_TRACE_CSV=str(trace))
+    if boss_hooks:
+        env["DC_BOSS_CLEAR"] = "1"
+        env["DC_MVP_KEEP_CONTROL"] = "1"
+    else:
+        env.pop("DC_BOSS_CLEAR", None)
+        env.pop("DC_MVP_KEEP_CONTROL", None)
     if demo is None:
         env.pop("DC_DEMO", None)
     else:
@@ -224,6 +229,28 @@ def check_door(binary: Path, assets: Path, tmp: Path, rooms: dict[int, dict],
                       f"({modes_up})")
 
 
+def check_no_phantom_boss(binary: Path, assets: Path, tmp: Path,
+                          errors: list[str]) -> None:
+    """The avenue's doors must work in a plain campaign run.
+
+    $96 is the script/NPC actor, but the extractor types it "boss"; spawning
+    it as one leaves boss_alive true, which skips every transition in the
+    room. The runs above set DC_BOSS_CLEAR, so they cannot catch that. These
+    two runs use no hooks at all: the avenue up-door and the library return
+    door have to fire on their own.
+    """
+    rows = run(binary, assets, 4, 424, 428, 180,
+               tmp / "up_4_46_plain.csv", demo=41, boss_hooks=False)
+    if 46 not in area_sequence(rows):
+        errors.append("area 4: the up-door is blocked by a phantom boss "
+                      "without DC_BOSS_CLEAR")
+    rows = run(binary, assets, 46, 8, 184, 60,
+               tmp / "door_46_4_plain.csv", boss_hooks=False)
+    if 4 not in area_sequence(rows):
+        errors.append("area 46: the return door is blocked by a phantom boss "
+                      "without DC_BOSS_CLEAR")
+
+
 def main() -> int:
     args = parse_args()
     if not args.binary.is_file():
@@ -243,6 +270,7 @@ def main() -> int:
     for src, x, y, dst, _mask in DOORS:
         check_door(args.binary, args.assets, tmp, rooms, src, x, y, dst,
                    errors)
+    check_no_phantom_boss(args.binary, args.assets, tmp, errors)
 
     if errors:
         print("up doors: FAIL")
@@ -250,7 +278,8 @@ def main() -> int:
             print("  - " + error)
         return 1
     print(f"up doors: PASS ({len(DOORS)} doors, pad_mask 8 honoured: "
-          "4->46, 4->47, 4->48, 5->6, 6->7, 7->8; no proximity trigger)")
+          "4->46, 4->47, 4->48, 5->6, 6->7, 7->8; no proximity trigger; "
+          "4->46 and 46->4 also fire without DC_BOSS_CLEAR)")
     return 0
 
 

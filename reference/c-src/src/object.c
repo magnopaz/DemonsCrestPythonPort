@@ -266,6 +266,20 @@ static void SpawnNpc(ObjectPool *pool, const LevelObject *src) {
 void Objects_Init(ObjectPool *pool, const Level *level) {
     memset(pool, 0, sizeof(*pool));
     pool->boss_phase = 1;
+    /* $96 is the script/NPC actor: the shopkeepers and the library old man in
+     * 46..49/55, the avenue's townsperson in area 4, and the arena controller
+     * in the boss rooms (52/53/54, where it shares the boss's position). The
+     * extractor types every $96 record "boss", which blocks every door in the
+     * room and shows a boss placeholder. In a room with a real boss it is the
+     * controller and stays invisible; anywhere else it is a talkable NPC. */
+    bool room_has_boss = false;
+    for (int i = 0; i < level->object_count; i++) {
+        const LevelObject *o = &level->objects[i];
+        if (o->type == LEVEL_OBJECT_BOSS && o->species != 0x96) {
+            room_has_boss = true;
+            break;
+        }
+    }
     if (getenv("DC_DEBUG_OBJ"))
         fprintf(stderr, "objects: init with %d level objects\n",
                 level->object_count);
@@ -279,9 +293,14 @@ void Objects_Init(ObjectPool *pool, const Level *level) {
             SpawnPlatform(pool, o);
         else if (o->type == LEVEL_OBJECT_PICKUP_CREST)
             SpawnCrestItem(pool, o);
-        else if (o->type == LEVEL_OBJECT_BOSS)
-            SpawnBoss(pool, o);
-        else if (o->type == LEVEL_OBJECT_NPC)
+        else if (o->type == LEVEL_OBJECT_BOSS) {
+            if (o->species == 0x96) {
+                if (!room_has_boss)
+                    SpawnNpc(pool, o);
+            } else {
+                SpawnBoss(pool, o);
+            }
+        } else if (o->type == LEVEL_OBJECT_NPC)
             SpawnNpc(pool, o);
         else if (o->type == LEVEL_OBJECT_TALISMAN)
             SpawnTalisman(pool, o);

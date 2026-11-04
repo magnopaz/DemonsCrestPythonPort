@@ -810,6 +810,12 @@ SPECIES_KIND_MAP = {
     0x2E: "pickup_crest",
     0x33: "boss",
     0xA5: "boss",
+    # $96 is the script/NPC actor, not a fight: shopkeepers and the library
+    # old man (46..49/55), the avenue's townsperson (4), the arena controller
+    # (52/53/54, same position as the boss). It stays "boss" in the room JSON
+    # because the record has no type byte; Objects_Init re-routes it (NPC in a
+    # room without a real boss, invisible controller in one with). Typing it
+    # boss here made boss_alive true and skipped every transition in the room.
     0x96: "boss",
     0x09: "boss",   # Hippogriff: a real boss object (statue phase included)
     # $72 is the torch flame in the cemetery: a 16x16 five-frame flicker with no
