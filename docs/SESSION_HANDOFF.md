@@ -1,11 +1,12 @@
-# Handoff — fim da sessão de 2026-11-03
+# Handoff — sessões de 2026-11-03/04
 
 *Para retomar noutra sessão. Ler isto primeiro, depois `docs/NEXT_STEPS.md`.*
 
 ## Estado
 
 - Repo: `~/Projetos/opencode/DemonsCrestPythonPort`
-- `HEAD` = `942e978` (*Type $9B as inert…*), **árvore limpa**.
+- `HEAD` = o commit *Plan the next three steps…* (2026-11-04), **árvore
+  limpa**. As secções desta sessão estão no fim do ficheiro.
 - Regressão verde: `DISPLAY=:99 python3 tools/run_regression.py` → PASS
   (~7 min). Xvfb em `:99`; sem ele os demos falham com
   "X11: Failed to open display".
@@ -129,4 +130,48 @@ com elas, por ordem:
   ainda tem os valores duplicados.
 - Bloqueio seguinte: `pad_mask` em `game_check_transitions` antes de acrescentar
   as três portas up da área 4 em (424,428), (664,428) e (824,124).
+
+## Sessão de 2026-11-04 — as três takes de estágio II
+
+O utilizador gravou três takes em
+`../DemonsCrestSNESRecomp/build-trace/captures/rec_stage2_trace/`:
+
+| take | frames | conteúdo |
+|---|---|---|
+| `stage_II_ruined-city-dark-avenue` | 10 509 | boot → password → avenida, biblioteca, wise man |
+| `..._dark-avenue_to_..._reservoir_to_..._pit-of-ovununu` | 25 076 | rota completa até à luta do poço (2 mortes) |
+| `..._dark-avenue_to_..._reservoir_to_..._boneyard` | 23 056 | rota até Belth (Black Lotus 2×, 2 mortes) |
+
+Tudo em `docs/TAKES.md` (formato, comandos, armadilhas, rotas, resultados).
+
+**O que ficou assente:**
+
+- `$008D` é offset de bytes: **área = `$008D / 2`**. Avenida = área **4**;
+  biblioteca/wise man/black lotus = **46/47/48**; reservatório 5; catacumbas 6;
+  catacumbas escuras 7; poço 8; cemitério 9.
+- `pad_mask: 8` no room JSON é o bit de **up** do ROM (confirmado no log de
+  input). O port ignora `pad_mask` — é o Passo A.
+- As três portas up da avenida: (424,428)→46, (664,428)→47, (824,124)→48. A
+  volta já existe com `spawn_id` 1/2; a do Black Lotus foi observada na take.
+- Morrer abre `RETRY / SELECT A STAGE / END`; RETRY recarrega a mesma sala no
+  spawn 0 com HP cheio; SELECT A STAGE vai ao mapa Mode 7; END mostra o ecrã
+  `PASS WORD`. O port tem um `GAME_OVER` inventado — Passo B.
+- O boss do poço é `$69` (fixo) + `$6B` (sobe atrás do jogador) + `$6C` (olhos
+  que voam), não `$16` — Passo C.
+
+**Commits desta sessão:**
+
+| commit | conteúdo |
+|---|---|
+| `31c5348` | `trace_stage.py replay`: JSON compacto, `gframe`, erro com 0 amostras; `--objects` |
+| `7339a03` | objectos da take confirmam `room_area4.json` 1:1 |
+| `d233ac1` | `tools/oracle/scan_take.py` (área/HP/posição, 2 leituras por amostra) |
+| `353b3f2` | rotas das duas takes + menu de continue + `pad_mask` |
+| `ef7f174` | boss do poço = `$69`/`$6B`/`$6C` |
+| `807f1e9` | menu de morte é o hub (mapa / password) |
+
+**Próximo:** `docs/NEXT_STEPS.md` §1c — Passo A (`pad_mask` + portas up),
+Passo B (menu de morte), Passo C (bosses). Não começar pelos bosses nem pelo
+password retail.
+
 

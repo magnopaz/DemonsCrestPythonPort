@@ -44,6 +44,65 @@ recuperar dados perdidos. O contrato está em `docs/OBJECT_COVERAGE.md`.
 
 ---
 
+## 1c. Próximo troço (decidido a 2026-11-04): estágio II jogável de ponta a ponta
+
+As takes de estágio II (`docs/TAKES.md` §6) fecharam o mapa da zona: áreas
+4→5→6→7→8 e 4→46/47/48, com coordenadas e `pad_mask` medidos. A ordem abaixo é
+por dependência: cada passo desbloqueia o seguinte.
+
+### Passo A — `pad_mask` e as três portas up da avenida (meia sessão)
+
+O que está medido: `pad_mask: 8` é o bit de **up** do ROM (5→6, 6→7 e 7→8 são
+precedidas de um toque de up de um frame; 4→5 é só andar e tem `255`). As
+portas da avenida são (424,428)→46, (664,428)→47 e (824,124)→48, todas no
+spawn 0 do destino.
+
+- `dcpy/game.py::game_check_transitions` ignora `pad_mask` e transita por
+  proximidade. Passar a exigir o botão: `8` → up premido; `255` → qualquer.
+- `dcpy/level.py` já guarda `pad_mask`; o input do port são booleanos, por isso
+  o mapeamento é `pad_mask == 8` → `input.up`.
+- As três portas entram pelo caminho normal dos assets, não à mão:
+  `tools/dc_extract/apply_door_table.py` ganha uma tabela `take_door`
+  (`source: "take_door"`, `half_w/half_h = 16`) — os room JSON são gerados.
+- Paridade: a mesma mudança em `reference/c-src/src/game.c`.
+- **Aceitação**: `tools/check_up_doors.py` (na regressão) — em `DC_AREA=4`
+  com o jogador em (424,428), carregar up muda para a área 46; ficar 60 frames
+  no mesmo sítio sem carregar **não** muda; (664,428)→47 e (824,124)→48 idem.
+  Regressão: as portas 5→6/6→7/7→8 deixam de disparar sem up.
+
+### Passo B — menu de morte `RETRY / SELECT A STAGE / END` (uma sessão)
+
+Substitui o `GAME_OVER` inventado (`dcpy/game.py::game_handle_death` e o
+equivalente C). Comportamento medido/confirmado:
+
+- RETRY: recarrega a **mesma área no spawn 0** com HP cheio (área 9 → (48,412);
+  área 8 → (32,668)); no console há ~1–2 s de animação de morte e depois o ecrã.
+- SELECT A STAGE: `game_open_overworld()` — o mapa Mode 7 que já existe.
+- END: ecrã `PASS WORD` 4×4 com `PUSH START BUTTON`; o password leva ao mapa.
+  Só fica fiel quando o codec retail estiver invertido — até lá, mostrar o codec
+  nativo atrás de uma flag e assumir a diferença no HUD.
+- Hook de teste `DC_KILL_AT=<frame>` (mata o jogador nesse frame) para o checker.
+- **Aceitação**: `tools/check_death_menu.py` (na regressão) — mata na área 9,
+  vê o menu, RETRY repõe posição (48,412) e HP cheio; SELECT A STAGE entra em
+  `GAME_OVERWORLD`; END desenha o ecrã com as 16 letras.
+
+### Passo C — bosses do estágio II (2–3 sessões cada, só depois de A e B)
+
+- **Poço (área 8)**: `$6B` sobe atrás do jogador (y 700→212 medido), `$6C` são
+  os olhos que voam, `$69` fica fixo no fundo. Não é `$16`; a entrada da área 54
+  nessa tabela é outra coisa. Dados em `docs/TAKES.md` §6.1.
+- **Belth (área 9)**: `$68`, 30 registos, ainda sem arte; a take tem duas mortes
+  e o padrão de ataque para comparar.
+
+### O que **não** fazer primeiro
+
+- **Password retail**: uma amostra (`WFRF PXFR HSJS ZHCS`) não inverte um codec.
+  Com o `END` do Passo B a funcionar, o port passa a colher pares
+  estado → password — é a instrumentação que falta.
+- **BG2 em runtime (Passo 3)**: as salas do estágio II já têm BG2 e desenham.
+
+---
+
 ## 2. A fila, por ordem de dependência
 
 ### Passo 1 — Parar de descartar objectos (1 sessão) — **feito**
