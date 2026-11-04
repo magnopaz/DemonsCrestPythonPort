@@ -174,4 +174,23 @@ Tudo em `docs/TAKES.md` (formato, comandos, armadilhas, rotas, resultados).
 Passo B (menu de morte), Passo C (bosses). Não começar pelos bosses nem pelo
 password retail.
 
+## Passo A + B fechados (continuação de 2026-11-04)
+
+| commit | conteúdo |
+|---|---|
+| `15c6c4d` | **Passo A**: `pad_mask` honrado em `game_check_transitions` (C e Python); as três portas up da avenida (4→46/47/48) entram por `apply_door_table.py` (`source: "take_door"`, 16×16, spawn 0); `tools/check_up_doors.py` na regressão. |
+| `81cd09e` | **Passo B**: `GAME_CONTINUE` (12) com 90 frames de morte → RETRY / SELECT A STAGE / END; RETRY usa o restart (mesma área, spawn 0, HP cheio); END = `GAME_PASSWORD_VIEW` (13), 4×4 com o codec nativo zero-padded; `tools/check_death_menu.py` na regressão. |
+
+- Regressão verde: `DISPLAY=:99 python3 tools/run_regression.py` → PASS.
+- Hooks novos: `DC_KILL_AT`, `DC_STATE=continue`, `DC_DEMO=41` (up) e
+  `DC_DEMO=42..45` (hub de morte); `DC_START_ONCE=1` limita o `DC_START_X/Y`
+  à sala de boot.
+- **Achado**: o antigo teste da área 2 («skeleton dies to fireballs») era um
+  falso positivo — o jogador morria no frame 229 e o trace parava, o que
+  parecia a morte do inimigo. Com o hub a simulação continua. O teste passou
+  a provar um hit real no inimigo flutuante (ledge em x=1000); o tiro rasteiro
+  continua a não acertar inimigos no chão (fireball a 18 px dos pés, caixa
+  ±12 em torno da origem) — Passo 2.
+- **Próximo**: Passo C (poço: `$69`/`$6B`/`$6C`; Belth `$68`).
+
 
