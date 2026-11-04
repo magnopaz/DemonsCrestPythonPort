@@ -115,14 +115,19 @@ assenta os pés na floor, o mesmo +20 das spawns da avenida. Checker
 
 ### Passo C — bosses do estágio II (2–3 sessões cada, só depois de A e B) — **em curso**
 
-**Poço (2026-11-04):** a medição está em `docs/PIT_BOSS.md` — papéis das três
-espécies, handlers (`$69 $83:B96E`, `$6B $83:BFDD`, `$6C $83:C7B2`), a máquina
-do `$6B` e a sequência de y medida na take. A **abertura está implementada**:
-o `$69` liga o combate pela condição do ROM (`x<128` ou `y>=568`), o `$6B` sobe
-700→209 em ~1350 frames e faz bob, os três entram no pool e
-`tools/check_pit_boss.py` está na regressão. Também se removeu a porta `8→10`
-que expulsava o jogador do poço no frame 1. **Falta:** a AI dos 11 `$6C`, o
-dano/HP/morte do corpo, a arte e o lock da arena.
+**Poço (2026-11-04, duas sessões):** a medição está em `docs/PIT_BOSS.md` —
+papéis das três espécies, handlers (`$69 $83:B96E`, `$6B $83:BFDD`, `$6C
+$83:C7B2`), a máquina do `$6B`, a sequência de y e (novo §7) o ciclo completo
+dos 11 `$6C`: parque, `sub 2→4` aos 220 frames, o desvio por olho até 123 px no
+topo, o olho central em `state 2` preso ao corpo em (+1, +$1C) e a máquina de
+lançamento (`sub 6`+, dez sub-subestados) descodificada mas não portada.
+**Implementado:** o `$69` liga o combate pela condição do ROM (`x<128` ou
+`y>=568`); o `$6B` espera 199 frames (antes subia cedo) e sobe 700→209 em
+~1350 frames com bob; os 11 `$6C` parqueiam no x medido e seguem o corpo dentro
+de 4 px da take (`tools/oracle/measure_pit_eyes.py` mede, `_PIT_EYE_TRACK`
+guarda). Também se removeu a porta `8→10` que expulsava o jogador no frame 1.
+**Falta:** o lançamento dos olhos (`sub 6`+, precisa de `$D0BE`, `$809CA4`,
+`$809D8E`, `$808C95/99`), o dano/HP/morte do corpo, a arte e o lock da arena.
 
 - **Poço (área 8)**: `$6B` sobe atrás do jogador (y 700→212 medido), `$6C` são
   os olhos que voam, `$69` fica fixo no fundo. Não é `$16`; a entrada da área 54

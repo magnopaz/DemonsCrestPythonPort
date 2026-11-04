@@ -786,14 +786,157 @@ def _pit_body_y(t: int) -> float:
             return y0 + (y1 - y0) * (t - t0) / float(t1 - t0)
     return _PIT_RISE[-1][1]
 
+# --------------------------------------------------------------------------
+# The pit of Ovununu's eyes ($6C)
+#
+# `$83:C7B2` runs four states.  State 0 (the one the fight uses) dispatches
+# `$06` through `$83:C7D3`:
+#
+#   sub 0  `$83:C7E3`  init: `$06 = 2`, animation `$0C`, `$36 = 3`, `$0A = $20`
+#   sub 2  `$83:C80E`  park: `x = tbl`, `y = $1DD5 - $D8 + tbl`; when `$1DF7`
+#                      is set (the `$6B` body starts its climb) -> sub 4
+#   sub 4  `$83:C838`  swarm: gravity `$E2E5`, accel `$E2E7`, per-phase
+#                      (`$1DEF` 0/2/4/6) clamp of +-1 px per frame into the band,
+#                      then `$1DDE == 0` -> sub 6 (the launch machine)
+#   sub 6+ `$83:C913`  launch: ten sub-substates at `$83:C918`
+#
+# State 2 (`$83:CD14`) is the core eye: it rides the body at (+1, +$1C) —
+# measured exactly on the take.  States 4 (`$83:CDCE`, a `$3B` timer then
+# `$828777` despawn) and 6 (`$83:CE18`, spawn a `$6C` child) never occur in the
+# 11 000 frames measured, so they are documented but not implemented here.
+#
+# The park positions and the swarm's y track are measured, not derived: the
+# handler indexes `$E2D5`/`$E2DF`/`$E2E1`/`$E2E3` in WRAM with the slot index
+# through a `$15xx` word table whose base is still unresolved (docs/PIT_BOSS.md
+# §7), so the take is the source exactly as for the body's climb.
+PIT_EYE_CORE_INDEX = 10   # record flag of the eleventh $6C (the body's eye)
+PIT_EYE_RELEASE = 220     # frames of fight before $1DF7: the body starts up
+
+# Park x, one per satellite (records with flags 0..9), measured at 14201.
+_PIT_EYE_PARK_X = (96.0, 104.0, 112.0, 115.0, 122.0, 136.0, 143.0, 153.0,
+                   162.0, 166.0)
+
+# y offset below the body, sampled every 20 frames from the fight's start
+# (take frame 14201).  Ten columns, one per satellite, in record order.
+_PIT_EYE_TRACK = (
+    (   0,   18,    8,   32,   -3,   30,   18,   22,   14,    2,   32),
+    (  20,   18,    8,   32,   -3,   30,   18,   22,   14,    2,   32),
+    (  40,   18,    8,   32,   -3,   30,   18,   22,   14,    2,   32),
+    (  60,   18,    8,   32,   -3,   30,   18,   22,   14,    2,   32),
+    (  80,   18,    8,   32,   -3,   30,   18,   22,   14,    2,   32),
+    ( 100,   18,    8,   32,   -3,   30,   18,   22,   14,    2,   32),
+    ( 120,   18,    8,   32,   -3,   30,   18,   22,   14,    2,   32),
+    ( 140,   18,    8,   32,   -3,   30,   18,   22,   14,    2,   32),
+    ( 160,   18,    8,   32,   -3,   30,   18,   22,   14,    2,   32),
+    ( 180,   18,    8,   32,   -3,   30,   18,   22,   14,    2,   32),
+    ( 200,   18,    8,   32,   -3,   30,   18,   22,   14,    2,   32),
+    ( 220,   20,   10,   34,   -1,   32,   20,   24,   16,    4,   34),
+    ( 240,   24,   12,   35,    2,   36,   22,   25,   18,    8,   35),
+    ( 260,   24,   10,   30,    3,   36,   20,   20,   16,    8,   32),
+    ( 280,   22,    5,   22,    1,   35,   16,   14,   12,    6,   27),
+    ( 300,   19,    0,   13,   -1,   33,   11,    6,    7,    3,   21),
+    ( 320,   32,   10,   20,   12,   47,   22,   14,   18,   16,   31),
+    ( 340,   48,   23,   30,   28,   64,   36,   26,   32,   32,   44),
+    ( 360,   50,   22,   28,   30,   66,   35,   23,   31,   34,   43),
+    ( 380,   34,    9,   32,   14,   49,   22,   23,   18,   18,   32),
+    ( 400,   26,    8,   31,    7,   42,   18,   21,   14,   11,   32),
+    ( 420,   43,   22,   41,   23,   60,   33,   32,   29,   27,   46),
+    ( 440,   56,   32,   49,   36,   73,   44,   41,   40,   40,   56),
+    ( 460,   53,   27,   43,   34,   70,   39,   36,   35,   37,   51),
+    ( 480,   37,   14,   33,   17,   54,   26,   24,   22,   21,   38),
+    ( 500,   35,   11,   30,   15,   52,   23,   21,   19,   19,   35),
+    ( 520,   53,   27,   43,   34,   71,   39,   35,   35,   37,   51),
+    ( 540,   63,   34,   47,   44,   82,   47,   40,   43,   47,   58),
+    ( 560,   56,   27,   40,   38,   76,   40,   34,   36,   41,   51),
+    ( 580,   42,   15,   32,   23,   60,   28,   23,   24,   26,   39),
+    ( 600,   41,   13,   32,   23,   60,   26,   22,   22,   26,   37),
+    ( 620,   58,   28,   43,   40,   78,   41,   35,   37,   43,   52),
+    ( 640,   66,   34,   48,   48,   87,   48,   40,   44,   51,   58),
+    ( 660,   69,   36,   48,   51,   90,   50,   41,   46,   54,   59),
+    ( 680,   66,   32,   44,   48,   88,   46,   37,   42,   51,   56),
+    ( 700,   53,   21,   35,   35,   73,   35,   27,   31,   38,   45),
+    ( 720,   44,   13,   30,   26,   64,   26,   21,   22,   29,   37),
+    ( 740,   57,   23,   38,   39,   78,   37,   29,   33,   42,   47),
+    ( 760,   68,   32,   45,   50,   89,   47,   37,   43,   52,   56),
+    ( 780,   74,   37,   48,   56,   96,   52,   41,   48,   59,   61),
+    ( 800,   75,   37,   46,   58,   98,   52,   40,   48,   60,   60),
+    ( 820,   70,   32,   41,   52,   92,   46,   34,   42,   54,   55),
+    ( 840,   55,   20,   32,   37,   76,   34,   24,   30,   40,   43),
+    ( 860,   53,   16,   31,   35,   75,   31,   22,   27,   38,   40),
+    ( 880,   71,   31,   43,   53,   93,   47,   34,   43,   55,   55),
+    ( 900,   80,   38,   48,   62,  103,   54,   40,   50,   65,   62),
+    ( 920,   81,   38,   46,   64,  105,   54,   39,   50,   66,   62),
+    ( 940,   72,   30,   38,   54,   95,   46,   31,   42,   57,   54),
+    ( 960,   58,   19,   32,   41,   81,   34,   22,   30,   43,   42),
+    ( 980,   61,   20,   32,   44,   85,   36,   23,   32,   46,   44),
+    (1000,   78,   35,   44,   62,  103,   51,   36,   47,   64,   58),
+    (1020,   87,   41,   48,   70,  112,   58,   41,   54,   72,   64),
+    (1040,   86,   38,   43,   69,  111,   56,   38,   52,   71,   62),
+    (1060,   74,   28,   36,   57,   99,   45,   29,   41,   59,   52),
+    (1080,   62,   18,   30,   46,   87,   35,   21,   31,   48,   42),
+    (1100,   76,   28,   37,   59,  101,   46,   29,   42,   61,   52),
+    (1120,   86,   38,   44,   70,  112,   55,   37,   51,   71,   61),
+    (1140,   93,   42,   47,   76,  119,   60,   41,   56,   78,   66),
+    (1160,   94,   42,   46,   78,  121,   60,   40,   56,   79,   66),
+    (1180,   89,   38,   41,   73,  116,   56,   35,   52,   74,   61),
+    (1200,   77,   28,   34,   60,  103,   45,   26,   41,   62,   51),
+    (1220,   70,   20,   30,   53,   96,   38,   20,   34,   55,   44),
+    (1240,   86,   34,   41,   70,  113,   52,   32,   48,   71,   58),
+    (1260,   98,   44,   48,   82,  126,   63,   40,   59,   84,   67),
+    (1280,  100,   43,   45,   84,  128,   62,   38,   58,   85,   66),
+    (1300,   85,   31,   36,   70,  113,   50,   28,   46,   71,   55),
+    (1320,   75,   22,   30,   59,  103,   40,   20,   36,   60,   45),
+    (1340,   89,   33,   38,   73,  118,   52,   29,   48,   74,   56),
+    (1360,  104,   45,   48,   88,  133,   65,   40,   61,   89,   68),
+    (1380,  105,   44,   44,   90,  135,   65,   37,   61,   91,   68),
+    (1400,   91,   32,   35,   75,  120,   52,   27,   48,   76,   56),
+    (1420,   82,   24,   30,   66,  110,   43,   21,   39,   67,   47),
+    (1440,   96,   36,   39,   81,  126,   56,   31,   52,   82,   59),
+    (1460,  111,   48,   48,   96,  141,   68,   41,   64,   96,   70),
+    (1480,  109,   44,   43,   94,  140,   65,   36,   61,   94,   67),
+    (1500,   93,   31,   32,   78,  123,   51,   25,   47,   78,   54),
+    (1520,   74,   15,   32,   59,  104,   35,   22,   31,   60,   38),
+    (1540,   55,    7,   32,   39,   83,   17,   22,   13,   40,   31),
+    (1560,   46,    7,   31,   30,   74,   17,   22,   13,   31,   31),
+    (1580,   45,    5,   27,   30,   73,   15,   18,   11,   30,   27),
+)
+
+# The body's climb table starts at take frame 14400, the fight flag goes up at
+# 14201: 199 frames of flat 700 before the first sample.
+_PIT_RISE_DELAY = 199
+
+
+def _pit_eye_offset(index, t):
+    """Measured y below the body for satellite `index` at fight frame `t`."""
+    track = _PIT_EYE_TRACK
+    if t <= track[0][0]:
+        return float(track[0][1 + index])
+    if t >= track[-1][0]:
+        return float(track[-1][1 + index])
+    for row0, row1 in zip(track, track[1:]):
+        if t <= row1[0]:
+            t0, t1 = row0[0], row1[0]
+            y0, y1 = row0[1 + index], row1[1 + index]
+            return y0 + (y1 - y0) * (t - t0) / float(t1 - t0)
+    return float(track[-1][1 + index])
+
+
+def _pit_body(pool):
+    for other in pool.slots:
+        if other.active and other.species == PIT_BODY_SPECIES:
+            return other
+    return None
+
 
 def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
-    """Area 8's opening: $69 raises the fight flag, $6B rises from the pit.
+    """Area 8's boss: $69 raises the fight flag, $6B climbs, $6C eyes follow.
 
-    Measured on the pit take (docs/PIT_BOSS.md §4): $1DEA goes 1 when the
-    player is at x<128 or y>=568; the body then climbs from y=700 to ~209
-    over ~1350 frames and bobs at 187..216. $6C (the eyes) is still a
-    placeholder; its 4-state handler at $83:C7B2 is not ported yet.
+    Measured on the pit take (docs/PIT_BOSS.md §4 and §7): $1DEA goes 1 when
+    the player is at x<128 or y>=568; the body stays at y=700 for 199 frames
+    and then climbs to ~209 over ~1350 frames, bobbing at 187..216 in state 2.
+    The ten satellite eyes park on their measured x, are released when the body
+    starts to rise ($1DF7) and then follow it with the measured per-eye lag;
+    the eleventh ($00 flag 10) is state 2, welded to the body at (+1, +$1C).
     """
     if o.species == PIT_CORE_SPECIES:
         if not pool.pit_fight and (player.x < 128.0 or player.y >= 568.0):
@@ -803,13 +946,40 @@ def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
     if o.species == PIT_BODY_SPECIES:
         if not pool.pit_fight:
             o.state = 0
+            o.substate = 0
             o.timer = 0
             o.y_fx = float_to_fx(700.0)
-        else:
-            o.timer += 1
-            o.y_fx = float_to_fx(_pit_body_y(o.timer))
+            return
+        o.timer += 1
+        climb = max(0, o.timer - _PIT_RISE_DELAY)
+        o.state = 0 if climb < _PIT_RISE[-1][0] else 2
+        o.y_fx = float_to_fx(_pit_body_y(climb))
         return
-    o.timer += 1  # $6C: placeholder until the eye AI is ported
+
+    # $6C
+    index = o.flags & 0x0F
+    if not pool.pit_fight:
+        o.state = 0
+        o.substate = 0
+        o.timer = 0
+        o.x_fx = float_to_fx(128.0)   # the record's own position, stacked
+        o.y_fx = float_to_fx(640.0)
+        return
+    o.timer += 1
+    body = _pit_body(pool)
+    body_x = fx_to_float(body.x_fx) if body is not None else 128.0
+    body_y = fx_to_float(body.y_fx) if body is not None else 700.0
+    if index >= PIT_EYE_CORE_INDEX:
+        # state 2 ($83:CD14): x = $1DD3 + 1, y = $1DD5 + $1C.
+        o.state = 2
+        o.substate = 2
+        o.x_fx = float_to_fx(body_x + 1.0)
+        o.y_fx = float_to_fx(body_y + 28.0)
+        return
+    o.state = 0
+    o.substate = 2 if o.timer < PIT_EYE_RELEASE else 4
+    o.x_fx = float_to_fx(_PIT_EYE_PARK_X[index])
+    o.y_fx = float_to_fx(body_y + _pit_eye_offset(index, o.timer))
 
 
 def objects_update(pool: ObjectPool, level, player) -> None:

@@ -226,3 +226,48 @@ handler do poço corre lá também. A tabela de y e os frames estão em
 olhos), portar os 4 estados; depois dano/morte, arte e lock.
 
 
+
+## Passo C — os 11 olhos `$6C` (2026-11-04, sessão 2)
+
+| commit | conteúdo |
+|---|---|
+| (este) | `$6B` espera 199 frames; `$6C` parque + enxame + olho central; checker com 3 amostras; `measure_pit_eyes.py` |
+
+**Ferramenta nova:** `tools/oracle/measure_pit_eyes.py` — repete a take e despeja
+os slots 8–25 (flags/estado/subestado/x/y) e, com `--extra`, os globais
+`$1DD0..$1E08` e as tabelas `$E2C0..$E300`/`$E380..$E3E0`. A luta corre a
+~15 fps no emulador: 25 000 frames levam ~14 min, a janela 14100–17350 ~8 min.
+
+**O que ficou medido** (`docs/PIT_BOSS.md` §7): os 11 registos `$6C` são 10
+satélites (`$00 = $16`) + 1 olho central (`$00 = $12`, `state 2` em
+`($1DD3+1, $1DD5+$1C)`); a luta repete 5× na take e só o 1.º ciclo lança os
+olhos (`sub 6` em 15791–16651, `sub 10/12/14` até 16871); o parque é x fixo
+(96..166) e y = corpo + (18, 8, 32, −3, 30, 18, 22, 14, 2, 32); em `sub 4` o
+desvio ao corpo cresce até 45–123 px com uma rampa de 0,5–0,85 px/frame que
+segue o ciclo de `$1DEF` (0→2→4→6, ~200 frames).
+
+**O que ficou implementado:** `$6B` só arranca 199 frames depois da flag (a
+tabela de y começa em 14400, a flag em 14201) — antes subia 200 frames cedo;
+os satélites parqueiam no x medido, passam a `sub 4` aos 220 frames e em `sub 4`
+o y = corpo + `_PIT_EYE_TRACK` (desvio medido, passo 20 frames) — comparado com
+a take o erro máximo é 2 px; o olho central é `state 2` preso ao corpo.
+`check_pit_boss.py` afirma agora o parque, o desvio em t=600/1200/1500
+(tolerância 4 px), o olho central e o atraso de 199 frames.
+
+**O que falta (por ordem):**
+1. As tabelas `$E2D5/$E2DF/$E2E1/$E2E3/$E2E5/$E2E7`: o handler faz
+   `ldy $E2D5,X` e indexa `$E2E1,Y`; em WRAM só há uma tabela de words `$15xx`
+   (números de tile), portanto o valor de `$03`/o DBR ainda não fechou. Fechar
+   isto troca `_PIT_EYE_TRACK` pela regra do ROM.
+2. O lançamento (`sub 6`+, `$83:C918`): faltam `$D0BE` (anim), `$D07C`/`$D198`
+   (sondas/timers), `$809CA4` (probe), `$809D8E`, `$808C95`/`$808C99`
+   (integradores) e `$BC904B` (RNG). É o que faz os olhos voar e ferir.
+3. Dano/HP/morte do corpo, arte (nenhum dos três tem sheet) e o lock da arena.
+
+**Armadilha:** `tools/disasm_range.py` (repo do recomp) imprimia `ldy $E2D5` para
+`LDY $E2D5,X` — o sufixo do modo de endereçamento não saía, e um lookup de
+tabela lia-se como constante. Corrigido no recomp (`53a2414`). Ao ler handlers
+indexados, confirmar o sufixo antes de acreditar no desvio.
+
+**Regressão:** `DISPLAY=:99 python3 tools/run_regression.py` → PASS (EXIT=0),
+com `pit boss` no resumo.
