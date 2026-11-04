@@ -219,8 +219,16 @@ de input mostra `start` em g22153 e g22229 (a escolha) e depois `left`/`right`;
 escolhido RETRY, o ecrã vai a preto (frame 22271) e o jogador reaparece no
 **spawn 0 da mesma sala**, com a barra de vida cheia (frame 22331).
 
-Ou seja: morrer não é game over nenhum — é o menu de continue com RETRY. O port
-tem isto errado hoje: `Game_HandleDeath` (C e Python) só reinicia a área 0 e
-manda as outras para um `GAME_OVER` inventado que espera ENTER e não tem
-caminho de volta para a sala. `SELECT A STAGE` e `END` ficam por medir.
+As três opções, confirmadas pelo utilizador:
+
+| opção | destino |
+|---|---|
+| RETRY | recarrega a mesma sala no spawn 0, vida cheia (medido) |
+| SELECT A STAGE | vai para o mapa em Mode 7 |
+| END | mostra o ecrã `PASS WORD` (4×4, `PUSH START BUTTON`); o password gerado leva sempre ao mapa |
+
+Ou seja: morrer não é game over nenhum — é o hub do jogo. O port tem isto
+errado hoje: `Game_HandleDeath` (C e Python) só reinicia a área 0 e manda as
+outras para um `GAME_OVER` inventado que espera ENTER e não tem caminho de volta
+para a sala nem para o mapa.
 

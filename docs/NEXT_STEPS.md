@@ -155,11 +155,14 @@ Nada disto bloqueia; está aqui para não se perder.
 - **Morte: menu de continue, não game over** (medido em `docs/TAKES.md` §6.3).
   Depois da animação de morte aparece `RETRY / SELECT A STAGE / END`; RETRY
   recarrega a **mesma sala no spawn 0** (área 9: (48,412); área 8: (32,668))
-  com a vida cheia. Hoje `Game_HandleDeath` (C e Python) só reinicia a área 0 e
-  manda o resto para um `GAME_OVER` inventado. Falta: medir `SELECT A STAGE` e
-  `END`, desenhar o menu com o motor de texto, implementar as três opções nos
-  dois lados e cobrir com um checker que force a morte (hook `DC_KILL_AT`) e
-  afirme mesma área + posição = spawn 0 + HP cheio no RETRY.
+  com a vida cheia; `SELECT A STAGE` vai para o mapa Mode 7; `END` mostra o
+  ecrã `PASS WORD` (4×4, `PUSH START BUTTON`) e o password leva sempre ao mapa.
+  Hoje `Game_HandleDeath` (C e Python) só reinicia a área 0 e manda o resto
+  para um `GAME_OVER` inventado. Falta: desenhar o menu com o motor de texto,
+  implementar as três opções nos dois lados e cobrir com um checker que force a
+  morte (hook `DC_KILL_AT`) e afirme mesma área + posição = spawn 0 + HP cheio
+  no RETRY. O `END` só fica fiel quando o codec retail estiver invertido; até
+  lá o ecrã serve para colher pares estado → password.
 - **Arma**: estados 16/18/20/22, o chooser `$809D8E` (`BE:ED13`), os spawns
   `$A6`/`$A7`/`$A8` e o drop visual do crest. A cadeia medida e a pergunta em
   aberto do `$1DCE` estão em `docs/ARMA_AI.md`.
