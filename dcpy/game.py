@@ -792,6 +792,24 @@ def _player_inside_transition(player, tr) -> bool:
         abs(player.y - tr.y) <= tr.half_h + 10.0
 
 
+# The ROM's transition records carry a pad mask: the direction that opens the
+# door. The bits follow the ROM's own order, right/left/down/up, so 8 is up --
+# measured on the stage II takes, where 5->6, 6->7 and 7->8 are all preceded
+# by a tap of up (docs/TAKES.md §6.1). 255 is "any direction" and is how the
+# plain walk-through exits are stored; 0 means the field is absent (older room
+# documents) and keeps the pre-pad_mask behaviour. Only the up bit is measured
+# today; the other three exist so a future door never opens on proximity alone.
+_TRANSITION_PAD_BITS = ((8, "up"), (4, "down"), (2, "left"), (1, "right"))
+
+
+def _transition_pad_held(inp, tr) -> bool:
+    mask = tr.pad_mask
+    if mask == 0 or mask == 255:
+        return True
+    return any(mask & bit and getattr(inp, name)
+               for bit, name in _TRANSITION_PAD_BITS)
+
+
 def game_check_transitions(game: Game) -> None:
     if not game.campaign_mode:
         return
@@ -805,7 +823,8 @@ def game_check_transitions(game: Game) -> None:
             if tr.next_area < 0 or tr.next_area >= 113 or \
                     tr.next_area == game.level.area_id:
                 continue
-            if _player_inside_transition(player, tr):
+            if _player_inside_transition(player, tr) and \
+                    _transition_pad_held(game.input, tr):
                 game_begin_transition(game, tr.next_area, tr.spawn_id)
                 return
     if "DC_DEBUG_OBJ" in os.environ:

@@ -116,15 +116,12 @@ A take confirma a ida: em (423,428) e (663,428) o jogador carrega **up**
 transita para 4 com `spawn_id: 1`, `room_area47` com `spawn_id: 2` — e o
 jogador reaparece exactamente em (424,428)/(664,428).
 
-Falta só a **porta de ida**. Dois caminhos:
-
-1. **Fiel**: os três registos de espécie `$24` em (424,420), (664,420) e
-   (824,116) são os controladores dessas portas (3 registos, 1 área, 3 estados;
-   update `$82:CA02`). O extractor tipa-os `pickup_crest` — tipo errado.
-2. **Pragmático**: inserir três transições em `room_area4` com `pad_mask` de up.
-   **Bloqueia** em `dcpy/game.py::game_check_transitions`: hoje o port ignora
-   `pad_mask` e dispara por proximidade — sem `pad_mask` o jogador é
-   teleportado ao passar ao lado da porta.
+Falta só a **porta de ida**. Entrou pelo caminho pragmático em 2026-11-04:
+`tools/dc_extract/apply_door_table.py` escreve as três transições medidas
+(`source: "take_door"`, caixa 16×16, `pad_mask: 8`, spawn 0) e
+`game_check_transitions` passou a exigir o botão. O caminho fiel (tipar os três
+`$24` como controladores de porta) fica para o Passo 2 — o extractor ainda os
+chama `pickup_crest`.
 
 O dump de objectos da take (`trace_stage.py replay --objects`, passo 200)
 confirma `room_area4.json` objecto a objecto (hex): `$57@360,232`, quatro

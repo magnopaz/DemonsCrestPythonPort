@@ -843,6 +843,29 @@ static bool PlayerInsideTransition(const Player *player,
            fabsf(player->y - tr->y) <= tr->half_h + 10.0f;
 }
 
+/* The transition records carry a pad mask: the direction that opens the door.
+ * The bits follow the ROM's own order, right/left/down/up, so 8 is up --
+ * measured on the stage II takes, where 5->6, 6->7 and 7->8 are all preceded
+ * by a tap of up (docs/TAKES.md §6.1). 255 is "any direction" and is how the
+ * plain walk-through exits are stored; 0 means the field is absent (older room
+ * documents) and keeps the pre-pad_mask behaviour. Only the up bit is measured
+ * today; the other three exist so a future door never opens on proximity. */
+static bool TransitionPadHeld(const Input *input,
+                              const LevelTransition *tr) {
+    int mask = tr->pad_mask;
+    if (mask == 0 || mask == 255)
+        return true;
+    if ((mask & 8) && input->up)
+        return true;
+    if ((mask & 4) && input->down)
+        return true;
+    if ((mask & 2) && input->left)
+        return true;
+    if ((mask & 1) && input->right)
+        return true;
+    return false;
+}
+
 static void Game_CheckTransitions(Game *game) {
     if (!game->campaign_mode)
         return;
@@ -861,7 +884,8 @@ static void Game_CheckTransitions(Game *game) {
             if (tr->next_area < 0 || tr->next_area >= 113 ||
                 tr->next_area == game->level.area_id)
                 continue;
-            if (PlayerInsideTransition(player, tr)) {
+            if (PlayerInsideTransition(player, tr) &&
+                TransitionPadHeld(&game->input, tr)) {
                 Game_BeginTransition(game, tr->next_area, tr->spawn_id);
                 return;
             }

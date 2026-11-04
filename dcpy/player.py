@@ -34,6 +34,10 @@ PLAYER_SPECIAL_FRAMES = 31
 
 FX_ONE = 256
 
+# Set by the first Player_Init that honours DC_START_X/Y; DC_START_ONCE uses it
+# to keep the hook on the boot room only.
+_start_hook_used = False
+
 _FORM_NAMES = [
     "FIRE GARGOYLE",
     "EARTH GARGOYLE",
@@ -259,10 +263,20 @@ def player_init(player: Player, level) -> None:
     unlock_all = "DC_UNLOCK_ALL" in os.environ or demo == "11"
     player.x_fx = float_to_fx(level.spawn_x)
     player.y_fx = float_to_fx(level.spawn_y)
+    # DC_START_X/Y are test hooks; by default they apply on every room load,
+    # which teleports the player into the room a door just led to. Checkers
+    # that only want to stand on a door set DC_START_ONCE=1 so the hook is
+    # consumed by the boot room.
+    global _start_hook_used
     start_x = env("DC_START_X")
+    start_y = env("DC_START_Y")
+    if _start_hook_used and "DC_START_ONCE" in os.environ:
+        start_x = None
+        start_y = None
+    if start_x or start_y:
+        _start_hook_used = True
     if start_x:
         player.x_fx = float_to_fx(float(start_x))
-    start_y = env("DC_START_Y")
     if start_y:
         player.y_fx = float_to_fx(float(start_y))
     player.walk_speed_fx = PLAYER_WALK_MAX_FX

@@ -451,6 +451,18 @@ def main() -> int:
         check(fade_proc.returncode == 0,
               "transition: fade profile failed\n" + fade_proc.stdout[-800:])
 
+        # ---- pad_mask: the up-doors and the 5->6/6->7/7->8 gates ----
+        # Standing on a door without pressing up must not change the area;
+        # the avenue's three take-measured doors must open when up is tapped.
+        up_proc = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_up_doors.py"),
+             "--binary", str(binary), "--assets", str(assets),
+             "--tmp", str(out)],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=600)
+        check(up_proc.returncode == 0,
+              "up doors: pad_mask check failed\n" + up_proc.stdout[-800:])
+
         # ---- End-to-end campaign playthrough ----
         play = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "check_playthrough.py"),
@@ -648,8 +660,8 @@ def main() -> int:
         return 1
     print("regression: PASS (demos 6,7,9,10,11,12,13, boss data/runtime, "
           "hippogriff fight, arma crest/map chain, mode 7 map, "
-          "object placement/placeholders, $72 flames, boss defeat + "
-          "multi-area loads)")
+          "object placement/placeholders, $72 flames, up-door pad_mask, "
+          "boss defeat + multi-area loads)")
     return 0
 
 

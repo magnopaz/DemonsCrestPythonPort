@@ -27,10 +27,12 @@ Notes:
   at (664,428), Black Lotus at (824,124). The return trip is already extracted:
   `room_area46` transitions to area 4 with `spawn_id: 1`, `room_area47` with
   `spawn_id: 2`, and the player lands back on those exact coordinates.
-- Still missing is the outbound door. The three species `$24` records at
-  (424,420), (664,420) and (824,116) are the door controllers (3 records, one
-  area, 3 states, update `$82:CA02`); the extractor types them `pickup_crest`.
-  Wiring them as transitions needs `pad_mask` support in
-  `dcpy/game.py::game_check_transitions`, which today triggers on proximity only.
+- The outbound door is now in the room document: `apply_door_table.py` writes
+  the three take-measured transitions (`source: "take_door"`, 16×16 box,
+  `pad_mask: 8`, spawn 0) and `game_check_transitions` requires the button
+  before transitioning. The three species `$24` records at (424,420),
+  (664,420) and (824,116) are still typed `pickup_crest`; they are the ROM's
+  door controllers, not pickups, and re-typing them is a species-census
+  question (Passo 2), not a door-table one.
 - `wise_man` sells spells (it asks for a vellum first: `$85:8370`); `black_lotus`
   is the potion shop; the library NPC describes talismans (`$85:8C51..8DD0`).

@@ -18,7 +18,12 @@ Policy:
   below), then padded, so a spawn exactly on the recorded point is inside it;
 - doors written by this tool carry ``"source": "door_table"`` and are replaced
   on every run, which makes the tool idempotent and safe to re-run after a
-  fresh ``extract.py``.
+  fresh ``extract.py``;
+- a second table (`TAKE_DOORS`) writes doors measured on the stage II takes.
+  Those carry ``"source": "take_door"`` and are replaced the same way. They
+  are the avenue's three up-doors: the ROM's own transition table has no
+  record for them (the ``$24`` records are door controllers), so the take is
+  the source. Their box is the measured 16x16 tile, not the derived rectangle.
 
 Usage:
   python3 tools/dc_extract/apply_door_table.py --rooms assets/generated
@@ -48,6 +53,21 @@ DOORS: tuple[tuple[int, float, float, int, str], ...] = (
 
 PLAYER_HALF_W = 6.0
 PLAYER_HEIGHT = 22.0
+
+# (source area, player x, player y, destination area, pad_mask, provenance)
+#
+# Doors measured on the stage II takes (`docs/TAKES.md` §6). They are not in
+# the ROM's transition table -- the avenue's three `$24` records are the door
+# controllers and the extractor types them `pickup_crest` -- so they enter the
+# room documents from the take, not from `extract.py`. Each sits on an avenue
+# spawn point: the take shows the player standing there and tapping up, which
+# is the ROM's up bit (8), the same mask as the 5->6/6->7/7->8 doors.
+TAKE_DOORS: tuple[tuple[int, float, float, int, int, str], ...] = (
+    (4, 424, 428, 46, 8, "stage II take: library up-door (avenue spawn 1)"),
+    (4, 664, 428, 47, 8, "stage II take: wise man up-door (avenue spawn 2)"),
+    (4, 824, 124, 48, 8, "stage II take: black lotus up-door (avenue spawn 3)"),
+)
+TAKE_DOOR_HALF = 16.0
 
 
 def surface_offset(attr: int, local_x: int) -> int:
@@ -231,6 +251,60 @@ def apply(rooms: Path, dry_run: bool = False) -> int:
     return applied
 
 
+def apply_take_doors(rooms: Path, dry_run: bool = False) -> int:
+    """Write the take-measured up-doors, replacing previous ``take_door`` ones."""
+    by_source: dict[int, list[tuple[int, float, float, int, int, str]]] = {}
+    for record in TAKE_DOORS:
+        by_source.setdefault(record[0], []).append(record)
+    applied = 0
+    for src, records in by_source.items():
+        path = rooms / f"room_area{src}.json"
+        if not path.is_file():
+            raise SystemExit(f"take_door: {path} missing")
+        data = json.loads(path.read_text())
+        world = data.get("world") or {}
+        world_w = float(world.get("width") or 256)
+        world_h = float(world.get("height") or 256)
+        spawns = data.get("spawns") or []
+        transitions = [tr for tr in data.get("transitions", [])
+                       if tr.get("source") != "take_door"]
+        inserted = []
+        for _src, x, y, dst, pad_mask, provenance in records:
+            if not (rooms / f"room_area{dst}.json").is_file():
+                raise SystemExit(f"take_door: destination room {dst} missing")
+            if not (TAKE_DOOR_HALF <= x <= world_w - TAKE_DOOR_HALF and
+                    TAKE_DOOR_HALF <= y <= world_h - TAKE_DOOR_HALF):
+                raise SystemExit(
+                    f"take_door {src}->{dst}: ({x:g},{y:g}) is outside the "
+                    f"{world_w:g}x{world_h:g} room")
+            if not any(abs(float(sp.get("x", -9999)) - x) <= 8.0 and
+                       abs(float(sp.get("y", -9999)) - y) <= 8.0
+                       for sp in spawns):
+                raise SystemExit(
+                    f"take_door {src}->{dst}: ({x:g},{y:g}) is not on a spawn")
+            inserted.append({
+                "next_area": dst,
+                "spawn_id": 0,
+                "pad_mask": pad_mask,
+                "x": x,
+                "y": y,
+                "half_w": TAKE_DOOR_HALF,
+                "half_h": TAKE_DOOR_HALF,
+                "type": 0,
+                "source": "take_door",
+                "door": provenance,
+            })
+            print(f"take_door {src}->{dst}: ({x:g},{y:g}) pad_mask={pad_mask} "
+                  f"half=({TAKE_DOOR_HALF:g},{TAKE_DOOR_HALF:g})")
+            applied += 1
+        data["transitions"] = inserted + transitions
+        if not dry_run:
+            path.write_text(json.dumps(data))
+    print(f"take_door: {applied} door(s) "
+          f"{'checked' if dry_run else 'written'}")
+    return applied
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--rooms", type=Path, default=Path("assets/generated"))
@@ -238,6 +312,7 @@ def main() -> int:
                     help="report the doors without writing the room JSONs")
     args = ap.parse_args()
     apply(args.rooms, args.dry_run)
+    apply_take_doors(args.rooms, args.dry_run)
     return 0
 
 

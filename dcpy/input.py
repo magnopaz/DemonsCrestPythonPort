@@ -156,6 +156,12 @@ def input_read(inp: Input, st: InputState) -> None:
     elif mode == 40:
         _demo_frame += 1
         left = _demo_frame >= 5
+    elif mode == 41:
+        # Up-door probe: stand on the door and tap up at frame 20, the way the
+        # stage II take does. Used by tools/check_up_doors.py; the position
+        # comes from DC_START_X/DC_START_Y.
+        _demo_frame += 1
+        up = 20 <= _demo_frame < 22
     elif mode == 36:
         _demo_frame += 1
         right = _demo_frame >= 5
