@@ -293,18 +293,25 @@ frames, `1 species, 7 frames, 0 error(s)`) is written up in §7.5 of that doc.
 
 The generated Belth entry only had the walking row (3 frames) because
 `bake_boss_rows.py` was pointed at one measured band. `tools/dc_extract/
-bake_belth_animation.py` slices the labelled `Belth.gif` rows (idle, taunt,
-walk, attack, jump, charge, turn, hurt, death), keys the flat sheet background,
+bake_belth_animation.py` (a wrapper over `SPECS["belth"]` in
+`bake_sheet_anim.py`) slices the labelled `Belth.gif` rows (idle, taunt, walk,
+attack, jump, charge, turn, hurt, death), keys the flat sheet background,
 removes captions/specks, and writes a 32-frame **authored** entry plus PNGs
-under `assets/authored/sprites/`. The entry carries a `state_names` map so the
-Enemy Editor shows `State 3 · attack` instead of a bare number.
+under `assets/authored/sprites/belth/`. The entry carries a `state_names` map
+so the Enemy Editor shows `State 3 · attack` instead of a bare number.
+
+Every extraction gets its own subfolder (`sprites/<target>/`, texture
+`sprites/<target>/<file>.png`) — never loose files in the `sprites/` root.
+`bake_sheet_anim.py` is the general baker for the other sheets; see
+`docs/SPRITE_SHEET_EXTRACTION.md` §4.0 for the measuring tools.
 
 The Python port's `DC_SPECIES_FRAMES` is now 64 (the frozen C reference keeps
-10), so the full authored set loads. The generated 3-frame entry is untouched;
-the authored overlay wins at load time.
+10), so the full authored set loads. The generated entry is untouched; the
+authored overlay wins at load time.
 
 ```sh
 python tools/dc_extract/bake_belth_animation.py
+python tools/dc_extract/bake_sheet_anim.py --list
 python tools/audit_sprites.py --assets assets/generated --strict
 ```
 

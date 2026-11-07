@@ -1,0 +1,1299 @@
+{
+ "forms": [
+  {
+   "form": 1,
+   "name": "ground",
+   "clips": {
+    "idle": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_ground/player_ground_00_idle.png",
+       "anchor_x": 14,
+       "anchor_y": 40,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_01_idle.png",
+       "anchor_x": 13,
+       "anchor_y": 39,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_02_idle.png",
+       "anchor_x": 13,
+       "anchor_y": 38,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_03_idle.png",
+       "anchor_x": 13,
+       "anchor_y": 39,
+       "duration": 8
+      }
+     ]
+    },
+    "walk": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_ground/player_ground_04_walk.png",
+       "anchor_x": 9,
+       "anchor_y": 39,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_05_walk.png",
+       "anchor_x": 9,
+       "anchor_y": 40,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_06_walk.png",
+       "anchor_x": 13,
+       "anchor_y": 38,
+       "duration": 9
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_07_walk.png",
+       "anchor_x": 8,
+       "anchor_y": 39,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_08_walk.png",
+       "anchor_x": 10,
+       "anchor_y": 40,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_09_walk.png",
+       "anchor_x": 13,
+       "anchor_y": 38,
+       "duration": 9
+      }
+     ]
+    },
+    "attack": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_ground/player_ground_10_attack.png",
+       "anchor_x": 11,
+       "anchor_y": 35,
+       "duration": 1
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_11_attack.png",
+       "anchor_x": 14,
+       "anchor_y": 32,
+       "duration": 6
+      }
+     ]
+    },
+    "jump": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_ground/player_ground_12_jump.png",
+       "anchor_x": 14,
+       "anchor_y": 32,
+       "duration": 1
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_13_jump.png",
+       "anchor_x": 10,
+       "anchor_y": 55,
+       "duration": 2
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_14_jump.png",
+       "anchor_x": 17,
+       "anchor_y": 42,
+       "duration": 2
+      }
+     ]
+    },
+    "fall": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_ground/player_ground_15_fall.png",
+       "anchor_x": 10,
+       "anchor_y": 55,
+       "duration": 3
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_16_fall.png",
+       "anchor_x": 12,
+       "anchor_y": 38,
+       "duration": 2
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_17_fall.png",
+       "anchor_x": 14,
+       "anchor_y": 30,
+       "duration": 3
+      }
+     ]
+    },
+    "land": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_ground/player_ground_18_land.png",
+       "anchor_x": 10,
+       "anchor_y": 45,
+       "duration": 3
+      }
+     ]
+    },
+    "hurt": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_ground/player_ground_19_hurt.png",
+       "anchor_x": 22,
+       "anchor_y": 33,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_20_hurt.png",
+       "anchor_x": 12,
+       "anchor_y": 39,
+       "duration": 8
+      }
+     ]
+    },
+    "death": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_ground/player_ground_21_death.png",
+       "anchor_x": 13,
+       "anchor_y": 36,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_22_death.png",
+       "anchor_x": 19,
+       "anchor_y": 33,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_23_death.png",
+       "anchor_x": 19,
+       "anchor_y": 34,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_24_death.png",
+       "anchor_x": 19,
+       "anchor_y": 30,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_25_death.png",
+       "anchor_x": 20,
+       "anchor_y": 25,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ground/player_ground_26_death.png",
+       "anchor_x": 20,
+       "anchor_y": 17,
+       "duration": 8
+      }
+     ]
+    }
+   },
+   "source": "Firebrand (Ground).gif: measured per-clip regions (bake_player_forms.py), 8 clips"
+  },
+  {
+   "form": 2,
+   "name": "aerial",
+   "clips": {
+    "idle": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_aerial/player_aerial_00_idle.png",
+       "anchor_x": 17,
+       "anchor_y": 49,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_01_idle.png",
+       "anchor_x": 16,
+       "anchor_y": 48,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_02_idle.png",
+       "anchor_x": 15,
+       "anchor_y": 47,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_03_idle.png",
+       "anchor_x": 16,
+       "anchor_y": 48,
+       "duration": 8
+      }
+     ]
+    },
+    "walk": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_aerial/player_aerial_04_walk.png",
+       "anchor_x": 20,
+       "anchor_y": 42,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_05_walk.png",
+       "anchor_x": 12,
+       "anchor_y": 48,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_06_walk.png",
+       "anchor_x": 22,
+       "anchor_y": 46,
+       "duration": 9
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_07_walk.png",
+       "anchor_x": 27,
+       "anchor_y": 42,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_08_walk.png",
+       "anchor_x": 23,
+       "anchor_y": 43,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_09_walk.png",
+       "anchor_x": 22,
+       "anchor_y": 41,
+       "duration": 9
+      }
+     ]
+    },
+    "attack": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_aerial/player_aerial_10_attack.png",
+       "anchor_x": 21,
+       "anchor_y": 55,
+       "duration": 1
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_11_attack.png",
+       "anchor_x": 14,
+       "anchor_y": 47,
+       "duration": 6
+      }
+     ]
+    },
+    "jump": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_aerial/player_aerial_12_jump.png",
+       "anchor_x": 20,
+       "anchor_y": 52,
+       "duration": 1
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_13_jump.png",
+       "anchor_x": 25,
+       "anchor_y": 54,
+       "duration": 2
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_14_jump.png",
+       "anchor_x": 26,
+       "anchor_y": 44,
+       "duration": 2
+      }
+     ]
+    },
+    "fall": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_aerial/player_aerial_15_fall.png",
+       "anchor_x": 51,
+       "anchor_y": 44,
+       "duration": 3
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_16_fall.png",
+       "anchor_x": 40,
+       "anchor_y": 44,
+       "duration": 2
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_17_fall.png",
+       "anchor_x": 17,
+       "anchor_y": 42,
+       "duration": 3
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_18_fall.png",
+       "anchor_x": 34,
+       "anchor_y": 42,
+       "duration": 2
+      }
+     ]
+    },
+    "land": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_aerial/player_aerial_19_land.png",
+       "anchor_x": 20,
+       "anchor_y": 42,
+       "duration": 3
+      }
+     ]
+    },
+    "hover": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_aerial/player_aerial_20_hover.png",
+       "anchor_x": 51,
+       "anchor_y": 44,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_21_hover.png",
+       "anchor_x": 40,
+       "anchor_y": 44,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_22_hover.png",
+       "anchor_x": 17,
+       "anchor_y": 42,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_23_hover.png",
+       "anchor_x": 34,
+       "anchor_y": 42,
+       "duration": 8
+      }
+     ]
+    },
+    "flying": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_aerial/player_aerial_24_flying.png",
+       "anchor_x": 31,
+       "anchor_y": 35,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_25_flying.png",
+       "anchor_x": 23,
+       "anchor_y": 41,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_26_flying.png",
+       "anchor_x": 16,
+       "anchor_y": 64,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_27_flying.png",
+       "anchor_x": 17,
+       "anchor_y": 43,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_28_flying.png",
+       "anchor_x": 27,
+       "anchor_y": 35,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_29_flying.png",
+       "anchor_x": 32,
+       "anchor_y": 58,
+       "duration": 8
+      }
+     ]
+    },
+    "hurt": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_aerial/player_aerial_30_hurt.png",
+       "anchor_x": 21,
+       "anchor_y": 34,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_31_hurt.png",
+       "anchor_x": 16,
+       "anchor_y": 48,
+       "duration": 8
+      }
+     ]
+    },
+    "death": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_aerial/player_aerial_32_death.png",
+       "anchor_x": 15,
+       "anchor_y": 40,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_33_death.png",
+       "anchor_x": 17,
+       "anchor_y": 33,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_34_death.png",
+       "anchor_x": 19,
+       "anchor_y": 33,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_35_death.png",
+       "anchor_x": 19,
+       "anchor_y": 30,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_36_death.png",
+       "anchor_x": 16,
+       "anchor_y": 25,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_aerial/player_aerial_37_death.png",
+       "anchor_x": 21,
+       "anchor_y": 17,
+       "duration": 8
+      }
+     ]
+    }
+   },
+   "source": "Firebrand (Aerial).gif: measured per-clip regions (bake_player_forms.py), 10 clips"
+  },
+  {
+   "form": 3,
+   "name": "tidal",
+   "clips": {
+    "idle": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_tidal/player_tidal_00_idle.png",
+       "anchor_x": 12,
+       "anchor_y": 43,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_01_idle.png",
+       "anchor_x": 12,
+       "anchor_y": 42,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_02_idle.png",
+       "anchor_x": 12,
+       "anchor_y": 41,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_03_idle.png",
+       "anchor_x": 12,
+       "anchor_y": 42,
+       "duration": 8
+      }
+     ]
+    },
+    "walk": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_tidal/player_tidal_04_walk.png",
+       "anchor_x": 10,
+       "anchor_y": 42,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_05_walk.png",
+       "anchor_x": 9,
+       "anchor_y": 43,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_06_walk.png",
+       "anchor_x": 11,
+       "anchor_y": 43,
+       "duration": 9
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_07_walk.png",
+       "anchor_x": 9,
+       "anchor_y": 42,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_08_walk.png",
+       "anchor_x": 11,
+       "anchor_y": 43,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_09_walk.png",
+       "anchor_x": 12,
+       "anchor_y": 41,
+       "duration": 9
+      }
+     ]
+    },
+    "attack": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_tidal/player_tidal_10_attack.png",
+       "anchor_x": 11,
+       "anchor_y": 42,
+       "duration": 1
+      }
+     ]
+    },
+    "jump": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_tidal/player_tidal_11_jump.png",
+       "anchor_x": 18,
+       "anchor_y": 45,
+       "duration": 1
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_12_jump.png",
+       "anchor_x": 14,
+       "anchor_y": 51,
+       "duration": 2
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_13_jump.png",
+       "anchor_x": 18,
+       "anchor_y": 45,
+       "duration": 2
+      }
+     ]
+    },
+    "fall": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_tidal/player_tidal_14_fall.png",
+       "anchor_x": 23,
+       "anchor_y": 43,
+       "duration": 3
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_15_fall.png",
+       "anchor_x": 18,
+       "anchor_y": 45,
+       "duration": 2
+      }
+     ]
+    },
+    "land": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_tidal/player_tidal_16_land.png",
+       "anchor_x": 11,
+       "anchor_y": 40,
+       "duration": 3
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_17_land.png",
+       "anchor_x": 12,
+       "anchor_y": 40,
+       "duration": 5
+      }
+     ]
+    },
+    "hover": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_tidal/player_tidal_18_hover.png",
+       "anchor_x": 19,
+       "anchor_y": 24,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_19_hover.png",
+       "anchor_x": 18,
+       "anchor_y": 28,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_20_hover.png",
+       "anchor_x": 23,
+       "anchor_y": 25,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_21_hover.png",
+       "anchor_x": 22,
+       "anchor_y": 21,
+       "duration": 8
+      }
+     ]
+    },
+    "flying": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_tidal/player_tidal_22_flying.png",
+       "anchor_x": 13,
+       "anchor_y": 44,
+       "duration": 8
+      }
+     ]
+    },
+    "hurt": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_tidal/player_tidal_23_hurt.png",
+       "anchor_x": 22,
+       "anchor_y": 33,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_24_hurt.png",
+       "anchor_x": 12,
+       "anchor_y": 42,
+       "duration": 8
+      }
+     ]
+    },
+    "death": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_tidal/player_tidal_25_death.png",
+       "anchor_x": 13,
+       "anchor_y": 37,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_26_death.png",
+       "anchor_x": 19,
+       "anchor_y": 33,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_27_death.png",
+       "anchor_x": 19,
+       "anchor_y": 33,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_28_death.png",
+       "anchor_x": 19,
+       "anchor_y": 30,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_29_death.png",
+       "anchor_x": 20,
+       "anchor_y": 25,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_tidal/player_tidal_30_death.png",
+       "anchor_x": 20,
+       "anchor_y": 18,
+       "duration": 8
+      }
+     ]
+    }
+   },
+   "source": "Firebrand (Tidal).gif: measured per-clip regions (bake_player_forms.py), 10 clips"
+  },
+  {
+   "form": 4,
+   "name": "legendary",
+   "clips": {
+    "idle": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_legendary/player_legendary_00_idle.png",
+       "anchor_x": 14,
+       "anchor_y": 45,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_01_idle.png",
+       "anchor_x": 14,
+       "anchor_y": 44,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_02_idle.png",
+       "anchor_x": 14,
+       "anchor_y": 43,
+       "duration": 8
+      }
+     ]
+    },
+    "walk": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_legendary/player_legendary_03_walk.png",
+       "anchor_x": 11,
+       "anchor_y": 44,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_04_walk.png",
+       "anchor_x": 14,
+       "anchor_y": 44,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_05_walk.png",
+       "anchor_x": 17,
+       "anchor_y": 43,
+       "duration": 9
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_06_walk.png",
+       "anchor_x": 14,
+       "anchor_y": 44,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_07_walk.png",
+       "anchor_x": 11,
+       "anchor_y": 45,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_08_walk.png",
+       "anchor_x": 11,
+       "anchor_y": 44,
+       "duration": 9
+      }
+     ]
+    },
+    "attack": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_legendary/player_legendary_09_attack.png",
+       "anchor_x": 12,
+       "anchor_y": 39,
+       "duration": 1
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_10_attack.png",
+       "anchor_x": 12,
+       "anchor_y": 39,
+       "duration": 6
+      }
+     ]
+    },
+    "jump": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_legendary/player_legendary_11_jump.png",
+       "anchor_x": 13,
+       "anchor_y": 36,
+       "duration": 1
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_12_jump.png",
+       "anchor_x": 17,
+       "anchor_y": 45,
+       "duration": 2
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_13_jump.png",
+       "anchor_x": 22,
+       "anchor_y": 51,
+       "duration": 2
+      }
+     ]
+    },
+    "fall": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_legendary/player_legendary_14_fall.png",
+       "anchor_x": 24,
+       "anchor_y": 42,
+       "duration": 3
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_15_fall.png",
+       "anchor_x": 16,
+       "anchor_y": 43,
+       "duration": 2
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_16_fall.png",
+       "anchor_x": 13,
+       "anchor_y": 44,
+       "duration": 3
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_17_fall.png",
+       "anchor_x": 16,
+       "anchor_y": 43,
+       "duration": 2
+      }
+     ]
+    },
+    "land": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_legendary/player_legendary_18_land.png",
+       "anchor_x": 11,
+       "anchor_y": 43,
+       "duration": 3
+      }
+     ]
+    },
+    "hover": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_legendary/player_legendary_19_hover.png",
+       "anchor_x": 18,
+       "anchor_y": 44,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_20_hover.png",
+       "anchor_x": 28,
+       "anchor_y": 45,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_21_hover.png",
+       "anchor_x": 21,
+       "anchor_y": 46,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_22_hover.png",
+       "anchor_x": 28,
+       "anchor_y": 45,
+       "duration": 8
+      }
+     ]
+    },
+    "flying": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_legendary/player_legendary_23_flying.png",
+       "anchor_x": 23,
+       "anchor_y": 42,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_24_flying.png",
+       "anchor_x": 25,
+       "anchor_y": 62,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_25_flying.png",
+       "anchor_x": 29,
+       "anchor_y": 45,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_26_flying.png",
+       "anchor_x": 27,
+       "anchor_y": 38,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_27_flying.png",
+       "anchor_x": 16,
+       "anchor_y": 40,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_28_flying.png",
+       "anchor_x": 15,
+       "anchor_y": 38,
+       "duration": 8
+      }
+     ]
+    },
+    "hurt": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_legendary/player_legendary_29_hurt.png",
+       "anchor_x": 20,
+       "anchor_y": 33,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_30_hurt.png",
+       "anchor_x": 14,
+       "anchor_y": 44,
+       "duration": 8
+      }
+     ]
+    },
+    "death": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_legendary/player_legendary_31_death.png",
+       "anchor_x": 12,
+       "anchor_y": 41,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_32_death.png",
+       "anchor_x": 17,
+       "anchor_y": 34,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_33_death.png",
+       "anchor_x": 17,
+       "anchor_y": 33,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_34_death.png",
+       "anchor_x": 20,
+       "anchor_y": 30,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_35_death.png",
+       "anchor_x": 20,
+       "anchor_y": 26,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_36_death.png",
+       "anchor_x": 20,
+       "anchor_y": 19,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_legendary/player_legendary_37_death.png",
+       "anchor_x": 19,
+       "anchor_y": 16,
+       "duration": 8
+      }
+     ]
+    }
+   },
+   "source": "Firebrand (Legendary).gif: measured per-clip regions (bake_player_forms.py), 10 clips"
+  },
+  {
+   "form": 5,
+   "name": "ultimate",
+   "clips": {
+    "idle": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_00_idle.png",
+       "anchor_x": 14,
+       "anchor_y": 45,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_01_idle.png",
+       "anchor_x": 14,
+       "anchor_y": 44,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_02_idle.png",
+       "anchor_x": 14,
+       "anchor_y": 43,
+       "duration": 8
+      }
+     ]
+    },
+    "walk": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_03_walk.png",
+       "anchor_x": 11,
+       "anchor_y": 44,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_04_walk.png",
+       "anchor_x": 14,
+       "anchor_y": 44,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_05_walk.png",
+       "anchor_x": 17,
+       "anchor_y": 43,
+       "duration": 9
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_06_walk.png",
+       "anchor_x": 14,
+       "anchor_y": 44,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_07_walk.png",
+       "anchor_x": 11,
+       "anchor_y": 45,
+       "duration": 7
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_08_walk.png",
+       "anchor_x": 11,
+       "anchor_y": 44,
+       "duration": 9
+      }
+     ]
+    },
+    "attack": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_09_attack.png",
+       "anchor_x": 12,
+       "anchor_y": 39,
+       "duration": 1
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_10_attack.png",
+       "anchor_x": 12,
+       "anchor_y": 39,
+       "duration": 6
+      }
+     ]
+    },
+    "jump": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_11_jump.png",
+       "anchor_x": 13,
+       "anchor_y": 36,
+       "duration": 1
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_12_jump.png",
+       "anchor_x": 17,
+       "anchor_y": 45,
+       "duration": 2
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_13_jump.png",
+       "anchor_x": 22,
+       "anchor_y": 51,
+       "duration": 2
+      }
+     ]
+    },
+    "fall": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_14_fall.png",
+       "anchor_x": 24,
+       "anchor_y": 42,
+       "duration": 3
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_15_fall.png",
+       "anchor_x": 16,
+       "anchor_y": 43,
+       "duration": 2
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_16_fall.png",
+       "anchor_x": 13,
+       "anchor_y": 44,
+       "duration": 3
+      }
+     ]
+    },
+    "land": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_17_land.png",
+       "anchor_x": 11,
+       "anchor_y": 43,
+       "duration": 3
+      }
+     ]
+    },
+    "hover": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_18_hover.png",
+       "anchor_x": 18,
+       "anchor_y": 44,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_19_hover.png",
+       "anchor_x": 28,
+       "anchor_y": 45,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_20_hover.png",
+       "anchor_x": 21,
+       "anchor_y": 46,
+       "duration": 8
+      }
+     ]
+    },
+    "flying": {
+     "loop": true,
+     "steps": [
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_21_flying.png",
+       "anchor_x": 23,
+       "anchor_y": 42,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_22_flying.png",
+       "anchor_x": 25,
+       "anchor_y": 62,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_23_flying.png",
+       "anchor_x": 29,
+       "anchor_y": 45,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_24_flying.png",
+       "anchor_x": 27,
+       "anchor_y": 38,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_25_flying.png",
+       "anchor_x": 16,
+       "anchor_y": 40,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_26_flying.png",
+       "anchor_x": 15,
+       "anchor_y": 38,
+       "duration": 8
+      }
+     ]
+    },
+    "hurt": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_27_hurt.png",
+       "anchor_x": 20,
+       "anchor_y": 33,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_28_hurt.png",
+       "anchor_x": 14,
+       "anchor_y": 45,
+       "duration": 8
+      }
+     ]
+    },
+    "death": {
+     "loop": false,
+     "steps": [
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_29_death.png",
+       "anchor_x": 12,
+       "anchor_y": 41,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_30_death.png",
+       "anchor_x": 17,
+       "anchor_y": 34,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_31_death.png",
+       "anchor_x": 17,
+       "anchor_y": 33,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_32_death.png",
+       "anchor_x": 20,
+       "anchor_y": 30,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_33_death.png",
+       "anchor_x": 20,
+       "anchor_y": 26,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_34_death.png",
+       "anchor_x": 20,
+       "anchor_y": 19,
+       "duration": 8
+      },
+      {
+       "texture": "sprites/player_ultimate/player_ultimate_35_death.png",
+       "anchor_x": 19,
+       "anchor_y": 16,
+       "duration": 8
+      }
+     ]
+    }
+   },
+   "source": "Firebrand (Ultimate).gif: measured per-clip regions (bake_player_forms.py), 10 clips"
+  }
+ ]
+}

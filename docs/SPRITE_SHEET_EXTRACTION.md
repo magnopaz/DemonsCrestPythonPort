@@ -13,14 +13,20 @@ workflow, not a replacement for either.
 
 - Source art: `docs/sprites/*.gif` and `*.png`. Most GIFs are one static
   labelled sheet, not animated GIFs.
-- Destination: `assets/authored/sprites/` plus an authored
-  `assets/authored/species_anim.json` or `player_forms.json`.
+- Destination: `assets/authored/sprites/<target>/` plus an authored
+  `assets/authored/species_anim.json` or `player_forms.json`. **One subfolder
+  per extraction/target** (`belth/`, `arma/`, `player_aerial/`, ...); never
+  drop frames loose in `assets/authored/sprites/`, where the next target
+  collides with them.
 - **Never edit `assets/generated/` for this job.** It is ROM-derived and
   rebuildable.
-- Copy the Belth baker
-  (`tools/dc_extract/bake_belth_animation.py`) as the template. It shows the
-  complete path: measured bands, column splitting, background key, cleanup,
-  body anchor, frame names, authored JSON and a contact sheet.
+- The baker is spec-driven: add a `SPECS` entry to
+  `tools/dc_extract/bake_sheet_anim.py` (measured bands, names, species/form)
+  and run it. `tools/dc_extract/bake_belth_animation.py` is the documented
+  Belth shortcut for the same spec. Measure with
+  `tools/dc_extract/sheet_report.py` (rows/poses) and
+  `tools/dc_extract/sheet_captions.py` (caption strips); label, crop, key,
+  anchor and contact-sheet logic lives in `tools/dc_extract/sheet_lib.py`.
 - Validate in the Enemy Editor / Player Editor, then render in game. Commit
   only authored images/JSON and the extraction tool/doc.
 - Do not overwrite the existing authored Belth entry, the user's
@@ -59,7 +65,7 @@ was the practical source. State that in the entry's `source` string.
     "68": {
       "species": 104,
       "frames": [
-        {"texture": "sprites/belth_00_idle.png",
+        {"texture": "sprites/belth/belth_00_idle.png",
          "anchor_x": 30, "anchor_y": 58,
          "duration": 10, "width": 60, "height": 58}
       ],
@@ -73,8 +79,11 @@ was the practical source. State that in the entry's `source` string.
 }
 ```
 
-- `texture` is relative to `assets/authored`; `sprites/...` resolves under
-  `assets/authored/sprites/`.
+- `texture` is relative to `assets/authored`; `sprites/<target>/...` resolves
+  under `assets/authored/sprites/<target>/`. Both the runtime
+  (`dcpy/assets.py:_load_one_optional`) and the editor
+  (`EditorData.find_asset`) try `authored/<texture>` and
+  `authored/sprites/<texture>`, so subfolders need no loader change.
 - Max **64 frames** per species (`DC_SPECIES_FRAMES`), **16 states**, **8
   frames per state** (`DC_STATE_FRAMES`).
 - `states` values are indices into `frames`; states should be ordered
@@ -114,31 +123,35 @@ was the practical source. State that in the entry's `source` string.
   unloads the whole sheet. The editor strips empty clips on save.
 - `loop` is a real gameplay flag. Idle/walk/hover/flying normally loop;
   attack/jump/fall/land/hurt/death normally do not.
-- Base `player_anim.json` has `{"clips": ...}` and uses `player_*.png`; forms
-  use `fb_<form>_*.png`.
+- Base `player_anim.json` has `{"clips": ...}` and uses the ROM `player_*.png`
+  art. Authored forms live in `sprites/player_<name>/` as
+  `player_<name>_<index>_<clip>.png`; the older generated `fb_*` files belong
+  to `bake_player_forms.py`, which writes to `assets/generated`.
 
 ## 3. Inventory
 
-Current counts are from `assets/generated/species_anim.json` and
-`player_forms.json` at the time of writing, except Belth, whose count comes from
-the authored 32-frame entry. They show how little is extracted, not a quota.
+Counts below are the **authored** entries now in
+`assets/authored/species_anim.json` / `player_forms.json` (this session's
+extraction), with the old generated count in parentheses. They show coverage,
+not a quota.
 
 ### Boss sheets
 
-| Sheet | Target species | Current | Rows/labels to map | Notes |
+| Sheet | Target species | Authored | Rows/labels to map | Notes |
 |---|---|---:|---|---|
 | `Belth.gif` | `$68` | 32 | idle, taunt, walk, attack, jump, charge, turn, hurt, death | **Done**; see §5.1 |
-| `Arma.gif` | `$A5` flags 0 | 8 | idle/walk/attack/hurt/death | Red palette; second fight uses flags 2 |
-| `Ultimate Arma.gif` | `$A5` flags 4 | 8 | idle/walk/attack/hurt/death | Ultimate palette; separate entry `a5_f4` |
-| `Crawler.gif` | `$82` (+`$83/$84/$85` parts) | 3 | moving/attack/hurt/death | Multi-part boss; body poses only first |
-| `Dark Demon.gif` | `$BC` (+`$8A` effects) | 3 | idle/attack/hurt/death | Top body row; effects belong to `$8A` |
-| `Flame Lord.gif` | `$58` (+`$5C-$5F`) | 3 | idle/fire forms/attack/death | Left side of the idle row is teleport flame, not the boss |
-| `Grewon.gif` | `$13` | 6 | idle/walk/attack/hurt/death | Green invincible variant is a palette/flag, not a new sheet |
-| `Hipogriff.gif` | `$09` | 6 | idle/walk/attack/hurt/statue | `09` is the boss; keep the statue pose |
-| `Holothurion.gif` | `$6F` | 3 | examples/idle/attack/death | Three full-body examples currently baked |
-| `Ovnunu.gif` | `$16` (+`$17/$18`) | 3 | eyeball/body/attack | Temple boss; `$16` is the eye |
-| `Phalanx.gif` | `$86` (+`$88`) | 6 | idle/attack/hurt/death | First form |
-| `Ultimate Phalanx.gif` | `$8D` | 3 | examples/full body | Second-form body; boss variant |
+| `Arma.gif` | `$A5` flags 0 | 19 | idle/laughing/intro/flying/breath/divebomb | Red palette; effects rows skipped |
+| `Arma.gif` (2nd fight) | `$A5` flags 2 | 19 | same rows, green palette | Entry `a5_f2` |
+| `Ultimate Arma.gif` | `$A5` flags 4 | 24 | + hurricane/demon fire | Entry `a5_f4` |
+| `Crawler.gif` | `$82` (+`$83/$84/$85` parts) | 7 (3) | move | Body row only; parts still open |
+| `Dark Demon.gif` | `$BC` (+`$8A` effects) | 11 (3) | idle, attack | Top two body rows; `$8A` effects separate |
+| `Flame Lord.gif` | `$58` (+`$5C-$5F`) | 4 (3) | idle | Left of the idle row is teleport flame, not the boss |
+| `Grewon.gif` | `$13` | 19 (6) | idle/walk/attack/hurt | Second palette repeats the same rows |
+| `Hipogriff.gif` | `$09` | 23 (6) | idle/walk/attack | Statue pose and credit block skipped |
+| `Holothurion.gif` | `$6F` | 3 | examples/idle/attack/death | Multi-part; examples row only |
+| `Ovnunu.gif` | `$16` (+`$17/$18`) | 3 | eyeball/body/attack | Multi-part (eye + parts) |
+| `Phalanx.gif` | `$86` (+`$88`) | 8 (6) | idle/gesturing | First form body band |
+| `Ultimate Phalanx.gif` | `$8D` | 4 (3) | examples/full body | Second-form body; boss variant |
 | `Scula.gif` | `$7B`, `$7C` | 3 each | body/arm/attack/death | Two objects at the same arena position |
 | `Somulo.gif` | `$33` (+`$35-$37`) | 4 | head/neck/jaw/fire | Prefer `somulo_native_reference.png`, `clean_somulo.py`; multi-part and hard |
 | `NPCs.png` | `$96`, `$97` | 1 | town NPC / guard | Static; not a boss |
@@ -148,20 +161,21 @@ The authoritative species map and existing one-off bakers are listed in
 
 ### Progress checklist
 
-- [x] Belth `$68` (32 authored frames)
-- [ ] Arma `$A5` flags 0/2/4
-- [ ] Crawler `$82` (+ parts)
-- [ ] Dark Demon `$BC`
-- [ ] Flame Lord `$58`
-- [ ] Grewon `$13`
-- [ ] Hipogriff `$09`
-- [ ] Holothurion `$6F`
-- [ ] Ovnunu `$16`
-- [ ] Phalanx `$86` / Ultimate Phalanx `$8D`
-- [ ] Scula `$7B`/`$7C`
-- [ ] Somulo `$33`
+- [x] Belth `$68` (32 frames, `sprites/belth/`)
+- [x] Arma `$A5` flags 0/2/4 (19 / 19 / 24 frames, `sprites/arma*/`)
+- [x] Crawler `$82` body (7 frames, `sprites/crawler/`; `$83-$85` parts open)
+- [x] Dark Demon `$BC` (11 frames, `sprites/dark_demon/`)
+- [x] Flame Lord `$58` (4 frames, `sprites/flame_lord/`; fire rows are effects)
+- [x] Grewon `$13` (19 frames, `sprites/grewon/`)
+- [x] Hipogriff `$09` (23 frames, `sprites/hipogriff/`)
+- [ ] Holothurion `$6F` (multi-part; examples row only)
+- [ ] Ovnunu `$16` (eye + `$17`/`$18` parts)
+- [x] Phalanx `$86` / Ultimate Phalanx `$8D` (8 / 4 frames)
+- [ ] Scula `$7B`/`$7C` (two objects, arm poses)
+- [ ] Somulo `$33` (use the native-reference part pipeline, not blind crops)
 - [ ] Enemies 1 / Enemies 2 species
-- [ ] Player base + forms 1-5
+- [x] Player forms 1-5 (`player_forms.json`; base form 0 stays the
+  ROM-captured `player_anim.json`)
 - [ ] NPCs `$96`/`$97`
 
 Keep this checklist updated in the same commit as the frames so the next
@@ -181,12 +195,17 @@ a short note in the entry's `source` and leave the species for a reviewer.
 
 | Sheet | Target | Current | Notes |
 |---|---|---:|---|
-| `Firebrand.gif` | base `player_anim.json` (form 0 visual) | 8 clips / 21 frames | Normal gargoyle; includes actions not in the 11-clip schema |
-| `Firebrand (Ground).gif` | form 1 | 8 clips / 26 frames | Ground form |
-| `Firebrand (Aerial).gif` | form 2 | 10 clips / 37 frames | Aerial form; no `spell` on the sheet |
-| `Firebrand (Tidal).gif` | form 3 | 10 clips / 30 frames | Tidal form |
-| `Firebrand (Legendary).gif` | form 4 | 10 clips / 39 frames | Legendary form |
-| `Firebrand (Ultimate).gif` | form 5 | 10 clips / 39 frames | Ultimate form |
+| `Firebrand.gif` | base `player_anim.json` (form 0 visual) | 8 clips / 21 frames (ROM) | **Not re-baked**: the ROM capture has the game's real cadence; the sheet repeats it plus effect rows |
+| `Firebrand (Ground).gif` | form 1 | 8 clips / 27 frames | Ground form (`sprites/player_ground/`) |
+| `Firebrand (Aerial).gif` | form 2 | 10 clips / 38 frames | Aerial form; no `spell` on the sheet |
+| `Firebrand (Tidal).gif` | form 3 | 10 clips / 31 frames | Tidal form |
+| `Firebrand (Legendary).gif` | form 4 | 10 clips / 38 frames | Legendary form |
+| `Firebrand (Ultimate).gif` | form 5 | 10 clips / 36 frames | Ultimate form |
+
+The five form entries are authored (previously `player_forms.json` did not
+exist, so every form fell back to the base sheet). Counts are one or two below
+the old sheet tally because obviously repeated drawings inside a clip are
+deduplicated and caption pixels are dropped.
 
 The player sheets include extra rows not represented by the game's 11 clips:
 headbutt, wall cling, attack (wall), enter door, fire crest, projectile
@@ -197,6 +216,22 @@ projectile rows (`Fire`, `Breaker`, `Tornado`, `Claw`, `Demon Fire`) are
 projectile art, not player animation frames.
 
 ## 4. The extraction recipe
+
+### 4.0 The tools
+
+| Tool | What it does |
+|---|---|
+| `tools/dc_extract/sheet_lib.py` | shared library: background colour, connected components, caption words, row bands, pose boxes, border-flood background key, speck/caption cleanup, body anchor, contact sheet |
+| `tools/dc_extract/sheet_report.py` | prints a sheet's captions (as ASCII art), bands and every measured pose box — the measuring step |
+| `tools/dc_extract/sheet_captions.py` | stacks a sheet's caption strips into one readable PNG (3x, chunked, with the y range printed); use it with an image-capable model, or read `sheet_report.py` art directly |
+| `tools/dc_extract/bake_sheet_anim.py` | the spec-driven baker: one `SPECS` entry per target, writes `sprites/<target>/`, merges `species_anim.json` / writes `player_forms.json`, prints problems and can emit a contact sheet |
+| `tools/dc_extract/bake_belth_animation.py` | thin wrapper over `SPECS["belth"]` (documented reference case) |
+
+A spec band is either `{"name", "y": (y0, y1), "x": (x0, x1)}` (split on
+background columns), `{..., "split": "components"}` for closely packed player
+poses, or `{"name", "boxes": [(x0, y0, x1, y1), ...]}` when a weapon arc or
+fire trail bridges two drawings. `min_w`/`min_h`/`max_w` filter specks and
+merged pairs; `expect` makes the bake fail loudly when a row's count changes.
 
 ### 4.1 Setup
 
@@ -306,14 +341,20 @@ on the floor.
 Use a unique prefix so the authored frame cannot collide with generated art:
 
 ```text
-assets/authored/sprites/<target>_<index:02d>_<animation>.png
-# belth_00_idle.png, arma_03_walk.png, player_aerial_02_idle.png
+assets/authored/sprites/<target>/<target>_<index:02d>_<animation>.png
+# sprites/belth/belth_00_idle.png
+# sprites/arma/arma_03_walk.png
+# sprites/player_aerial/player_aerial_02_idle.png
 ```
+
+Keep the target prefix inside the file name as well as the folder: a texture
+copied out of its folder still says what it is, and two targets can never
+collide. `bake_sheet_anim.py` writes exactly this shape.
 
 Frame fields:
 
 ```json
-{"texture": "sprites/belth_00_idle.png",
+{"texture": "sprites/belth/belth_00_idle.png",
  "anchor_x": 30, "anchor_y": 58,
  "duration": 10, "width": 60, "height": 58}
 ```
@@ -397,12 +438,14 @@ Read the contact sheet and check:
   - attack 7, jump 4 in the second row;
   - charge 4 (manual boxes because the arc bridges poses), turn 5 in the third;
   - hurt 1, death 1 in the bottom row.
-- Current output: 32 frames under `assets/authored/sprites/belth_*.png`, entry
-  `68` in `assets/authored/species_anim.json`, state names and hurt frame.
-- Command:
+- Current output: 32 frames under
+  `assets/authored/sprites/belth/belth_*.png`, entry `68` in
+  `assets/authored/species_anim.json`, state names and hurt frame.
+- Command (thin wrapper over `SPECS["belth"]`):
 
   ```sh
   python tools/dc_extract/bake_belth_animation.py
+  # equivalent: python tools/dc_extract/bake_sheet_anim.py --only belth
   ```
 
 - Verified in the Enemy Editor and in a rendered game frame. The state numbers
@@ -411,18 +454,26 @@ Read the contact sheet and check:
 
 ### 5.2 Other bosses
 
-Use the named bakers first; they already know the right species and row:
+The authored boss entries now live in `bake_sheet_anim.py` (`SPECS`):
+`arma`, `arma_f2`, `arma_f4`, `crawler`, `dark_demon`, `flame_lord`,
+`phalanx`, `ultimate_phalanx`, `grewon`, `hipogriff`. Run one target at a time:
 
 ```sh
-python tools/dc_extract/bake_boss_sheets.py
-python tools/dc_extract/bake_holothurion.py
-python tools/dc_extract/bake_scula.py
-python tools/dc_extract/bake_ovnunu.py
-python tools/dc_extract/bake_boss_rows.py ...
+python tools/dc_extract/bake_sheet_anim.py --only arma --contact
+python tools/dc_extract/bake_sheet_anim.py --list
 ```
 
-Then extend the generated 3-8-frame entries with the sheet's other rows. Boss
-art is not one sprite:
+The older named bakers (`bake_boss_sheets.py`, `bake_boss_rows.py`,
+`bake_holothurion.py`, `bake_scula.py`, `bake_ovnunu.py`) still write to
+`assets/generated`; use them only to read their measured boxes, not to ship
+authored art.
+
+**State names are provisional.** Arma/Ultimate Arma names come from the
+sheet's own captions (Idle, Laughing, Intro, Flying, Breath Attack, Divebomb,
+Hurricane, Demon Fire). For the other bosses the names are row-order
+inferences (first body row = `idle`, next = `walk`/`attack`, single recoil =
+`hurt`); the numbers are an editor map, not proof of the object AI. Rename in
+the Editor as the AI is ported. Boss art is not one sprite:
 
 - `Arma`: body plus projectile/effect rows; do not include the effect as a
   body frame. Palette variants are flags 0/2/4, not separate sheets.
@@ -530,13 +581,16 @@ Acceptance checklist:
 
 ## 7. Work order
 
-1. **Boss gaps** — finish Arma/Ultimate Arma, Crawler, Dark Demon, Flame Lord,
-   Grewon, Hipogriff, Holothurion, Ovnunu, Phalanx/Ultimate Phalanx, Scula,
-   Somulo. These are the most visible and already have bakers/mappings.
-2. **Player forms** — fill the 11 clips for forms 0-5; start with idle/walk/
-   jump/fall/land/attack/hurt/death; add spell only where a pose exists.
+1. **Multi-part bosses** — Holothurion ($6F), Ovnunu ($16 + $17/$18), Scula
+   ($7B/$7C, arm poses), Somulo ($33). These need per-part entries or
+   compositing; a whole-body crop is wrong. Crawler's `$83-$85` parts too.
+2. **Caption decoding** — the state names for the non-Arma bosses are row-order
+   inferences. `sheet_captions.py` plus an image-capable reviewer can decode
+   the real labels; rename in `SPECS` and re-bake.
 3. **Enemies 1/2** — caption-by-caption; smallest frames, largest count.
 4. **NPCs** — static frames; quick pass.
+5. **Player base sheet** — only if the ROM capture is ever replaced; the base
+   sheet has extra effect rows and must not overwrite `player_anim.json`.
 
 Do one sheet/commit at a time so a bad crop cannot wipe out a whole batch.
 
@@ -575,6 +629,8 @@ Extract full Belth/Arma/... sprite-sheet animations
 | Body offset from hitbox | anchor at bbox centre | anchor at largest component centre/bottom |
 | Feet float/sink | anchor_y not at body bottom | use body component bottom, not crop bottom |
 | Whole form disappears in game | an empty clip was saved | omit empty clips; loader rejects zero-step clips |
+| Frames land in `assets/authored/sprites/` root | old flat layout | one subfolder per target (`sprites/<target>/`); never mix extractions |
+| Caption strip baked into a frame | band starts inside the caption line | lower `y0`; caption glyph pixels are also cleared explicitly |
 | Only first N frames load | over 64 frames | reduce to key poses per state |
 | Colors wrong | palette/key changed | nearest-neighbour only; no palette quantisation |
 | Wrong species | caption guessed | match census/editor; leave ambiguous for review |
@@ -585,7 +641,17 @@ Extract full Belth/Arma/... sprite-sheet animations
 # inspect sheet
 python -c "from PIL import Image; im=Image.open('docs/sprites/...gif'); print(im.size, getattr(im,'n_frames',1))"
 
-# reference baker
+# measure rows/poses and read captions
+python tools/dc_extract/sheet_report.py --sheet Arma --bands
+python tools/dc_extract/sheet_report.py --sheet Arma --caps --caps-y 30:60
+python tools/dc_extract/sheet_captions.py --sheet Arma --out captures/arma_captions.png
+
+# spec-driven baker (list, dry-run, one target, contact sheet)
+python tools/dc_extract/bake_sheet_anim.py --list
+python tools/dc_extract/bake_sheet_anim.py --only arma --dry-run
+python tools/dc_extract/bake_sheet_anim.py --only arma --contact
+
+# Belth reference case
 python tools/dc_extract/bake_belth_animation.py
 
 # one-row tool
