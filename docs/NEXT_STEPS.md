@@ -142,6 +142,11 @@ onze casos da forma -> coluna, todas as salas com boss e o `hp` do
 bosses com entrada; `Buster`/`Claw`/`Demon Fire` não existem no port. Ver
 `docs/BOSS_HP.md`.
 
+**Diálogo de intro (2026-11-07):** `story_flags` (um bit por área, na save) +
+`BOSS_INTRO_TEXT` em `dcpy/game.py`; a área 23 mostra o bloco do Arma
+(`BE:F162`, 7 páginas) só na primeira entrada. `tools/check_arma2_intro.py`
+cobre os quatro casos e está na regressão. Ver `docs/BOSS_INTROS.md`.
+
 - **Poço (área 8)**: `$6B` sobe atrás do jogador (y 700→212 medido), `$6C` são
   os olhos que voam, `$69` fica fixo no fundo. Não é `$16`; a entrada da área 54
   nessa tabela é outra coisa. Dados em `docs/TAKES.md` §6.1.

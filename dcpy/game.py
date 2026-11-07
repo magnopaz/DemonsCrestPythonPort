@@ -27,7 +27,7 @@ from .projectile import (ProjectilePool, projectiles_init, projectiles_spawn,
 from .render import render_draw_fade, render_game, render_set_fade
 from .text import (TextScript, text_draw_page, text_draw_string, text_find,
                    text_load_script)
-from .util import eprint, env, env_float, env_int, lround, read_json
+from .util import eprint, env, env_flag, env_float, env_int, lround, read_json
 
 DC_SAVE_VERSION = 2
 DC_PASSWORD_LEN = 10
@@ -97,6 +97,9 @@ class Game:
         self.stage_sel = 0
         self.pause_flash = 0
         self.intro_timer = 0
+        # Boss intro dialogues already seen, one bit per campaign area.  The
+        # ROM keeps the same flag; the port persists it in the save.
+        self.story_flags = env_int("DC_STORY_FLAGS") or 0
         self.boss_intro = 0
         self.boss_intro_timer = 0
         self.shake = 0
@@ -439,6 +442,7 @@ def game_save_progress(game: Game) -> bool:
         "scrolls": p.scrolls,
         "gold": p.gold,
         "volume": audio_get_volume(),
+        "story_flags": game.story_flags,
     }
     path = _save_path()
     directory = os.path.dirname(path)
@@ -471,6 +475,7 @@ def game_load_progress(game: Game) -> bool:
     if isinstance(area, (int, float)) and 0 <= area < C.DC_CAMPAIGN_AREAS \
             and area != game.level.area_id:
         game_transition_to_area(game, int(area), 0)
+    game.story_flags = _as_int(root.get("story_flags"), game.story_flags)
     p = game.player
     p.max_hp = _as_int(root.get("max_hp"), p.max_hp)
     if p.max_hp < 1:
@@ -715,6 +720,44 @@ def game_init(game: Game, asset_dir: str) -> bool:
 
 def game_narrative_enabled() -> bool:
     return "DC_RUN_FRAMES" not in os.environ and "DC_NO_STORY" not in os.environ
+
+
+# First-encounter boss dialogue: the ROM shows the text once, then the second
+# visit goes straight to the fight.  Key = campaign area; value = the exact
+# substring that finds the text block in text_strings.json.
+BOSS_INTRO_TEXT = {
+    23: "I AM ARMA",   # stage IV, Arma's second fight
+}
+
+
+def game_maybe_start_boss_intro(game: Game) -> bool:
+    """Show a boss's first-encounter dialogue once per save.
+
+    The ROM gates the intro on a story flag; the port keeps that flag as a bit
+    per area (``story_flags``, saved with the game).  ``DC_INTRO_FORCE=1``
+    enables the check under ``DC_RUN_FRAMES``, where narrative is normally off
+    so demos stay deterministic.
+    """
+    if "DC_NO_STORY" in os.environ:
+        return False
+    if not (game_narrative_enabled() or env_flag("DC_INTRO_FORCE")):
+        return False
+    needle = BOSS_INTRO_TEXT.get(game.level.area_id)
+    if needle is None:
+        return False
+    bit = 1 << game.level.area_id
+    if game.story_flags & bit:
+        return False
+    index = text_find(game.script, needle)
+    if index < 0:
+        return False
+    game.story_flags |= bit
+    game.dialogue_text = index
+    game.dialogue_page = 0
+    game.dialogue_return = C.GAME_PLAYING
+    game.state = C.GAME_DIALOGUE
+    game.state_timer = 0
+    return True
 
 
 def game_update_simulation(game: Game) -> None:
@@ -1575,6 +1618,8 @@ def game_update(game: Game) -> None:
 
 
 def _game_playing_step(game: Game) -> None:
+    if game_maybe_start_boss_intro(game):
+        return
     if game.kill_at and game.frame == game.kill_at and game.player.hp > 0:
         game.player.hp = 0
     if game.death_timer > 0 or game.restart_timer > 0:

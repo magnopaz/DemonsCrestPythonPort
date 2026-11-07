@@ -504,6 +504,17 @@ def main() -> int:
         check(boss_hp.returncode == 0,
               "boss hp: table/runtime check failed\n" + boss_hp.stdout[-800:])
 
+        # ---- Arma 2's first-encounter dialogue (story flag) ----
+        arma2_proc = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_arma2_intro.py"),
+             "--binary", str(binary), "--assets", str(assets),
+             "--tmp", str(out)],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=600)
+        check(arma2_proc.returncode == 0,
+              "arma2 intro: story-flag dialogue check failed\n"
+              + arma2_proc.stdout[-800:])
+
         # ---- End-to-end campaign playthrough ----
         play = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "check_playthrough.py"),
@@ -711,7 +722,8 @@ def main() -> int:
           "hippogriff fight, arma crest/map chain, mode 7 map, "
           "object placement/placeholders, $72 flames, up-door pad_mask, "
           "death continue hub, pit boss opening/launch + damage, "
-          "boss hp/damage (boss_hp.txt), boss defeat + multi-area loads)")
+          "boss hp/damage (boss_hp.txt), arma2 intro flag, "
+          "boss defeat + multi-area loads)")
     return 0
 
 

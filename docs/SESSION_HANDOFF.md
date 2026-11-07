@@ -5,7 +5,8 @@
 ## Estado
 
 - Repo: `~/Projetos/opencode/DemonsCrestPythonPort`
-- `HEAD` = *Bosses: per-form damage from boss_hp.txt* (2026-11-07),
+- `HEAD` = *Arma 2: first-encounter dialogue behind a saved story flag*
+  (2026-11-07),
   **árvore limpa**. As secções das últimas sessões estão no fim do ficheiro.
 - Regressão verde com **`.venv/bin/python`**:
   `DISPLAY=:99 .venv/bin/python tools/run_regression.py` → PASS (~7 min, até
@@ -479,6 +480,18 @@ contra a tabela, e o boot de cada sala a ler a coluna `hp` do
 `DC_TRACE_OBJECTS` (16 salas; 18 verificações com a fase 2 do Phalanx). Uma
 espécie nova que caia no fallback 8 falha alto.
 
+**Diálogo de intro do Arma 2 (mesma sessão):** `game.story_flags` (um bit por
+área, gravado em `dc_save.json` como `story_flags`) e `BOSS_INTRO_TEXT` /
+`game_maybe_start_boss_intro` em `dcpy/game.py`: a área 23 mostra o bloco do
+Arma (`BE:F162`, 7 páginas) na primeira entrada e volta a `GAME_PLAYING`.
+Hooks: `DC_STORY_FLAGS`, `DC_INTRO_FORCE`, `DC_NO_STORY`.
+`tools/check_arma2_intro.py` cobre os quatro casos (novo, bit posto,
+`DC_NO_STORY`, save+retoma) e está na regressão.  **Três bugs de texto
+encontrados:** `TEXT_MAX_STRINGS` era 512 e o ROM tem 518 blocos (o do Arma
+nunca carregava — `text_find` dava -1); `TEXT_MAX_PAGES` era 6 e a 7.ª página
+do Arma caía; o `extract_text.py` colava o `RTL` (0x6B = `k`) ao texto, por isso
+a primeira linha lia `kI'VE WATCHED YOUR`.  Ver `docs/BOSS_INTROS.md`.
+
 **Achado (ROM):** a tabela de estados do `$6B` (`$83:BFF3`) é indexada pelo
 **valor** de `$05` (0/2/4), não por `$05*2`; o estado de morte é `$05=4`, não
 `$05=2` como dizia a §7.11. A animação (`$83:C1C2`) são **12 passos de 3
@@ -489,9 +502,9 @@ isso não contradiz os 10 HP. Falta a rotina de dano partilhada que arma
 `$26`/`$1E05`; detalhe em `docs/PIT_BOSS.md` §7.13. **Não portar a animação
 antes disso.**
 
-**Próximo:** a flag de diálogo do Arma 2 (o segundo encontro não repete o
-diálogo); depois a morte do corpo do Ovununu, `sub 4` exacto, a arte do poço e
-o lock da arena.
+**Próximo:** a morte do corpo do Ovununu (falta a rotina de dano partilhada que
+arma `$26`/`$1E05`), `sub 4` exacto, a arte do poço e o lock da arena.  O
+diálogo de intro do Arma 2 está feito — ver `docs/BOSS_INTROS.md`.
 
 **Regressão:** `DISPLAY=:99 .venv/bin/python tools/run_regression.py` → PASS
-(EXIT=0), resumo com `boss hp (boss_hp.txt)`.
+(EXIT=0), resumo com `boss hp/damage (boss_hp.txt)` e `arma2 intro flag`.

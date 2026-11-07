@@ -97,6 +97,17 @@ def main() -> int:
         if length < args.min_length:
             continue
         raw = data[start:i]
+        # A text block often follows an RTL (0x6B = 'k'), which is printable
+        # and would otherwise glue a stray lower-case letter to the first line
+        # (the Arma intro read "kI'VE WATCHED YOUR").  Dialogue never starts
+        # with a lower-case letter, so trim a leading lower-case run — the
+        # 0x6A ('j') line-break code inside the text is untouched.
+        trim = 0
+        while trim < len(raw) and 0x61 <= raw[trim] <= 0x7A:
+            trim += 1
+        if trim:
+            start += trim
+            raw = raw[trim:]
         pages = decode_run(raw)
         if not pages:
             continue

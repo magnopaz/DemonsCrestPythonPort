@@ -13,8 +13,8 @@ TEXT_COLUMNS = 16
 TEXT_FIRST = 0x20
 TEXT_LAST = 0x7E
 
-TEXT_MAX_STRINGS = 512
-TEXT_MAX_PAGES = 6
+TEXT_MAX_STRINGS = 640  # the ROM has 518 text blocks
+TEXT_MAX_PAGES = 8  # the longest dialogue block has 7 pages
 TEXT_MAX_LINES = 8
 TEXT_LINE_MAX = 48
 TEXT_LINE_H = 10

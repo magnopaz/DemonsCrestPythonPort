@@ -77,6 +77,30 @@ lotus não foi visitado.
 5. `get_frame_extended`/`dump_frame_vram` só servem frames no ring buffer —
    capturar ao vivo durante o replay, não no fim.
 
+## 4b. O take do estágio IV (2026-11-07, Arma 2)
+
+`~/Projetos/opencode/build-trace/captures/rec_stage4_trace/rec_20261107_050932`
+(34 087 frames). Digitalizada com `tools/oracle/scan_take.py --step 20`:
+
+| frames | área (`$008D` → id) | nota |
+|---|---|---|
+| 3381–8261 | 36 → 18 | torre; cutscene de entrada (state 28) |
+| 8281–10761 | 38 → 19 | |
+| 10781–15561 | 40 → 20 | |
+| 15581–17301 | 42 → 21 | |
+| 17321–17701 | 46 → 23 | 1.ª entrada; state 0 (reposiciona x 482→80) e sai para 22 |
+| 17721–18481 | 44 → 22 | |
+| 18501–21181 | 46 → 23 | sobe o poço (y 1902→255) |
+| 21201–22781 | 42 → 21 | |
+| 22801–25361 | 46 → 23 | corredor no topo (y≈172) até x≈663 |
+| 25381+ | 188 → 94 | mapa |
+
+O `hp` do scan (`$0062`) veio **0 em toda a take** — a leitura não serve este
+save; não usar essa coluna como prova de morte aqui.  A take não mostra um
+estado de caixa de texto na área 23 (foi gravada a partir de password, com a
+flag de intro provavelmente já posta); o diálogo do 1.º encontro está em
+`docs/BOSS_INTROS.md`.
+
 ## 5. O que a take provou
 
 ### `$008D` é offset de bytes: área = `$008D / 2`
