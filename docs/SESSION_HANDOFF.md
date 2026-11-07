@@ -364,3 +364,36 @@ com `pit boss opening/launch` no resumo.
 
 **Próximo, por ordem:** `sub 4` exacto com as tabelas e apagar `_PIT_EYE_TRACK`;
 depois dano/HP/morte (aí entram `$1DF8` e `$1DEB`), arte e lock.
+
+
+## `sub 4` dos olhos: física lida, tabela mantida (2026-11-06, sessão 5)
+
+**Tentativa:** substituir `_PIT_EYE_TRACK` pela física da banda (`$83:C84F`/
+`$C864`). A física está lida e implementada numa experiência, comparada com a
+take em 3014 amostras (274 frames × 11 olhos, janela 14421–15788):
+
+- `$C8BB` acelera `$22` até C (`$E2E5`) com passo D (`$E2E7`).
+- **`$C8C9` não tem `sta $22`**: faz `lda $22; sec; sbc $24; bpl rts` e só zera
+  quando o resultado ficaria negativo. Nas fases 2/6 a velocidade **mantém-se
+  no tecto**; o único reset é `$1DEE` mudar (`$C877`).
+- `$808C99`/`$808C95` movem `y ∓= $22` (8.8) e `$C8D5`/`$C8F4` fecham a banda
+  com `inc/dec $34` (1 px/frame).
+- Fases medidas a passo 1: `$1DEF` repete `0→2→4→6→0` (~155 frames) e `$1DEE`
+  vira 4 no frame de luta 1552. Declives: fase 0 −0,184 px/frame, 4/6 −0,816,
+  fase 2 ora −0,184 ora −0,092 **com o mesmo `$22` e a mesma fase**.
+
+**Resultado:** os dois primeiros ciclos ficam a ≤1 px, mas o erro cresce até
+−61 px (flag 3, take 15656–15680). A experiência foi **revertida** — o port
+continua com `_PIT_EYE_TRACK` (2 px de erro). Detalhe em `docs/PIT_BOSS.md`
+§7.10.
+
+**Armadilha nova:** o `run_to_frame` do debug server do recomp anda ~2 frames
+por leitura (os valores repetem-se aos pares e o índice aparece desfasado +1),
+por isso um dump "a passo 1" não serve para decidir cadências. Confirmar com
+dois `frame` seguidos antes de acreditar num delta de 1 frame.
+
+**O que fecharia o `sub 4`:** saber quantas vezes por frame o pool de objectos
+corre (2 bancos? actualização alternada?) ou portar a máquina de estágios do
+`$6B` (`$C051/$C073/$C0B0/$C0DF/$C145/$C15D`), que dá `$1DEF` de graça.
+
+**Regressão:** `check_pit_boss.py` → PASS com a árvore revertida.

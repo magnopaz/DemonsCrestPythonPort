@@ -239,8 +239,9 @@ nos 11 000 frames medidos — ficam descodificados, não portados.
 2. ~~Lançamento (`sub 6`+)~~ — **portado**, ver §7.7/§7.8.
 3. ~~Controlador de lançamento do `$69` (`$B9F1`)~~ — **portado**, ver §7.9: a
    rajada de 2–4 olhos, `$1DDE`/`$1DE9`/`$1DF8` e as tabelas `$E015`/`$E035`.
-4. **`sub 4` exacto** (banda + `$1DEE`/`$1DEF` + integradores): ainda com a
-   tabela medida, erro ~25 px na regra pura (§7.6).
+4. **`sub 4` exacto** (banda + `$1DEE`/`$1DEF` + integradores): a física e as
+   fases estão lidas (§7.10), mas o erro acumula até 61 px porque a cadência de
+   actualização do pool não é a do ROM; `_PIT_EYE_TRACK` fica até isso fechar.
 5. Dano/HP/morte do corpo, arte (`$69`/`$6B`/`$6C` sem sheet) e o lock da
    arena.  É aqui que `$1DF8` (`$D207`) e o fim de luta (`$1DEB`) entram.
 6. Afinar a cadência de sorteios do voo: os olhos consomem o LCG em fases que
@@ -296,10 +297,9 @@ Tabelas do lançamento, todas no mesmo banco:
 
 **Ainda não fecha**: a regra do `sub 4` com esta tabela (banda + velocidade)
 reproduz o y de cada olho com erro máximo de **~25 px** (o `_PIT_EYE_TRACK`
-medido dá 2 px). Faltam duas coisas para fechar: `$1DEE` (muda de valor durante
-a luta e o handler zera `$22`/`$23` quando muda — ler a 1 frame) e o
-`$808C95`/`$808C99` exacto por fase. Um replay a passo 1 em 14421–15791 (~10
-min) deve chegar lá; depois `_PIT_EYE_TRACK` desaparece.
+medido dá 2 px). Ver §7.10: a física e as fases estão lidas e implementadas
+numa experiência, mas a take anda a metade da velocidade em algumas janelas e o
+erro acumula; a tabela medida fica até se perceber a cadência do pool.
 
 ### 7.7 A máquina de lançamento descodificada (portada, 2026-11-04 noite)
 
@@ -483,3 +483,47 @@ tempo bate; a identidade não, e fica registado como dívida.
 
 **Regressão:** `DISPLAY=:99 python3 tools/run_regression.py` → PASS (ver
 `docs/SESSION_HANDOFF.md`).
+
+### 7.10 `sub 4`: a física da banda e o que ainda não fecha (2026-11-06)
+
+**A física, lida da ROM.** `$83:C84F`/`$C864` (os dois `$38` do `sub 4`):
+
+- `$26` = C (`$E2E5`, tecto da velocidade), `$24` = D (`$E2E7`, aceleração).
+- `$C8BB` soma `$24` a `$22` e só guarda enquanto `$22+$24 < $26`.
+- **`$C8C9` não guarda nada**: faz `lda $22; sec; sbc $24; bpl rts` e o `sta $22`
+  não existe — só zera `$22` quando o resultado ficaria negativo. Ou seja, nas
+  fases de "abrandar" a velocidade **mantém-se no tecto** e só cai a zero de uma
+  vez. O único reset real vem de `$1DEE` mudar (`$C877`: se `$1DEE != $4E`,
+  `$22=$23=0`).
+- Movimento: `$808C99` faz `y -= $22` (fases 0/2) e `$808C95` faz `y += $22`
+  (fases 4/6), sempre em 8.8.
+- Fecho: `$C8D5` (fases 0/2) faz `inc $34` se `base+A-B >= y`; `$C8F4` (4/6) faz
+  `dec $34` se `y > base+A+B`. É 1 px por frame sobre a parte inteira, com
+  `base = $1DD5 - $D8`.
+
+**As fases medidas** (`tools/oracle/measure_pit_eyes.py --from 14421`, a passo 1
+para `$1DEF`/`$1DEE`): `$1DEF` repete `0 → 2 → 4 → 6 → 0` em ~155 frames
+(0 dura 100–130, 2 uns 30–65, 4 uns 15–25, 6 uns 10–14) e `$1DEE` é 0 toda a
+subida, passando a 4 no frame de luta 1552 (take 15753). Os declives medidos:
+fase 0 = **−0,184 px/frame** (= 47/256, o `$22`), fase 4/6 = **−0,816**
+(= `$22` + o clamp), fase 2 ora −0,184 ora **−0,092**, com o mesmo `$22` e a
+mesma fase.
+
+**Porque a tabela fica.** A física e a tabela de fases medidas (46 transições)
+foram implementadas e comparadas com a take em 3014 amostras: os primeiros dois
+ciclos ficam a ≤1 px, mas o erro cresce até **−61 px** (flag 3, take
+15656–15680) antes do topo — o port tem de subir mais devagar nas janelas em que
+a take anda a metade. A experiência foi revertida (a árvore ficou na tabela
+medida) e a medição a passo 1 mostra porque não se consegue fixar já: o
+`run_to_frame` do debug server anda ~2 frames por leitura (os valores repetem-se
+aos pares e o índice aparece desfasado +1), por isso a curva a 1 frame não
+distingue "metade da velocidade" de "metade das actualizações". Sem saber
+quantas vezes por frame o pool corre (ou sem portar a máquina de estágios do
+`$6B`, que é quem escreve `$1DEF`), a física faithful **piora** o erro de 2 px
+para 60 px — e por isso `_PIT_EYE_TRACK` fica, agora com a física e as fases
+documentadas para quando o escalonador for conhecido.
+
+**O que fecharia:** (a) um trace de quantas vezes o pool de objectos corre por
+frame (2 bancos? atualização alternada?), ou (b) a máquina de estágios do `$6B`
+(`$C051/$C073/$C0B0/$C0DF/$C145/$C15D`) portada, que dá `$1DEF` de graça e
+elimina a tabela de fases. Depois `_PIT_EYE_TRACK` cai.
