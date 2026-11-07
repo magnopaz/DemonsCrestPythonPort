@@ -1796,6 +1796,225 @@
    "hurt": 0,
    "default": 0,
    "source": "Hipogriff.gif body rows (idle, walk, attack); the statue pose and the credit block are skipped"
+  },
+  "16": {
+   "species": 22,
+   "frames": [
+    {
+     "texture": "sprites/ovnunu/ovnunu_00_eye.png",
+     "anchor_x": 16,
+     "anchor_y": 32,
+     "duration": 10,
+     "width": 32,
+     "height": 32
+    },
+    {
+     "texture": "sprites/ovnunu/ovnunu_01_eye.png",
+     "anchor_x": 16,
+     "anchor_y": 32,
+     "duration": 10,
+     "width": 32,
+     "height": 32
+    },
+    {
+     "texture": "sprites/ovnunu/ovnunu_02_eye.png",
+     "anchor_x": 16,
+     "anchor_y": 32,
+     "duration": 10,
+     "width": 32,
+     "height": 32
+    },
+    {
+     "texture": "sprites/ovnunu/ovnunu_03_eye.png",
+     "anchor_x": 16,
+     "anchor_y": 33,
+     "duration": 10,
+     "width": 32,
+     "height": 33
+    },
+    {
+     "texture": "sprites/ovnunu/ovnunu_04_eye.png",
+     "anchor_x": 16,
+     "anchor_y": 33,
+     "duration": 10,
+     "width": 32,
+     "height": 33
+    },
+    {
+     "texture": "sprites/ovnunu/ovnunu_05_eye.png",
+     "anchor_x": 16,
+     "anchor_y": 32,
+     "duration": 10,
+     "width": 32,
+     "height": 32
+    },
+    {
+     "texture": "sprites/ovnunu/ovnunu_06_eye.png",
+     "anchor_x": 16,
+     "anchor_y": 32,
+     "duration": 10,
+     "width": 32,
+     "height": 32
+    },
+    {
+     "texture": "sprites/ovnunu/ovnunu_07_body.png",
+     "anchor_x": 18,
+     "anchor_y": 66,
+     "duration": 10,
+     "width": 36,
+     "height": 66
+    },
+    {
+     "texture": "sprites/ovnunu/ovnunu_08_body.png",
+     "anchor_x": 17,
+     "anchor_y": 67,
+     "duration": 10,
+     "width": 35,
+     "height": 67
+    },
+    {
+     "texture": "sprites/ovnunu/ovnunu_09_body.png",
+     "anchor_x": 18,
+     "anchor_y": 66,
+     "duration": 10,
+     "width": 37,
+     "height": 66
+    }
+   ],
+   "states": {
+    "0": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "1": [
+     7,
+     8,
+     9
+    ]
+   },
+   "state_names": {
+    "0": "eye",
+    "1": "body"
+   },
+   "hurt": 0,
+   "default": 0,
+   "source": "Ovnunu.gif: top eye cycle (32x32) plus the full eyeball examples"
+  },
+  "7b": {
+   "species": 123,
+   "frames": [
+    {
+     "texture": "sprites/scula_7b/scula_7b_00_walk.png",
+     "anchor_x": 44,
+     "anchor_y": 70,
+     "duration": 8,
+     "width": 88,
+     "height": 70
+    },
+    {
+     "texture": "sprites/scula_7b/scula_7b_01_walk.png",
+     "anchor_x": 44,
+     "anchor_y": 69,
+     "duration": 8,
+     "width": 88,
+     "height": 69
+    },
+    {
+     "texture": "sprites/scula_7b/scula_7b_02_walk.png",
+     "anchor_x": 44,
+     "anchor_y": 72,
+     "duration": 8,
+     "width": 88,
+     "height": 72
+    },
+    {
+     "texture": "sprites/scula_7b/scula_7b_03_walk.png",
+     "anchor_x": 44,
+     "anchor_y": 68,
+     "duration": 8,
+     "width": 88,
+     "height": 68
+    }
+   ],
+   "states": {
+    "0": [
+     0,
+     1,
+     2,
+     3
+    ]
+   },
+   "state_names": {
+    "0": "walk"
+   },
+   "hurt": 0,
+   "default": 0,
+   "source": "Scula.gif walking row (y=265) full bodies"
+  },
+  "7c": {
+   "species": 124,
+   "frames": [
+    {
+     "texture": "sprites/scula_7c/scula_7c_00_hover.png",
+     "anchor_x": 44,
+     "anchor_y": 72,
+     "duration": 8,
+     "width": 88,
+     "height": 72
+    },
+    {
+     "texture": "sprites/scula_7c/scula_7c_01_hover.png",
+     "anchor_x": 38,
+     "anchor_y": 72,
+     "duration": 8,
+     "width": 77,
+     "height": 72
+    },
+    {
+     "texture": "sprites/scula_7c/scula_7c_02_hover.png",
+     "anchor_x": 40,
+     "anchor_y": 71,
+     "duration": 8,
+     "width": 81,
+     "height": 71
+    },
+    {
+     "texture": "sprites/scula_7c/scula_7c_03_hover.png",
+     "anchor_x": 40,
+     "anchor_y": 73,
+     "duration": 8,
+     "width": 81,
+     "height": 73
+    },
+    {
+     "texture": "sprites/scula_7c/scula_7c_04_hover.png",
+     "anchor_x": 43,
+     "anchor_y": 72,
+     "duration": 8,
+     "width": 87,
+     "height": 72
+    }
+   ],
+   "states": {
+    "0": [
+     0,
+     1,
+     2,
+     3,
+     4
+    ]
+   },
+   "state_names": {
+    "0": "hover"
+   },
+   "hurt": 0,
+   "default": 0,
+   "source": "Scula.gif hovering row (y=154) full bodies"
   }
  }
 }

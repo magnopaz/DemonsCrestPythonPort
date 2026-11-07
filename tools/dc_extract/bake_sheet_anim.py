@@ -255,6 +255,35 @@ SPECS["hipogriff"] = _boss(
     "credit block are skipped")
 
 
+# -- Ovnunu ($16) -----------------------------------------------------------
+# $16 is the eye.  The top row is the eye cycle (32x32 poses); the three
+# full eyeball/tentacle drawings on the y=295 row are the whole-body examples
+# that were the only art before.
+SPECS["ovnunu"] = _boss(
+    "ovnunu", "Ovnunu", "16", 0x16,
+    [{"name": "eye", "y": (26, 59), "x": (30, 300), "duration": 10,
+      "min_w": 28, "min_h": 28, "max_w": 40},
+     {"name": "body", "duration": 10, "boxes": [
+         (25, 295, 61, 361), (65, 294, 100, 361), (105, 295, 142, 361)]}],
+    "Ovnunu.gif: top eye cycle (32x32) plus the full eyeball examples")
+
+# -- Scula ($7B / $7C) ------------------------------------------------------
+# Two objects at the same arena position.  $7B uses the walking row, $7C the
+# hovering row; both rows are clean full bodies, unlike the part rows.
+SPECS["scula_7b"] = _boss(
+    "scula_7b", "Scula", "7b", 0x7B,
+    [{"name": "walk", "duration": 8, "boxes": [
+        (126, 267, 214, 337), (220, 268, 308, 337), (312, 267, 400, 337),
+        (406, 265, 494, 337), (500, 269, 588, 337)]}],
+    "Scula.gif walking row (y=265) full bodies")
+SPECS["scula_7c"] = _boss(
+    "scula_7c", "Scula", "7c", 0x7C,
+    [{"name": "hover", "duration": 8, "boxes": [
+        (12, 154, 100, 226), (106, 154, 183, 226), (189, 155, 270, 226),
+        (370, 152, 451, 225), (457, 154, 544, 226)]}],
+    "Scula.gif hovering row (y=154) full bodies")
+
+
 def default_duration(name: str) -> int:
     if name in ("idle", "taunt", "hover", "flying", "fly"):
         return 10

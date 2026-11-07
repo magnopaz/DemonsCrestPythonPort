@@ -149,10 +149,10 @@ not a quota.
 | `Grewon.gif` | `$13` | 19 (6) | idle/walk/attack/hurt | Second palette repeats the same rows |
 | `Hipogriff.gif` | `$09` | 23 (6) | idle/walk/attack | Statue pose and credit block skipped |
 | `Holothurion.gif` | `$6F` | 3 | examples/idle/attack/death | Multi-part; examples row only |
-| `Ovnunu.gif` | `$16` (+`$17/$18`) | 3 | eyeball/body/attack | Multi-part (eye + parts) |
+| `Ovnunu.gif` | `$16` (+`$17/$18`) | 10 (3) | eye cycle + eyeball examples | Eye is `$16`; `$17`/`$18` parts still open |
 | `Phalanx.gif` | `$86` (+`$88`) | 8 (6) | idle/gesturing | First form body band |
 | `Ultimate Phalanx.gif` | `$8D` | 4 (3) | examples/full body | Second-form body; boss variant |
-| `Scula.gif` | `$7B`, `$7C` | 3 each | body/arm/attack/death | Two objects at the same arena position |
+| `Scula.gif` | `$7B`, `$7C` | 4 / 5 (3) | walk ($7B), hover ($7C) | Two objects at the same arena position; arm rows open |
 | `Somulo.gif` | `$33` (+`$35-$37`) | 4 | head/neck/jaw/fire | Prefer `somulo_native_reference.png`, `clean_somulo.py`; multi-part and hard |
 | `NPCs.png` | `$96`, `$97` | 1 | town NPC / guard | Static; not a boss |
 
@@ -169,9 +169,9 @@ The authoritative species map and existing one-off bakers are listed in
 - [x] Grewon `$13` (19 frames, `sprites/grewon/`)
 - [x] Hipogriff `$09` (23 frames, `sprites/hipogriff/`)
 - [ ] Holothurion `$6F` (multi-part; examples row only)
-- [ ] Ovnunu `$16` (eye + `$17`/`$18` parts)
+- [x] Ovnunu `$16` eye (10 frames: 7-frame eye cycle + 3 eyeball examples); `$17`/`$18` parts open
 - [x] Phalanx `$86` / Ultimate Phalanx `$8D` (8 / 4 frames)
-- [ ] Scula `$7B`/`$7C` (two objects, arm poses)
+- [x] Scula `$7B`/`$7C` (4 walk / 5 hover full bodies; arm rows open)
 - [ ] Somulo `$33` (use the native-reference part pipeline, not blind crops)
 - [ ] Enemies 1 / Enemies 2 species
 - [x] Player forms 1-5 (`player_forms.json`; base form 0 stays the
