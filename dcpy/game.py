@@ -14,7 +14,7 @@ from .assets import (assets_load, assets_load_area_bg, assets_player_anim_for_fo
                      assets_room_kind)
 from .audio import (audio_get_volume, audio_init, audio_play, audio_set_track,
                     audio_set_volume, audio_shutdown, audio_start_music,
-                    audio_update)
+                    audio_update, music_for_area as audio_music_for_area)
 from .camera import GameCamera, camera_focus, camera_init, camera_update
 from .input import Input, InputState, input_read
 from .level import level_load, level_load_area, level_unload
@@ -1390,8 +1390,18 @@ def game_update_options(game: Game) -> None:
         game.state_timer = 0
 
 
+def game_room_music(game: Game) -> int:
+    """The track the current room's family plays (measured from the ROM)."""
+    area = game.level.area_id
+    level = ""
+    if 0 <= area < len(game.assets.room_levels):
+        level = game.assets.room_levels[area]
+    return audio_music_for_area(area, level)
+
+
 def game_sync_music(game: Game) -> None:
-    track = C.MUSIC_STAGE
+    stage_track = game_room_music(game)
+    track = stage_track
     if game.state == C.GAME_PLAYING and game.restart_timer > 0:
         t_left = game.restart_timer
         if t_left > 60:
@@ -1420,12 +1430,17 @@ def game_sync_music(game: Game) -> None:
         track = C.MUSIC_TITLE
     elif game.state == C.GAME_ENDING:
         track = C.MUSIC_ENDING
+    elif game.state == C.GAME_OVERWORLD:
+        track = C.MUSIC_OVERWORLD
     elif game.state in (C.GAME_PLAYING, C.GAME_PAUSED, C.GAME_SUBSCREEN,
-                        C.GAME_SHOP):
-        track = C.MUSIC_BOSS if (game.objects.boss_present and
-                                 game.objects.boss_alive) else C.MUSIC_STAGE
-    else:
-        track = C.MUSIC_STAGE
+                        C.GAME_SHOP, C.GAME_DIALOGUE, C.GAME_CONTINUE):
+        # A live boss overrides the room theme, except in the colosseum, whose
+        # own theme is the Somulo fight.
+        if game.objects.boss_present and game.objects.boss_alive and \
+                stage_track != C.MUSIC_BOSS:
+            track = C.MUSIC_BOSS_COMMON
+        else:
+            track = stage_track
     audio_set_track(track)
 
 

@@ -52,6 +52,9 @@ def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--binary", type=Path, default=ROOT / "tools" / "demonscrest-py")
     ap.add_argument("--assets", type=Path, default=ROOT / "assets" / "generated")
+    ap.add_argument("--python", type=Path, default=None,
+                    help="run the port as `<python> -m dcpy.main` instead of the "
+                         "binary (Windows has no tools/demonscrest-py wrapper)")
     ap.add_argument("--skip-playback", action="store_true",
                     help="asset checks only (no window, no audio device)")
     return ap.parse_args()
@@ -160,40 +163,48 @@ def check_spc_artifacts(captures: Path) -> None:
               f"area={json.loads(meta.read_text())['area'] if meta.is_file() else '?'}")
 
 
-def wrapper(binary: Path) -> list[str]:
+def wrapper(binary: Path, python: Path | None = None) -> list[str]:
+    if python is not None:
+        return [str(python), "-m", "dcpy.main"]
     if sys.platform.startswith("linux") and shutil.which("xvfb-run"):
         return ["xvfb-run", "-a", str(binary)]
     return [str(binary)]
 
 
 def run_headless(binary: Path, assets: Path, env_extra: dict, frames: int,
-                 trace: Path | None = None) -> subprocess.CompletedProcess:
+                 trace: Path | None = None,
+                 python: Path | None = None) -> subprocess.CompletedProcess:
     env = dict(os.environ)
     env.update(env_extra)
     env["DC_AREA"] = env.get("DC_AREA", "0")
     env["DC_RUN_FRAMES"] = str(frames)
     if trace is not None:
         env["DC_TRACE_CSV"] = str(trace)
-    return subprocess.run(wrapper(binary) + ["--assets", str(assets)],
-                          env=env, capture_output=True, text=True, timeout=300)
+    env.setdefault("PYTHONPATH", str(ROOT))
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    return subprocess.run(wrapper(binary, python) + ["--assets", str(assets)],
+                          env=env, capture_output=True, text=True, timeout=300,
+                          cwd=str(ROOT))
 
 
-def check_playback(binary: Path, assets: Path, track: dict) -> None:
-    if not binary.is_file():
+def check_playback(binary: Path, assets: Path, track: dict,
+                   python: Path | None = None) -> None:
+    if python is None and not binary.is_file():
         print(f"SKIP playback: no binary at {binary}")
         raise SystemExit(77)
+    stem = track["file"].removesuffix(".wav")
     with tempfile.TemporaryDirectory() as td:
         alsa = Path(td) / "asound.conf"
         alsa.write_text(ALSA_NULL)
         env = {"ALSA_CONFIG_PATH": str(alsa), "DC_AUDIO_FORCE": "1",
                "DC_AUDIO_DEBUG": "1", "DC_AUDIO_PROBE": "1",
                "DC_AREA": str(track["area"])}
-        res = run_headless(binary, assets, env, frames=900)
+        res = run_headless(binary, assets, env, frames=900, python=python)
         out = res.stdout + res.stderr
         loaded = [ln for ln in out.splitlines()
-                  if "music_boss.wav" in ln and "ROM" in ln]
+                  if f"{stem}.wav" in ln and "ROM" in ln]
         if not loaded:
-            print("FAIL playback: the port never loaded the ROM track:\n"
+            print(f"FAIL playback[{stem}]: the port never loaded the ROM track:\n"
                   + "\n".join(out.splitlines()[-20:]), file=sys.stderr)
             raise SystemExit(1)
         print("  " + loaded[0].strip())
@@ -204,21 +215,26 @@ def check_playback(binary: Path, assets: Path, track: dict) -> None:
                 probes.append(fields)
         rom_probes = [p for p in probes if p.get("rom") == "1"]
         if not rom_probes:
-            print("FAIL playback: the ROM track was loaded but never played",
+            print(f"FAIL playback[{stem}]: the ROM track was loaded but never "
+                  "played", file=sys.stderr)
+            raise SystemExit(1)
+        # The first probe, not the last: the room may run into a door or a boss
+        # within the run and legitimately switch to another track.
+        first = rom_probes[0]
+        best = max(rom_probes, key=lambda p: float(p["time"]))
+        if float(best["time"]) < 0.2:
+            print(f"FAIL playback[{stem}]: stream clock did not advance ({best})",
                   file=sys.stderr)
             raise SystemExit(1)
-        last = rom_probes[-1]
-        if float(last["time"]) < 0.2:
-            print(f"FAIL playback: stream clock did not advance ({last})",
+        if first.get("playing") != "1":
+            print(f"FAIL playback[{stem}]: stream is not playing ({first})",
                   file=sys.stderr)
             raise SystemExit(1)
-        if last.get("playing") != "1":
-            print(f"FAIL playback: stream is not playing ({last})", file=sys.stderr)
-            raise SystemExit(1)
-        print(f"  track={last['track']} rom=1 time={last['time']}s playing=1")
+        print(f"  track={first['track']} rom=1 time={best['time']}s playing=1")
 
 
-def check_determinism(binary: Path, assets: Path, track: dict) -> None:
+def check_determinism(binary: Path, assets: Path, track: dict,
+                      python: Path | None = None) -> None:
     with tempfile.TemporaryDirectory() as td:
         alsa = Path(td) / "asound.conf"
         alsa.write_text(ALSA_NULL)
@@ -227,8 +243,8 @@ def check_determinism(binary: Path, assets: Path, track: dict) -> None:
         env_on = {"ALSA_CONFIG_PATH": str(alsa), "DC_AUDIO_FORCE": "1",
                   "DC_AREA": str(track["area"])}
         env_off = {"DC_NO_AUDIO": "1", "DC_AREA": str(track["area"])}
-        run_headless(binary, assets, env_on, frames=600, trace=a)
-        run_headless(binary, assets, env_off, frames=600, trace=b)
+        run_headless(binary, assets, env_on, frames=600, trace=a, python=python)
+        run_headless(binary, assets, env_off, frames=600, trace=b, python=python)
         if not a.is_file() or not b.is_file():
             print("FAIL determinism: no trace produced", file=sys.stderr)
             raise SystemExit(1)
@@ -249,8 +265,10 @@ def main() -> int:
     if args.skip_playback:
         return 0
     for track in tracks:
-        check_playback(args.binary, args.assets, track)
-        check_determinism(args.binary, args.assets, track)
+        check_playback(args.binary, args.assets, track, args.python)
+    # The audio on/off trace comparison only needs one room: it proves the
+    # audio path cannot perturb the simulation.
+    check_determinism(args.binary, args.assets, tracks[0], args.python)
     print("check_audio_assets: PASS")
     return 0
 

@@ -4,19 +4,234 @@
   "save is relative to the recompilation checkout (RECOMP_DIR).",
   "loop is the period search window in seconds, loop_start where the cut",
   "begins and snap how far the cut may slide to land on a clean seam.",
+  "area is the room the capture was taken in (provenance, and the room the",
+  "port loads to play the track in the playback check).",
   "Generated audio is ROM-derived and stays git-ignored."
  ],
  "tracks": [
   {
-   "name": "music_boss",
-   "area": 0,
-   "note": "colosseum, Somulo fight",
-   "save": "build-trace/saves/somulo_player_control.sav",
-   "capture_seconds": 120,
+   "name": "music_murkland",
+   "area": 2,
+   "note": "stage I, Murkland (cemetery / abyss / slope)",
+   "save": "build-trace/saves/lvl_I_murkland-cemetery.sav",
+   "capture_seconds": 180,
    "settle_frames": 120,
    "neutralise_objects": true,
-   "loop": [38, 44],
-   "loop_start": 50,
+   "loop": [
+    40,
+    70
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
+   "name": "music_ruined_city",
+   "area": 8,
+   "note": "stage II, the ruined city (boneyard / dark avenue)",
+   "save": "build-trace/saves/lvl_II_ruined-city-dark-avenue.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    40,
+    70
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
+   "name": "music_dark_forest",
+   "area": 20,
+   "note": "stage III, Dark Forest (thorn grove / riverbank)",
+   "save": "build-trace/saves/lvl_III_dark-forest-thorn-grove.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    40,
+    70
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
+   "name": "music_dark_forest_cave",
+   "area": 26,
+   "note": "stage III, the caves under Dark Forest (limestone / sula / dyke)",
+   "save": "build-trace/saves/lvl_III_dark-forest-scula-cave.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    40,
+    70
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
+   "name": "music_towers_of_doom",
+   "area": 38,
+   "note": "stage IV, Towers of Doom (misty skies / gryphon spire)",
+   "save": "build-trace/saves/lvl_IV_towers-of-doom-misty-skies.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    40,
+    70
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
+   "name": "music_poseidonia",
+   "area": 48,
+   "note": "stage V, Poseidonia (aquatica / temple)",
+   "save": "build-trace/saves/lvl_V_poseidonia-aquatica.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    40,
+    70
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
+   "name": "music_poseidonia_depths",
+   "area": 52,
+   "note": "stage V, the lair of Holothurion",
+   "save": "build-trace/saves/lvl_V_poseidonia-lair-of-holothurion.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    40,
+    70
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
+   "name": "music_mountains",
+   "area": 62,
+   "note": "stage VI, the mountains (ice spire / ice palace)",
+   "save": "build-trace/saves/lvl_VI_mountains-ice-spire.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    40,
+    70
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
+   "name": "music_mountains_valley",
+   "area": 60,
+   "note": "stage VI, valley of the Grewon",
+   "save": "build-trace/saves/lvl_VI_mountains-valley-of-the-grewon.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    40,
+    70
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
+   "name": "music_phalanx",
+   "area": 74,
+   "note": "stage VII, Phalanx's fortress",
+   "save": "build-trace/saves/lvl_VII_phalanxs-fortress-front-hall.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    40,
+    70
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
+   "name": "music_demon_hideout",
+   "area": 88,
+   "note": "stage VIII, the demon's hideout (tunnel / the dark)",
+   "save": "build-trace/saves/lvl_VIII_demons-hideout-tunnel.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    40,
+    70
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
+   "name": "music_town",
+   "area": 92,
+   "note": "the town rooms (library / black lotus / wise man)",
+   "save": "build-trace/saves/lvl_II_library.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    40,
+    70
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
+   "name": "music_boss",
+   "area": 0,
+   "note": "boss battle (the colosseum / Somulo theme)",
+   "save": "build-trace/saves/lvl_0_murkland-colosseum.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    30,
+    50
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
+   "name": "music_boss_common",
+   "area": 74,
+   "note": "the recurring boss battle theme (Phalanx's fortress front hall)",
+   "save": "build-trace/saves/lvl_VII_phalanxs-fortress-front-hall_boss.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    30,
+    70
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
+   "name": "music_overworld",
+   "area": 94,
+   "note": "the Mode 7 world map",
+   "save": "build-trace/saves/map_new_stages.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    40,
+    70
+   ],
+   "loop_start": 70,
    "snap": 1.0
   }
  ]

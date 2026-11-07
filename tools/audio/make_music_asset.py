@@ -56,7 +56,7 @@ def build_track(name: str, spec: dict, capture: Path, outdir: Path, recomp: Path
     if use_capture:
         live = capture / "live.wav"
         if not live.is_file():
-            raise SystemExit(f"make_music_asset: no capture for {name}: {live}")
+            raise FileNotFoundError(f"no capture for {name}: {live}")
     else:
         cmd = [sys.executable, str(ROOT / "tools" / "audio" / "capture_music.py"),
                "--recomp", str(recomp), "--save", str(recomp / spec["save"]),
@@ -71,23 +71,31 @@ def build_track(name: str, spec: dict, capture: Path, outdir: Path, recomp: Path
     lo, hi = spec.get("loop", [4, 60])
     asset = outdir / f"{name}.wav"
     wav_loop = ROOT / "build" / "wav_loop"
+    if not wav_loop.is_file() and (ROOT / "build" / "wav_loop.exe").is_file():
+        wav_loop = ROOT / "build" / "wav_loop.exe"
     if not wav_loop.is_file():
         run(["gcc", "-O2", "-std=c11", "-o", str(wav_loop),
              str(ROOT / "tools" / "audio" / "wav_loop.c"), "-lm"])
-    res = run([str(wav_loop), str(live), "--find-loop", f"{lo},{hi}",
+    # Paths go to the C tool with forward slashes: it echoes them back inside
+    # its JSON summary, and a Windows backslash would make that invalid JSON.
+    res = run([str(wav_loop), str(live).replace("\\", "/"),
+               "--find-loop", f"{lo},{hi}",
                "--loop-start", str(spec.get("loop_start", 0)),
                "--snap-start", str(spec.get("snap", 0.5)),
-               "--loop-out", str(asset), "--json"])
+               "--loop-out", str(asset).replace("\\", "/"), "--json"])
     info = json.loads(res.stdout.strip().splitlines()[-1])
     if not info.get("loop_written"):
-        raise SystemExit(f"make_music_asset: {name}: no loop written ({info})")
+        # No clean period in the search window: the caller decides whether that
+        # is fatal.  `make_music_asset.py` skips the track and reports it.
+        raise ValueError(f"no loop found in {lo}-{hi}s "
+                         f"(best {info.get('candidates', [{}])[0]})")
 
     # A seamless cut has a seam step of the same order as ordinary adjacent
     # samples; a click is orders of magnitude larger.
     seam_ratio = info["seam_jump"] / info["avg_step"] if info["avg_step"] else 0
     if seam_ratio > 4.0:
-        raise SystemExit(
-            f"make_music_asset: {name}: seam jump {info['seam_jump']:.1f} is "
+        raise ValueError(
+            f"seam jump {info['seam_jump']:.1f} is "
             f"{seam_ratio:.1f}x the typical step {info['avg_step']:.1f}; "
             "widen --snap-start or pick another loop_start")
 
@@ -143,14 +151,23 @@ def main() -> int:
 
     args.outdir.mkdir(parents=True, exist_ok=True)
     entries = []
+    failures = []
     for t in tracks:
-        entries.append(build_track(t["name"], t, args.captures / t["name"],
-                                   args.outdir, args.recomp, args.use_capture))
+        try:
+            entries.append(build_track(t["name"], t, args.captures / t["name"],
+                                       args.outdir, args.recomp, args.use_capture))
+        except (FileNotFoundError, ValueError) as exc:
+            failures.append(t["name"])
+            print(f"{t['name']}: skipped: {exc}", file=sys.stderr)
 
     manifest_path = args.outdir / "music_manifest.json"
     manifest = {"tracks": entries}
     manifest_path.write_text(json.dumps(manifest, indent=1))
     print(f"make_music_asset: {len(entries)} track(s) -> {manifest_path}")
+    if failures:
+        print(f"make_music_asset: {len(failures)} track(s) without a loop: "
+              f"{failures}", file=sys.stderr)
+        return 1
     return 0
 
 

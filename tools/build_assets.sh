@@ -175,6 +175,12 @@ if [ "$SKIP_AUDIO" -eq 0 ] && [ -f tools/audio/music_tracks.json ]; then
   else
     echo "   no captures/audio and no oracle; music stays procedural"
   fi
+  echo "== sound effects (APU command captures) =="
+  if [ -f captures/audio/sfx/sfx_manifest.json ]; then
+    "$PY" tools/audio/make_sfx_asset.py --outdir "$OUT/audio"
+  else
+    echo "   no captures/audio/sfx; effects stay procedural"
+  fi
 fi
 
 if [ "$SKIP_CAPTURES" -eq 0 ]; then

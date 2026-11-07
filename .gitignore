@@ -1,7 +1,11 @@
-# Python
+﻿# Python
 .venv/
 __pycache__/
 *.pyc
+*.egg-info/
+
+# C helper builds (tools/audio/build_audio_tools.sh writes build/)
+build/
 
 # ROM-derived assets and captures are never committed (see README)
 assets/generated/
@@ -13,3 +17,4 @@ saves/
 /*.png
 /*.csv
 *.log
+rom/

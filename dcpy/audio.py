@@ -5,6 +5,11 @@ music when the asset pipeline produced one.  This module builds the same
 22050 Hz mono 16-bit PCM and hands it to raylib through the same calls:
 `LoadMusicStream` for `<assets>/audio/music_*.wav`, an in-memory WAV for the
 procedural loops, and a `Wave` for the sound effects.
+
+The ROM path is now the normal one: `tools/audio/` renders every stage theme
+and every sound effect from the emulated console's own DSP, so `<assets>/audio`
+holds one looping WAV per track and one short WAV per effect.  The procedural
+synth below is only the fallback for a build without those assets.
 """
 
 from __future__ import annotations
@@ -15,10 +20,16 @@ from array import array
 
 from . import rl
 from .util import eprint
-from .consts import (MUSIC_BOSS, MUSIC_ENDING, MUSIC_NONE, MUSIC_STAGE,
-                     MUSIC_TITLE, MUSIC_TRACK_COUNT, SFX_BREAK, SFX_COUNT,
-                     SFX_ENEMY_HIT, SFX_HURT, SFX_JUMP, SFX_LAND, SFX_PICKUP,
-                     SFX_SHOOT)
+from .consts import (AREA_LEVEL_MUSIC, AREA_MUSIC, MUSIC_BOSS,
+                     MUSIC_BOSS_COMMON, MUSIC_DARK_FOREST,
+                     MUSIC_DARK_FOREST_CAVE, MUSIC_DEMON_HIDEOUT, MUSIC_ENDING,
+                     MUSIC_MOUNTAINS, MUSIC_MOUNTAINS_VALLEY, MUSIC_MURKLAND,
+                     MUSIC_NONE, MUSIC_OVERWORLD, MUSIC_PHALANX,
+                     MUSIC_POSEIDONIA, MUSIC_POSEIDONIA_DEPTHS,
+                     MUSIC_RUINED_CITY, MUSIC_TITLE, MUSIC_TOWERS_OF_DOOM,
+                     MUSIC_TOWN, MUSIC_TRACK_COUNT, MUSIC_TRACK_NAMES, SFX_BREAK,
+                     SFX_COUNT, SFX_ENEMY_HIT, SFX_HURT, SFX_JUMP, SFX_LAND,
+                     SFX_PICKUP, SFX_SHOOT)
 from .util import env_flag, file_exists
 
 MUSIC_SR = 22050
@@ -26,8 +37,16 @@ MUSIC_STEP_SECONDS = 0.25
 MUSIC_STEPS = 64
 MAX_SFX_FRAMES = 22050
 
+# Sound effect asset stems, indexed by SFX id.  `tools/audio/capture_sfx.py`
+# writes these; a build without them keeps the procedural stand-ins.
+SFX_NAMES = [
+    "sfx_jump", "sfx_land", "sfx_shoot", "sfx_break", "sfx_pickup",
+    "sfx_hurt", "sfx_enemy_hit",
+]
+
 ready = False
 sfx = [rl.Sound() for _ in range(SFX_COUNT)]
+sfx_from_rom = [False] * SFX_COUNT
 music = [rl.Music() for _ in range(MUSIC_TRACK_COUNT)]
 music_wav = [None] * MUSIC_TRACK_COUNT
 music_loaded = [False] * MUSIC_TRACK_COUNT
@@ -43,22 +62,25 @@ def _debug(message: str) -> None:
     eprint(message)
 
 
-def _track_asset_name(track: int) -> str | None:
-    """The ROM's own track for each game state, or None for MUSIC_NONE."""
-    if track == MUSIC_TITLE:
-        return "music_title.wav"
-    if track == MUSIC_STAGE:
-        return "music_stage.wav"
-    if track == MUSIC_BOSS:
-        return "music_boss.wav"
-    if track == MUSIC_ENDING:
-        return "music_ending.wav"
-    return None
+def track_asset_name(track: int) -> str | None:
+    """The ROM's own track for this game state, or None for MUSIC_NONE."""
+    if track <= MUSIC_NONE or track >= MUSIC_TRACK_COUNT:
+        return None
+    stem = MUSIC_TRACK_NAMES[track]
+    return f"{stem}.wav" if stem else None
+
+
+def music_for_area(area: int, level: str = "") -> int:
+    """The track a room plays: the measured table first, then its stage."""
+    track = AREA_MUSIC.get(area)
+    if track is not None:
+        return track
+    return AREA_LEVEL_MUSIC.get(level, AREA_LEVEL_MUSIC["I"])
 
 
 def _load_rom_track(track: int) -> bool:
     """Load the ROM-rendered track when the asset pipeline produced one."""
-    name = _track_asset_name(track)
+    name = track_asset_name(track)
     if not name or not asset_dir:
         return False
     path = f"{asset_dir}/audio/{name}"
@@ -158,7 +180,10 @@ _ENDING_MELODY = [
 _ENDING_BASS = [45, 45, 43, 43, 41, 41, 40, 40,
                 45, 45, 43, 43, 41, 41, 40, 40]
 
-# Indexed by MusicTrack: MUSIC_NONE has no loop of its own.
+# The four procedural loops that used to be the whole soundtrack.  A build
+# without `assets/generated/audio` still gets one of them per track family, so
+# the game is never silent; each family is pinned to the loop whose character
+# matches it best.
 _TRACK_DEFS = (
     (None, None, 0.0, 0.0),
     (_TITLE_MELODY, _TITLE_BASS, 0.30, 0.5),
@@ -166,6 +191,27 @@ _TRACK_DEFS = (
     (_BOSS_MELODY, _BOSS_BASS, 0.20, 0.25),
     (_ENDING_MELODY, _ENDING_BASS, 0.36, 0.5),
 )
+
+# MusicTrack -> index into _TRACK_DEFS for the no-assets fallback.
+_PROC_FALLBACK = {
+    MUSIC_TITLE: 1,
+    MUSIC_OVERWORLD: 2,
+    MUSIC_MURKLAND: 2,
+    MUSIC_RUINED_CITY: 2,
+    MUSIC_DARK_FOREST: 2,
+    MUSIC_DARK_FOREST_CAVE: 2,
+    MUSIC_TOWERS_OF_DOOM: 2,
+    MUSIC_POSEIDONIA: 2,
+    MUSIC_POSEIDONIA_DEPTHS: 2,
+    MUSIC_MOUNTAINS: 2,
+    MUSIC_MOUNTAINS_VALLEY: 2,
+    MUSIC_PHALANX: 2,
+    MUSIC_DEMON_HIDEOUT: 2,
+    MUSIC_TOWN: 1,
+    MUSIC_BOSS: 3,
+    MUSIC_BOSS_COMMON: 3,
+    MUSIC_ENDING: 4,
+}
 
 
 def _build_track_pcm(melody, bass, step_frames: int, duty: float) -> array:
@@ -198,8 +244,8 @@ def _build_all_tracks() -> None:
             continue
         if env_flag("DC_AUDIO_DEBUG"):
             _debug(f"audio: track {i} <- procedural "
-                   f"(no {_track_asset_name(i) or '?'})")
-        melody, bass, step, duty = _TRACK_DEFS[i]
+                   f"(no {track_asset_name(i) or '?'})")
+        melody, bass, step, duty = _TRACK_DEFS[_PROC_FALLBACK.get(i, 2)]
         step_frames = int(MUSIC_SR * step)
         frames = step_frames * MUSIC_STEPS
         try:
@@ -258,6 +304,23 @@ def _make_sfx(seconds: float, f0: float, f1: float, noise: float,
     return rl.LoadSoundFromWave(wave)
 
 
+def _load_rom_sfx(sfx_id: int) -> bool:
+    """Load the console's own effect for this id when the asset exists."""
+    if not asset_dir or sfx_id < 0 or sfx_id >= len(SFX_NAMES):
+        return False
+    path = f"{asset_dir}/audio/{SFX_NAMES[sfx_id]}.wav"
+    if not file_exists(path):
+        return False
+    loaded = rl.LoadSound(rl.cstr(path))
+    if not rl.IsSoundValid(loaded):
+        return False
+    sfx[sfx_id] = loaded
+    sfx_from_rom[sfx_id] = True
+    if env_flag("DC_AUDIO_DEBUG"):
+        _debug(f"audio: sfx {SFX_NAMES[sfx_id]} <- {path} (ROM)")
+    return True
+
+
 def audio_init(assets_dir) -> bool:
     global ready, asset_dir
     ready = False
@@ -279,13 +342,24 @@ def audio_init(assets_dir) -> bool:
             _debug("audio: device not ready; running silent")
         return False
 
-    sfx[SFX_JUMP] = _make_sfx(0.12, 300.0, 620.0, 0.05, 0.35)
-    sfx[SFX_LAND] = _make_sfx(0.09, 180.0, 70.0, 0.45, 0.30)
-    sfx[SFX_SHOOT] = _make_sfx(0.11, 900.0, 260.0, 0.25, 0.30)
-    sfx[SFX_BREAK] = _make_sfx(0.16, 220.0, 90.0, 0.75, 0.35)
-    sfx[SFX_PICKUP] = _make_sfx(0.22, 660.0, 1320.0, 0.0, 0.30)
-    sfx[SFX_HURT] = _make_sfx(0.20, 160.0, 55.0, 0.25, 0.35)
-    sfx[SFX_ENEMY_HIT] = _make_sfx(0.08, 500.0, 220.0, 0.4, 0.28)
+    # The console's effects first; the procedural stand-ins only fill the ids
+    # the asset build did not produce.
+    for i in range(SFX_COUNT):
+        _load_rom_sfx(i)
+    if not sfx_from_rom[SFX_JUMP]:
+        sfx[SFX_JUMP] = _make_sfx(0.12, 300.0, 620.0, 0.05, 0.35)
+    if not sfx_from_rom[SFX_LAND]:
+        sfx[SFX_LAND] = _make_sfx(0.09, 180.0, 70.0, 0.45, 0.30)
+    if not sfx_from_rom[SFX_SHOOT]:
+        sfx[SFX_SHOOT] = _make_sfx(0.11, 900.0, 260.0, 0.25, 0.30)
+    if not sfx_from_rom[SFX_BREAK]:
+        sfx[SFX_BREAK] = _make_sfx(0.16, 220.0, 90.0, 0.75, 0.35)
+    if not sfx_from_rom[SFX_PICKUP]:
+        sfx[SFX_PICKUP] = _make_sfx(0.22, 660.0, 1320.0, 0.0, 0.30)
+    if not sfx_from_rom[SFX_HURT]:
+        sfx[SFX_HURT] = _make_sfx(0.20, 160.0, 55.0, 0.25, 0.35)
+    if not sfx_from_rom[SFX_ENEMY_HIT]:
+        sfx[SFX_ENEMY_HIT] = _make_sfx(0.08, 500.0, 220.0, 0.4, 0.28)
 
     _build_all_tracks()
     ready = True
@@ -295,8 +369,10 @@ def audio_init(assets_dir) -> bool:
         for i in range(MUSIC_TITLE, MUSIC_TRACK_COUNT):
             loaded += 1 if music_loaded[i] else 0
             rom += 1 if music_from_rom[i] else 0
+        sfx_rom = sum(1 for v in sfx_from_rom if v)
         _debug(f"audio: device ready, {loaded}/{MUSIC_TRACK_COUNT - 1} "
-               f"tracks loaded ({rom} from ROM)")
+               f"tracks loaded ({rom} from ROM), "
+               f"{sfx_rom}/{SFX_COUNT} effects from ROM")
     return True
 
 
@@ -309,6 +385,7 @@ def audio_shutdown() -> None:
     for i in range(SFX_COUNT):
         if rl.IsSoundValid(sfx[i]):
             rl.UnloadSound(sfx[i])
+        sfx_from_rom[i] = False
     for i in range(MUSIC_TITLE, MUSIC_TRACK_COUNT):
         if music_loaded[i]:
             rl.UnloadMusicStream(music[i])
@@ -347,7 +424,7 @@ def audio_play(sfx_id: int) -> None:
 
 
 def audio_start_music() -> None:
-    audio_set_track(MUSIC_STAGE)
+    audio_set_track(MUSIC_MURKLAND)
 
 
 def audio_set_track(track: int) -> None:

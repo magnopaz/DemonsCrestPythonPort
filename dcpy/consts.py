@@ -129,12 +129,106 @@ SFX_HURT = 5
 SFX_ENEMY_HIT = 6
 SFX_COUNT = 7
 
+# Music tracks.  The ROM picks a song per room family, so the port carries one
+# track per stage (plus the shared boss/town/overworld/ending cues) instead of
+# the old title/stage/boss/ending placeholder split.  The names are the asset
+# stems: `<assets>/audio/<stem>.wav`.
 MUSIC_NONE = 0
 MUSIC_TITLE = 1
-MUSIC_STAGE = 2
-MUSIC_BOSS = 3
-MUSIC_ENDING = 4
-MUSIC_TRACK_COUNT = 5
+MUSIC_OVERWORLD = 2
+MUSIC_MURKLAND = 3
+MUSIC_RUINED_CITY = 4
+MUSIC_DARK_FOREST = 5
+MUSIC_DARK_FOREST_CAVE = 6
+MUSIC_TOWERS_OF_DOOM = 7
+MUSIC_POSEIDONIA = 8
+MUSIC_POSEIDONIA_DEPTHS = 9
+MUSIC_MOUNTAINS = 10
+MUSIC_MOUNTAINS_VALLEY = 11
+MUSIC_PHALANX = 12
+MUSIC_DEMON_HIDEOUT = 13
+MUSIC_TOWN = 14
+MUSIC_BOSS = 15
+MUSIC_BOSS_COMMON = 16
+MUSIC_ENDING = 17
+MUSIC_TRACK_COUNT = 18
+
+# Indexed by MusicTrack; "" is MUSIC_NONE (no stream).
+MUSIC_TRACK_NAMES = [
+    "",
+    "music_title",
+    "music_overworld",
+    "music_murkland",
+    "music_ruined_city",
+    "music_dark_forest",
+    "music_dark_forest_cave",
+    "music_towers_of_doom",
+    "music_poseidonia",
+    "music_poseidonia_depths",
+    "music_mountains",
+    "music_mountains_valley",
+    "music_phalanx",
+    "music_demon_hideout",
+    "music_town",
+    "music_boss",
+    "music_boss_common",
+    "music_ending",
+]
+
+# Room area -> track, measured from the ROM's own save states (a room's song is
+# fixed, and every room in a stage family shares one; see docs/AUDIO_PLAN.md).
+# Areas missing here fall back to the room's level letter (AREA_LEVEL_MUSIC).
+AREA_MUSIC = {
+    0: MUSIC_BOSS,            # Murkland colosseum (Somulo)
+    34: MUSIC_BOSS,           # the colosseum's right-hand room
+    2: MUSIC_MURKLAND,        # cemetery
+    4: MUSIC_MURKLAND,        # slope
+    6: MUSIC_MURKLAND,        # abyss
+    8: MUSIC_RUINED_CITY,     # dark avenue
+    10: MUSIC_RUINED_CITY,    # reservoir
+    18: MUSIC_RUINED_CITY,    # boneyard
+    20: MUSIC_DARK_FOREST,    # thorn grove
+    22: MUSIC_DARK_FOREST_CAVE,   # underground dyke
+    26: MUSIC_DARK_FOREST_CAVE,   # scula cave
+    30: MUSIC_DARK_FOREST_CAVE,   # limestone cave
+    36: MUSIC_TOWERS_OF_DOOM,  # gryphon spire
+    38: MUSIC_TOWERS_OF_DOOM,  # misty skies
+    48: MUSIC_POSEIDONIA,      # aquatica
+    54: MUSIC_POSEIDONIA,      # temple and hidden chamber
+    50: MUSIC_POSEIDONIA_DEPTHS,  # underwater grotto
+    52: MUSIC_POSEIDONIA_DEPTHS,  # lair of Holothurion
+    58: MUSIC_MOUNTAINS_VALLEY,   # ice crevasse
+    60: MUSIC_MOUNTAINS_VALLEY,   # valley of the Grewon
+    62: MUSIC_MOUNTAINS,       # ice spire
+    64: MUSIC_MOUNTAINS,       # ice spire (upper)
+    66: MUSIC_MOUNTAINS,       # ice palace corridor
+    68: MUSIC_MOUNTAINS,       # ice palace corridor (inner)
+    74: MUSIC_PHALANX,         # front hall
+    76: MUSIC_PHALANX,         # western bell tower
+    78: MUSIC_PHALANX,         # spiny balcony
+    80: MUSIC_PHALANX,         # eastern bell tower
+    82: MUSIC_PHALANX,         # hall of agonized souls
+    84: MUSIC_BOSS_COMMON,     # Phalanx's chamber (the last fight)
+    86: MUSIC_PHALANX,         # demon realm
+    88: MUSIC_DEMON_HIDEOUT,   # tunnel
+    90: MUSIC_DEMON_HIDEOUT,   # the dark demon
+    92: MUSIC_TOWN,            # library
+    94: MUSIC_OVERWORLD,       # the Mode 7 world map (MAP_AREA)
+    96: MUSIC_TOWN,            # black lotus
+}
+
+# Fallback by the room's level letter (room_names.json `level`).
+AREA_LEVEL_MUSIC = {
+    "0": MUSIC_MURKLAND,
+    "I": MUSIC_MURKLAND,
+    "II": MUSIC_RUINED_CITY,
+    "III": MUSIC_DARK_FOREST,
+    "IV": MUSIC_TOWERS_OF_DOOM,
+    "V": MUSIC_POSEIDONIA,
+    "VI": MUSIC_MOUNTAINS,
+    "VII": MUSIC_PHALANX,
+    "VIII": MUSIC_DEMON_HIDEOUT,
+}
 
 PROJECTILE_POOL_SIZE = 7
 

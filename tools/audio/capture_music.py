@@ -127,6 +127,16 @@ def main() -> int:
 
     exe = args.recomp / "build-trace" / "DemonsCrestSNESRecomp"
     if not exe.is_file():
+        # Windows builds carry the .exe suffix; pick whichever exists.
+        for rel in ("build-trace", "build"):
+            for name in ("DemonsCrestSNESRecomp.exe", "DemonsCrestSNESRecomp"):
+                cand = args.recomp / rel / name
+                if cand.is_file():
+                    exe = cand
+                    break
+            if exe.is_file():
+                break
+    if not exe.is_file():
         raise SystemExit(f"capture_music: missing trace build: {exe}")
     if not args.save.is_file():
         raise SystemExit(f"capture_music: missing save state: {args.save}")
@@ -168,14 +178,18 @@ def main() -> int:
         produced = int(stats["produced"])
         count = int(args.seconds * NATIVE_RATE)
         begin = max(0, produced - count)
-        res = client.cmd(f"audio_wav {wav} {begin} {count}")
+        # The server echoes the path back inside a JSON string, so a Windows
+        # path's backslashes would break the reply: send forward slashes.
+        res = client.cmd(f"audio_wav {wav.as_posix()} {begin} {count}")
         end_frame = client.frame()
 
         meta = {
             "save": str(args.save),
             "save_sha1": sha1(args.save),
             "rom_sha1": sha1(args.rom),
-            "area": area_byte // 2,
+            # $008D is the room area id the port loads (room_area<N>.json);
+            # the world map stores its own marker ($BC = 188) for area 94.
+            "area": area_byte,
             "area_byte": area_byte,
             "start_frame": start,
             "end_frame": end_frame,

@@ -1,9 +1,10 @@
 # Audio: playing the ROM's music and sound effects
 
-Status: **music is real**. The colosseum theme (`music_boss.wav`, area 0) is the
-ROM's own audio, played through `LoadMusicStream` and looping at its measured
-period. Sound effects are still the procedural stand-ins — that is the next
-step.
+Status: **every stage theme is the ROM's own audio**, one looping WAV per room
+family, selected by the port from a measured room table.  One sound effect
+(the jump) is the console's own; the rest are still synthesised (see
+"Still to do").  The colosseum theme (`music_boss.wav`, area 0) was the first
+one captured; this session extended the same pipeline to the whole game.
 
 ## What "correct" means here
 
@@ -487,3 +488,79 @@ transfer routine and the place to start reading.
 0A10: D4 08 6F E8 02 60 94 00 D4 00 90 02 BB 08 6F C4
 0A20: A0 F4 10 28 97 04 A0 D4 10 6F AE AE AE AE E3 B0
 ```
+
+## The whole soundtrack (2026-11-07)
+
+The single-track pipeline above generalised without changing its shape: capture
+from the oracle's DSP ring, measure the loop, write a WAV.  What was missing was
+two tables and a way to talk to the sound driver.
+
+### Which room plays which song: read it out of APU RAM
+
+Clustering captures by their spectrum does not separate the tracks — every song
+uses the same BRR instruments, so chroma and band profiles of different songs
+overlap (measured: 0.9+ similarity between unrelated tracks).  The song itself
+is in APU RAM: diffing the ARAM of three saves that must share a track (the
+cemetery rooms) against seven that must not showed two regions, `$0E00-$12FF`
+and `$2D00-$2FFF`, that are identical inside one song and differ between songs.
+`tools/audio/song_survey.py` sweeps every save state, loads it with `load_state`
+(the APU half of a `.sav` restores even though the title's own resume chunk
+does not) and hashes those regions.
+
+Result: **216 saves group into 36 song signatures, and every room family falls
+out cleanly** — Murkland, the ruined city, both Dark Forest songs, the towers,
+both Poseidonia songs, both mountain songs, Phalanx's fortress, the demon's
+hideout, the town rooms, the overworld and the boss themes.  `consts.AREA_MUSIC`
+is that table (room area id -> `MusicTrack`), with the room's level letter as the
+fallback for a room no save covered.
+
+### The APU command protocol
+
+`tools/audio/input_probe.py` found it by pressing one button at a time: the game
+writes the three argument bytes to ports 1-3 and the command id to port 0.  Port
+0 = `$01` is the jump.  `$F9` on port 0 is a poll (the game re-writes it while
+waiting for the driver's acknowledgement on port 2) and not a command; `$CC`
+starts an IPL data transfer, during which ports 0/1 carry index/data and 2/3 the
+target address.  `tools/audio/apu_commands.py` decodes that stream.
+
+### Sound effects: cancelling the music
+
+Two runs from the same save state that differ only in the buttons pressed have
+the same music, so subtracting them leaves the effect.  That silently does not
+work at first: the emulator produces audio faster than a dummy device drains it,
+so the output ring drops samples at wall-clock-dependent points and two
+"identical" runs differ by ~1,900 LSB mean.  Pacing the emulation to real time
+(`paced_run()` in `tools/audio/capture_sfx.py`) removes the drops — `audio_stats`
+reports `dropped=0` and the two runs then compare **bit-identical** (0 LSB
+residual over the pre-command window).  The captured difference is cut at each
+decoded command, trimmed where the envelope falls below a tenth of its peak
+(past that it is the music voice the driver stole) and peak-normalised.
+
+`tools/audio/make_sfx_asset.py` maps the ids whose trigger is unambiguous into
+`<assets>/audio/sfx_<name>.wav`.  Today that is the jump (`$01`).  Two more ids
+were captured (`$07`, `$16` from a combat room) but their trigger is not proven,
+so they are deliberately not wired in — guessing one into `SFX_HURT` would be
+worse than the stand-in it replaced.
+
+### Reproducing it
+
+```sh
+# 1. one capture per track (resumable; ~6 min each at 180 s)
+python3 tools/audio/capture_tracks.py
+python3 tools/audio/capture_tracks.py --only music_boss --force
+
+# 2. cut the loops + write the manifest
+python3 tools/audio/make_music_asset.py --use-capture
+
+# 3. the effects (paced A/B runs, then the id -> name map)
+python3 tools/audio/capture_sfx.py --all
+python3 tools/audio/make_sfx_asset.py
+
+# 4. verify
+python3 tools/check_audio_assets.py --python .venv/Scripts/python.exe
+```
+
+On Windows the oracle's binary carries the `.exe` suffix, `load_state` needs the
+snapshot converted to the L3 header (`tools/audio/oracle.py` does the launch and
+the connect), and any path echoed back inside a JSON reply must be sent with
+forward slashes.

@@ -113,7 +113,7 @@ python3 tools/check_hippogriff.py      # whole suite: tools/run_regression.py
 | `dcpy/camera.py` | `camera.c` | deadzone camera |
 | `dcpy/input.py` | `input.c` | keyboard/gamepad + demo scripts |
 | `dcpy/text.py` | `text.c` | ROM dialogue script + BG3 font |
-| `dcpy/audio.py` | `audio.c` | ROM music WAVs + procedural fallbacks |
+| `dcpy/audio.py` | `audio.c` | ROM music tracks (one per stage family) + ROM/procedural effects |
 | `dcpy/render.py` | `render.c` | tile layers, sprites, HUD, fade |
 | `dcpy/game.py` | `game.c` | states, saves, password, overworld, overlays |
 | `dcpy/main.py` | `main.c` | window, fixed-step loop, screenshot |
@@ -142,8 +142,12 @@ python3 tools/check_hippogriff.py      # whole suite: tools/run_regression.py
   raylib version (`DrawRectangleLines` geometry was matched explicitly).
 - The full campaign (every room, shop stock, all four endings) is translated
   but only area 1's content is gated by the C suite so far.
-- Audio output is the same ROM WAV / procedural mix; no sample-exact A/B has
-  been run against the C binary's device output.
+- Audio: every stage theme is the ROM's own audio (14 looping WAVs selected
+  from a measured room table, see `docs/AUDIO_PLAN.md`), but only the jump
+  effect has been captured from the console — the other effects are still the
+  procedural stand-ins. The ending cue is not captured yet either (the ending
+  save state is silent), so `MUSIC_ENDING` falls back to a synthesised loop.
+  No sample-exact A/B has been run against the C binary's device output.
 
 `docs/PARITY.md` records the measurements and the porting traps that cost real
 debugging time (C struct copies, level reload resets, raylib `Color` aliasing,
