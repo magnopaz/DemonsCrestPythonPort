@@ -233,26 +233,31 @@ SPECS["grewon"] = _boss(
     "grewon", "Grewon", "13", 0x13,
     [
         {"name": "idle", "y": (55, 100), "x": (0, 476), "duration": 10},
-        {"name": "walk", "y": (136, 193), "x": (0, 476), "duration": 8},
-        {"name": "attack", "y": (217, 301), "x": (0, 476), "duration": 8},
+        {"name": "running", "y": (136, 193), "x": (0, 476), "duration": 8},
+        {"name": "jump", "y": (217, 301), "x": (0, 476), "duration": 8,
+         "min_w": 30, "max_w": 120},
+        {"name": "breath", "y": (349, 394), "x": (0, 476), "duration": 8,
+         "min_w": 40},
         {"name": "hurt", "y": (420, 484), "x": (0, 476), "duration": 6},
     ],
-    "Grewon.gif first palette: walk, idle, attack and hurt rows (the sheet "
-    "repeats them for the second palette)")
+    "Grewon.gif first palette, captions: Intro/Idle, Running, Wall Jump / "
+    "Jump / Turning Around, Breath Attack, Hit / Hurt + Defeated (the sheet "
+    "repeats every row for the second palette)")
 
 # -- Hipogriff ($09) --------------------------------------------------------
 SPECS["hipogriff"] = _boss(
     "hipogriff", "Hipogriff", "09", 0x09,
     [
-        {"name": "idle", "y": (103, 204), "x": (0, 785), "duration": 10,
+        {"name": "flying", "y": (103, 204), "x": (0, 785), "duration": 10,
          "max_w": 100, "min_w": 30, "min_h": 30},
-        {"name": "walk", "y": (222, 323), "x": (0, 785), "duration": 8,
+        {"name": "flying_b", "y": (222, 323), "x": (0, 785), "duration": 8,
          "max_w": 100, "min_w": 30, "min_h": 30},
-        {"name": "attack", "y": (339, 440), "x": (0, 785), "duration": 8,
+        {"name": "charge", "y": (339, 440), "x": (0, 785), "duration": 8,
          "max_w": 100, "min_w": 30, "min_h": 30},
     ],
-    "Hipogriff.gif body rows (idle, walk, attack); the statue pose and the "
-    "credit block are skipped")
+    "Hipogriff.gif: caption says Flying over the first row and Charge / "
+    "Feather Attack / Hurt Palate over the third; the middle row is the second "
+    "palette set of the flight art. Statue pose and credits skipped.")
 
 
 # -- Ovnunu ($16) -----------------------------------------------------------
