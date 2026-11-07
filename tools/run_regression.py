@@ -486,6 +486,14 @@ def main() -> int:
               "pit boss: opening/launch check failed\n"
               + pit_proc.stdout[-800:])
 
+        # ---- Pit of Ovununu: HP and damage (docs/boss_hp.txt) ----
+        pit_dmg = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_pit_damage.py")],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=120)
+        check(pit_dmg.returncode == 0,
+              "pit damage: HP/damage check failed\n" + pit_dmg.stdout[-800:])
+
         # ---- End-to-end campaign playthrough ----
         play = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "check_playthrough.py"),

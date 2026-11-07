@@ -732,7 +732,7 @@ def game_update_simulation(game: Game) -> None:
         projectiles_spawn(game.projectiles, game.player)
         game.player.shot_fired = False
         audio_play(C.SFX_SHOOT)
-    objects_check_projectiles(game.objects, game.projectiles)
+    objects_check_projectiles(game.objects, game.projectiles, game.player)
     objects_update(game.objects, game.level, game.player)
     if (game.objects.events & C.OBJECT_EVENT_FIRE_PIECE) and \
             game_narrative_enabled():

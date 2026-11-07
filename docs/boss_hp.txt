@@ -1,0 +1,259 @@
+Hippogriff 1
+HP: 16
+Fire: 1
+Buster: 1
+Claw: 1
+Demon Fire: 3
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: 4
+Tidal: 1
+Legendary: 5
+Ultimate: 5
+
+Arma 1
+HP: 16
+Fire: 1
+Buster: 1
+Claw: 1
+Demon Fire: 3
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: 2
+Tidal: 1
+Legendary: 5
+Ultimate: 5
+
+Belth
+HP: 32
+Fire: 1
+Buster: 1
+Claw: 1
+Demon Fire: 3
+Earth (Ground): 3
+Earth (Air): 1
+Aerial: N/A
+Tidal: 1
+Legendary: 5
+Ultimate: 5
+
+Ovununu
+HP: 3 (eyes); 10 (main body)
+Fire: 1
+Buster: 1
+Claw: 1
+Demon Fire: 3
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: 2
+Tidal: 1
+Legendary: 5
+Ultimate: 5
+
+Flame Lord
+HP: 26 (land form); 20 (flying form)
+Fire: N/A
+Buster: 1
+Claw: 1
+Demon Fire: 3
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: 1
+Tidal: 3
+Legendary: 5
+Ultimate: 5
+
+Scula
+HP: 24 (Toss); 10 (Roll)
+Fire: 1
+Buster: 1
+Claw: 1
+Demon Fire: 3
+Earth (Ground): 1
+Earth (Air): 1
+Aerial: N/A
+Tidal: 1
+Legendary: 5
+Ultimate: 5
+
+Flier 1
+HP: 24
+Fire: 1
+Buster: 1
+Claw: 1
+Demon Fire: 3
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: 3
+Tidal: 1
+Legendary: 5
+Ultimate: 5
+
+Hippogriff 2
+HP: 24
+Fire: 1
+Buster: 1
+Claw: 1
+Demon Fire: 3
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: 4
+Tidal: 1
+Legendary: 5
+Ultimate: 5
+
+Arma 2
+HP: 32
+Fire: 1
+Buster: 1
+Claw: 1
+Demon Fire: 3
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: 2
+Tidal: 1
+Legendary: 5
+Ultimate: 5
+
+Crawler
+HP: 36
+Fire: 1
+Buster: 1
+Claw: 1
+Demon Fire: 3
+Earth (Ground): N/A
+Earth (Air): 2
+Aerial: N/A
+Tidal: 1
+Legendary: 5
+Ultimate: 5
+
+Holothurion
+HP: 72
+Fire: N/A
+Buster: 1
+Claw: 1
+Demon Fire: 3
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: N/A
+Tidal: 3
+Legendary: 5
+Ultimate: 5
+
+Grewon 1
+HP: 64
+Fire: 4
+Buster: 1
+Claw: 1
+Demon Fire: 6
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: N/A
+Tidal: 1
+Legendary: 10
+Ultimate: 10
+
+Flier 2
+HP: 48
+Fire: 1
+Buster: 1
+Claw: 1
+Demon Fire: 3
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: 3
+Tidal: 1
+Legendary: 5
+Ultimate: 5
+
+Arma 3
+HP: 72
+Fire: 3
+Buster: 1
+Claw: 1
+Demon Fire: 6
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: 2
+Tidal: 1
+Legendary: 10
+Ultimate: 10
+
+Hippogriff 3
+HP: 64
+Fire: 1
+Buster: 1
+Claw: 1
+Demon Fire: 3
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: 4
+Tidal: 1
+Legendary: 5
+Ultimate: 5
+
+Grewon 2
+HP: 64
+Fire: 4
+Buster: 1
+Claw: 1
+Demon Fire: 6
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: N/A
+Tidal: 1
+Legendary: 10
+Ultimate: 10
+
+Phalanx
+HP: 50
+Fire: 2
+Buster: 1
+Claw: 1
+Demon Fire: 6
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: N/A
+Tidal: 1
+Legendary: 5
+Ultimate: 5
+
+Phalanx 2 (with Heaven Crest)
+HP: 127
+Fire: 2
+Buster: 1
+Claw: 1
+Demon Fire: 6
+Earth (Ground): 2
+Earth (Air): 1
+Aerial: N/A
+Tidal: 1
+Legendary: 5
+Ultimate: 5
+
+Phalanx 3 (lava stage)
+HP: 128
+Fire: N/A
+Buster: N/A
+Claw: N/A
+Demon Fire: N/A
+Earth (Ground): N/A
+Earth (Air): N/A
+Aerial: N/A
+Tidal: N/A
+Legendary: 5
+Ultimate: 5
+
+Dark Demon - Three Headed/Fallen Angel
+HP: 200
+Fire: 2/1
+Buster: N/A
+Claw: N/A
+Demon Fire: N/A
+Earth (Ground): N/A
+Earth (Air): N/A
+Aerial: N/A
+Tidal: N/A
+Legendary: N/A
+Ultimate: 4/2

@@ -552,3 +552,32 @@ rotina de dano do ROM lida de outra forma). Fica pedido ao utilizador.
 leituras chegou ao 17201. O que fecha o socket do debug server são as leituras
 frequentes (`run_to_frame` + `read_ram` a cada frame); a passo 5 e a passo 30
 aguenta. Para medir a luta, ler pouco e de longe.
+
+### 7.12 HP e dano (`docs/boss_hp.txt`, 2026-11-06)
+
+O utilizador forneceu `docs/boss_hp.txt` com o HP de todos os bosses e o dano de
+cada transformação do Firebrand. Para Ovununu: **3 HP por olho, 10 no corpo
+principal**; Fire/Buster/Claw/Tidal 1, Demon Fire 3, Earth (chão) 2, Earth (ar)
+1, Aerial 2, Legendary/Ultimate 5.
+
+O port passou a usar isso:
+
+- `_spawn_unknown` dá `PIT_BODY_HP` (10) ao `$6B` e `PIT_EYE_HP` (3) a cada
+  `$6C` (antes eram inertes, `hp = 1`).
+- `objects_check_projectiles` tem um ramo para as duas espécies: caixa 24×30
+  (corpo) e 8×8 (olho), `hit_flash = 8`, dano por `_pit_damage(player)` (hoje
+  Ultimate 5, resto 1 — as outras formas ainda não estão modeladas no port).
+- Quando um olho morre, `pool.pit_dead++` (é o `$1DF8` que o controlador lê em
+  `$BA4E`); quando o corpo morre, a luta fecha como o ROM faz com `$1DEB=2`:
+  `pit_fight = False`, `pit_opened = 2`, `boss_defeated = True` e o evento
+  `OBJECT_EVENT_BOSS_DEFEATED`. O gatilho do `$69` não volta a armar a luta
+  (`pit_opened`), e o corpo deixa de ser reposto em y=700.
+- `tools/check_pit_damage.py` (na regressão) constrói o pool, dispara 10 vezes
+  ao corpo e 3 ao olho, e afirma o HP, o fim da luta, `pit_dead` e o dano 5 da
+  forma Ultimate.
+
+**O que continua por medir:** a *animação* de morte do corpo. A take do poço
+não tem kill (§7.11) e a de stage 3/4 mostra outros bosses; o estado `$05=2` do
+`$6B` (`$1E05`/`$E29A`, 12 passos) segue por portar. As caixas 24×30/8×8 são do
+port — o ROM usa `$809CA4($E2C0)` com os parâmetros `±$40`/`±$28`, que estão
+lidos mas dependem do `$1DCE`/scroll ainda não simulado.

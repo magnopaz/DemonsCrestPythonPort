@@ -460,7 +460,14 @@ def _spawn_unknown(pool: ObjectPool, src) -> None:
     o.y_fx = float_to_fx(src.y)
     o.origin_x_fx = o.x_fx
     o.origin_y_fx = o.y_fx
-    o.hp = 1
+    # docs/boss_hp.txt: Ovununu is 3 HP per eye and 10 for the main body.
+    if src.species == PIT_BODY_SPECIES:
+        o.hp = PIT_BODY_HP
+    elif src.species == PIT_EYE_SPECIES:
+        o.hp = PIT_EYE_HP
+    else:
+        o.hp = 1
+    o.max_hp = o.hp
 
 
 def objects_init(pool: ObjectPool, level) -> None:
@@ -796,6 +803,20 @@ def _ghoul_update(o: Object, level, p, pool: ObjectPool) -> None:
 PIT_CORE_SPECIES = 0x69
 PIT_BODY_SPECIES = 0x6B
 PIT_EYE_SPECIES = 0x6C
+# docs/boss_hp.txt (Ovununu): 10 HP for the main body, 3 per eye.
+PIT_BODY_HP = 10
+PIT_EYE_HP = 3
+
+
+def _pit_damage(player) -> int:
+    """Damage the current form deals, per docs/boss_hp.txt's Ovununu column.
+
+    Fire/Buster/Claw/Tidal 1, Demon Fire 3, Earth (ground) 2, Earth (air) 1,
+    Aerial 2, Legendary/Ultimate 5.  The port only models the ultimate form
+    explicitly today, so every other form uses the base 1."""
+    if player.crest_form == CREST_ULTIMATE:
+        return 5
+    return 1
 
 # The body's climb, sampled every 20 frames from the pit take (frame 14400 is
 # the room entry; 15750 is the top). The ROM's internal stages are $3E/scroll
@@ -1670,7 +1691,8 @@ def _update_pit_core(pool: ObjectPool, o: Object, player) -> None:
     if o.state == 0:
         # $B989: the fight starts when the player leaves the entry corner
         # ($1031 >= $80 or $1034 < $238; the port's spawn is (32,668)).
-        if not pool.pit_fight and (player.x >= 128.0 or player.y < 568.0):
+        if not pool.pit_fight and not pool.pit_opened and \
+                (player.x >= 128.0 or player.y < 568.0):
             _pit_start_fight(pool)
         if not pool.pit_fight:
             return
@@ -1716,10 +1738,11 @@ def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
         return
     if o.species == PIT_BODY_SPECIES:
         if not pool.pit_fight:
-            o.state = 0
-            o.substate = 0
-            o.timer = 0
-            o.y_fx = float_to_fx(700.0)
+            if not pool.pit_opened:
+                o.state = 0
+                o.substate = 0
+                o.timer = 0
+                o.y_fx = float_to_fx(700.0)
             return
         o.timer += 1
         climb = max(0, o.timer - _PIT_RISE_DELAY)
@@ -2548,7 +2571,7 @@ def objects_update(pool: ObjectPool, level, player) -> None:
             pool.events |= OBJECT_EVENT_PICKUP
 
 
-def objects_check_projectiles(pool: ObjectPool, projectiles) -> None:
+def objects_check_projectiles(pool: ObjectPool, projectiles, player=None) -> None:
     for p in projectiles.slots:
         if not p.active:
             continue
@@ -2561,6 +2584,32 @@ def objects_check_projectiles(pool: ObjectPool, projectiles) -> None:
                 continue
             ox = fx_to_float(o.x_fx)
             oy = fx_to_float(o.y_fx)
+
+            if o.species in (PIT_BODY_SPECIES, PIT_EYE_SPECIES):
+                # docs/boss_hp.txt: the body takes 10 hits, each eye 3.  The
+                # boxes are the port's (the ROM's probe is $809CA4); the
+                # damage is the current form's column in that table.
+                hw, hh = ((24.0, 30.0) if o.species == PIT_BODY_SPECIES
+                          else (8.0, 8.0))
+                if abs(px - ox) <= hw and abs(py - oy) <= hh:
+                    p.active = False
+                    dmg = (_pit_damage(player) if player is not None
+                           else (5 if p.damage >= 2 else 1))
+                    o.hp -= dmg
+                    o.hit_flash = 8
+                    pool.events |= OBJECT_EVENT_ENEMY_HIT
+                    if o.hp <= 0:
+                        o.active = False
+                        pool.pit_dead += 1        # $1DF8
+                        if o.species == PIT_BODY_SPECIES:
+                            # The ROM ends the fight with $1DEB=2, which sends
+                            # the body to its leaving state ($83:C198).
+                            pool.pit_fight = False
+                            pool.pit_opened = 2
+                            pool.boss_alive = False
+                            pool.boss_defeated = True
+                            pool.events |= OBJECT_EVENT_BOSS_DEFEATED
+                continue
 
             if o.type == OBJECT_URN:
                 if (abs(px - ox) <= URN_HALF + 4.0 and
