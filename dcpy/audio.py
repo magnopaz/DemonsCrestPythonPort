@@ -423,8 +423,9 @@ def audio_play(sfx_id: int) -> None:
         rl.PlaySound(sfx[sfx_id])
 
 
-def audio_start_music() -> None:
-    audio_set_track(MUSIC_MURKLAND)
+def audio_start_music(track: int = MUSIC_MURKLAND) -> None:
+    """Start the first real track; callers pass the room's own theme."""
+    audio_set_track(track)
 
 
 def audio_set_track(track: int) -> None:

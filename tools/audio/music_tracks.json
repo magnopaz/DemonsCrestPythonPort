@@ -10,6 +10,23 @@
  ],
  "tracks": [
   {
+   "name": "music_title",
+   "area": null,
+   "state": "title",
+   "note": "the title screen theme (cold boot: music starts around frame 360)",
+   "cold_boot": true,
+   "start_frame": 1800,
+   "capture_seconds": 180,
+   "settle_frames": 1,
+   "neutralise_objects": false,
+   "loop": [
+    15,
+    70
+   ],
+   "loop_start": 70,
+   "snap": 1.0
+  },
+  {
    "name": "music_murkland",
    "area": 2,
    "note": "stage I, Murkland (cemetery / abyss / slope)",

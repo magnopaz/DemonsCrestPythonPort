@@ -142,12 +142,13 @@ python3 tools/check_hippogriff.py      # whole suite: tools/run_regression.py
   raylib version (`DrawRectangleLines` geometry was matched explicitly).
 - The full campaign (every room, shop stock, all four endings) is translated
   but only area 1's content is gated by the C suite so far.
-- Audio: every stage theme is the ROM's own audio (14 looping WAVs selected
-  from a measured room table, see `docs/AUDIO_PLAN.md`), but only the jump
-  effect has been captured from the console — the other effects are still the
-  procedural stand-ins. The ending cue is not captured yet either (the ending
-  save state is silent), so `MUSIC_ENDING` falls back to a synthesised loop.
-  No sample-exact A/B has been run against the C binary's device output.
+- Audio: every stage theme and the title theme are the ROM's own audio (16
+  looping WAVs selected from a measured room table, see `docs/AUDIO_PLAN.md`),
+  and the jump and item-pickup effects are captured from the console — the
+  other effects are still the procedural stand-ins. The ending cue is not
+  captured yet (the ending save state's APU is silent), so `MUSIC_ENDING`
+  falls back to a synthesised loop. No sample-exact A/B has been run against
+  the C binary's device output.
 
 `docs/PARITY.md` records the measurements and the porting traps that cost real
 debugging time (C struct copies, level reload resets, raylib `Color` aliasing,

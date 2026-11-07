@@ -197,8 +197,11 @@ def check_playback(binary: Path, assets: Path, track: dict,
         alsa = Path(td) / "asound.conf"
         alsa.write_text(ALSA_NULL)
         env = {"ALSA_CONFIG_PATH": str(alsa), "DC_AUDIO_FORCE": "1",
-               "DC_AUDIO_DEBUG": "1", "DC_AUDIO_PROBE": "1",
-               "DC_AREA": str(track["area"])}
+               "DC_AUDIO_DEBUG": "1", "DC_AUDIO_PROBE": "1"}
+        if track.get("state"):
+            env["DC_STATE"] = track["state"]
+        else:
+            env["DC_AREA"] = str(track["area"])
         res = run_headless(binary, assets, env, frames=900, python=python)
         out = res.stdout + res.stderr
         loaded = [ln for ln in out.splitlines()

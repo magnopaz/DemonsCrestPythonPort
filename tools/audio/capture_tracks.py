@@ -53,11 +53,14 @@ def main() -> int:
             continue
         cmd = [sys.executable, str(ROOT / "tools" / "audio" / "capture_music.py"),
                "--recomp", str(recomp),
-               "--save", str(recomp / t["save"]),
                "--out", str(out),
                "--seconds", str(t.get("capture_seconds", 120)),
                "--settle-frames", str(t.get("settle_frames", 120)),
                "--port", str(args.port + i)]
+        if t.get("cold_boot"):
+            cmd += ["--start-frame", str(t.get("start_frame", 900))]
+        else:
+            cmd += ["--save", str(recomp / t["save"])]
         if not t.get("neutralise_objects", True):
             cmd.append("--keep-objects")
         print(f"{t['name']}: capturing {t.get('capture_seconds', 120)} s ...",

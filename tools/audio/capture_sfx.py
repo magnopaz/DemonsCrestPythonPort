@@ -11,8 +11,8 @@ That only works when the two runs are sample-identical, and by default they are
 not: the emulator produces audio faster than the dummy device drains it, so the
 output ring drops samples at wall-clock-dependent points (two "identical" runs
 measured a mean absolute difference of ~1,900 LSB).  Pacing the emulation to
-real time removes the drops â€” `audio_stats` reports `dropped=0` and the two runs
-compare *bit-identical* â€” which is what `paced_run()` does here.
+real time removes the drops ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `audio_stats` reports `dropped=0` and the two runs
+compare *bit-identical* ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â which is what `paced_run()` does here.
 
 One pair of runs yields every effect the input script triggered: the commands
 the game sent are decoded from the run's port traffic, each is cut out of the
@@ -53,7 +53,7 @@ LEAD_SECONDS = 0.05
 MAX_SECONDS = 0.9
 FADE_SECONDS = 0.02
 TRIM_WINDOW = 0.01        # envelope resolution for the tail search
-TRIM_RATIO = 0.10         # tail ends where the envelope falls under 10% peak
+TRIM_RATIO = 0.20         # tail ends where the envelope falls under 20% peak (RMS)
 TRIM_KEEP = 0.04          # keep 40 ms past that point
 NORMALISE = 0.85
 
@@ -148,6 +148,19 @@ def cut(diff: list[int], centre: int, rate: int) -> list[int]:
     if peak == 0:
         return []
 
+    # The driver answers a command a few dozen milliseconds later, so the cut
+    # starts with silence.  Drop it, keeping a 5 ms pre-roll for the attack.
+    gate = peak * 0.02
+    first = 0
+    while first < len(seg) and abs(seg[first]) < gate:
+        first += 1
+    if first >= len(seg):
+        return []
+    seg = seg[max(0, first - int(0.005 * rate)):]
+    peak = max((abs(v) for v in seg), default=0)
+    if peak == 0:
+        return []
+
     # Tail: the last window whose RMS is still above a fraction of the loudest
     # window.  Past that the difference is the music voice the driver stole.
     win = max(1, int(TRIM_WINDOW * rate))
@@ -178,12 +191,27 @@ def main() -> int:
     ap.add_argument("--recomp", type=Path, default=DEFAULT_RECOMP)
     ap.add_argument("--save", type=Path, default=None)
     ap.add_argument("--all", action="store_true", help="run the scripted sweep")
+    ap.add_argument("--one-button", default="",
+                    help="press only this button (e.g. y) instead of the full "
+                         "script; attributes every command to one input")
+    ap.add_argument("--sequence", default="",
+                    help="custom script: name=buttons/frames,...")
     ap.add_argument("--out", type=Path, default=Path("captures/audio/sfx"))
     ap.add_argument("--settle", type=int, default=90)
     ap.add_argument("--port", type=int, default=4800)
     args = ap.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
+    script = SCRIPT
+    if args.one_button:
+        script = [("", "", 30), (f"press {args.one_button}", args.one_button, 6),
+                  ("", "", 70)]
+    elif args.sequence:
+        script = []
+        for item in args.sequence.split(","):
+            name, rest = item.split("=", 1)
+            buttons, frames = rest.rsplit("/", 1)
+            script.append((name, buttons, int(frames)))
     saves = find_saves(args.recomp)
     jobs: list[tuple[str, Path]] = []
     if args.all:
@@ -199,7 +227,7 @@ def main() -> int:
     elif args.save:
         jobs.append((args.save.stem, args.save))
     else:
-        raise SystemExit("capture_sfx: pass --save or --all")
+        raise SystemExit("capture_sfx: pass --save, --all or --sequence")
 
     report: dict = {"sources": {}, "effects": {}}
     manifest = args.out / "sfx_manifest.json"
@@ -214,10 +242,10 @@ def main() -> int:
         a_wav = args.out / f"_music_{job}.wav"
         b_wav = args.out / f"_with_{job}.wav"
         print(f"{job}: run A (music only)")
-        a, _ca, _p0a, _st, _f0a = capture(save, args.recomp, args.port, SCRIPT,
+        a, _ca, _p0a, _st, _f0a = capture(save, args.recomp, args.port, script,
                                           args.settle, a_wav, press=False)
         print(f"{job}: run B (input)")
-        b, cmds, p0, st_b, f0 = capture(save, args.recomp, args.port + 1, SCRIPT,
+        b, cmds, p0, st_b, f0 = capture(save, args.recomp, args.port + 1, script,
                                         args.settle, b_wav, press=True)
         n = min(len(a), len(b))
         a, b = a[:n], b[:n]
@@ -241,7 +269,7 @@ def main() -> int:
             "residual_lsb": round(residual, 3), "commands": len(cmds),
         }
 
-        steps = script_steps(SCRIPT, f0)
+        steps = script_steps(script, f0)
         for cmd in cmds:
             if cmd.cmd == POLL:
                 continue
@@ -265,6 +293,7 @@ def main() -> int:
                 "file": path.name,
                 "step": step,
                 "buttons": buttons,
+                "offset_seconds": round(centre / NATIVE_RATE, 3),
                 "seconds": round(len(seg) / NATIVE_RATE, 3),
                 "peak": max((abs(v) for v in seg), default=0),
                 "source": job,
@@ -279,4 +308,6 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
 

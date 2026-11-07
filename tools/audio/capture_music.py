@@ -34,71 +34,15 @@ import argparse
 import hashlib
 import json
 import os
-import shutil
-import socket
-import subprocess
 import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from oracle import DEFAULT_RECOMP, DEFAULT_ROM, NATIVE_RATE, Session  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_RECOMP = ROOT.parent / "DemonsCrestSNESRecomp"
-DEFAULT_ROM = ROOT.parent / "roms" / "Demon's Crest (USA).sfc"
-NATIVE_RATE = 32040
 OBJ_BASE, OBJ_STRIDE, OBJ_SLOTS = 0x1080, 0x50, 26
-
-
-class Client:
-    def __init__(self, sock):
-        self.f = sock.makefile("rwb")
-        self.sock = sock
-
-    def cmd(self, text):
-        self.f.write((text + "\n").encode())
-        self.f.flush()
-        line = self.f.readline()
-        if not line:
-            raise RuntimeError(f"no response to {text!r}")
-        msg = json.loads(line)
-        if "error" in msg:
-            raise RuntimeError(f"{text!r}: {msg['error']}")
-        return msg
-
-    def frame(self):
-        return int(self.cmd("frame")["frame"])
-
-    def read(self, addr, n):
-        return bytes.fromhex(self.cmd(f"read_ram {addr:x} {n}")["hex"].replace(" ", ""))
-
-    def write(self, addr, data):
-        self.cmd(f"write_ram {addr:x} {data.hex()}")
-
-    def run_to(self, target, timeout=600.0):
-        if self.frame() >= target:
-            return self.frame()
-        self.cmd(f"run_to_frame {target}")
-        deadline = time.monotonic() + timeout
-        while self.frame() < target:
-            if time.monotonic() > deadline:
-                raise RuntimeError(f"timeout waiting for frame {target}")
-            time.sleep(0.01)
-        return self.frame()
-
-    def close(self):
-        try:
-            self.f.close()
-        finally:
-            self.sock.close()
-
-
-def connect(port, timeout=90.0):
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        try:
-            return Client(socket.create_connection(("127.0.0.1", port), timeout=3))
-        except OSError:
-            time.sleep(0.1)
-    raise SystemExit("capture_music: no debug server appeared")
 
 
 def sha1(path: Path) -> str:
@@ -115,7 +59,11 @@ def main() -> int:
                     default=Path(os.environ.get("RECOMP_DIR", DEFAULT_RECOMP)))
     ap.add_argument("--rom", type=Path,
                     default=Path(os.environ.get("ROM", DEFAULT_ROM)))
-    ap.add_argument("--save", type=Path, required=True)
+    ap.add_argument("--save", type=Path, default=None,
+                    help="save state to resume; omit for a cold boot")
+    ap.add_argument("--start-frame", type=int, default=0,
+                    help="on a cold boot, frames to run before the capture "
+                         "(the title screen starts its music around frame 360)")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--seconds", type=float, default=120.0)
     ap.add_argument("--settle-frames", type=int, default=120,
@@ -125,39 +73,16 @@ def main() -> int:
     ap.add_argument("--port", type=int, default=4402)
     args = ap.parse_args()
 
-    exe = args.recomp / "build-trace" / "DemonsCrestSNESRecomp"
-    if not exe.is_file():
-        # Windows builds carry the .exe suffix; pick whichever exists.
-        for rel in ("build-trace", "build"):
-            for name in ("DemonsCrestSNESRecomp.exe", "DemonsCrestSNESRecomp"):
-                cand = args.recomp / rel / name
-                if cand.is_file():
-                    exe = cand
-                    break
-            if exe.is_file():
-                break
-    if not exe.is_file():
-        raise SystemExit(f"capture_music: missing trace build: {exe}")
-    if not args.save.is_file():
+    if args.save is not None and not args.save.is_file():
         raise SystemExit(f"capture_music: missing save state: {args.save}")
-
     args.out.mkdir(parents=True, exist_ok=True)
-    # Path arguments are rewritten relative to the game directory, so the
-    # one-shot resume state has to live inside the recomp tree.
-    resume = args.recomp / f"_dc_music_resume_{args.port}.sav"
-    shutil.copyfile(args.save, resume)
     wav = (args.out / "live.wav").resolve()
 
-    env = dict(os.environ, SNESRECOMP_DEBUG_PORT=str(args.port),
-               SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
-    log = open(args.out / "capture.log", "wb")
-    proc = subprocess.Popen([str(exe), str(args.rom), "--paused",
-                             "--resume-state", str(resume)],
-                            cwd=str(args.recomp), env=env,
-                            stdout=log, stderr=log)
-    client = None
-    try:
-        client = connect(args.port)
+    with Session(save=args.save, rom=args.rom, recomp=args.recomp,
+                 port=args.port) as session:
+        client = session.client
+        if args.start_frame:
+            client.run_to(args.start_frame)
         start = client.frame()
         client.run_to(start + args.settle_frames)
         area_byte = client.read(0x008D, 1)[0]
@@ -184,9 +109,10 @@ def main() -> int:
         end_frame = client.frame()
 
         meta = {
-            "save": str(args.save),
-            "save_sha1": sha1(args.save),
+            "save": str(args.save) if args.save else "(cold boot)",
+            "save_sha1": sha1(args.save) if args.save else "",
             "rom_sha1": sha1(args.rom),
+            "start_frame_requested": args.start_frame,
             # $008D is the room area id the port loads (room_area<N>.json);
             # the world map stores its own marker ($BC = 188) for area 94.
             "area": area_byte,
@@ -211,19 +137,6 @@ def main() -> int:
                           ("area", "start_frame", "end_frame", "wav_frames",
                            "wav_sha1", "objects_removed")}, indent=1))
         return 0
-    finally:
-        if client is not None:
-            client.close()
-        proc.terminate()
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-        log.close()
-        try:
-            resume.unlink()
-        except FileNotFoundError:
-            pass
 
 
 if __name__ == "__main__":

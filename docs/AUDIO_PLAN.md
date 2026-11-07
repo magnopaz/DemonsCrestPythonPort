@@ -1,10 +1,11 @@
 # Audio: playing the ROM's music and sound effects
 
-Status: **every stage theme is the ROM's own audio**, one looping WAV per room
-family, selected by the port from a measured room table.  One sound effect
-(the jump) is the console's own; the rest are still synthesised (see
-"Still to do").  The colosseum theme (`music_boss.wav`, area 0) was the first
-one captured; this session extended the same pipeline to the whole game.
+Status: **every stage theme and the title theme are the ROM's own audio** —
+16 looping WAVs, one per room family, selected by the port from a measured
+room table.  Two sound effects (jump, pickup) are the console's own; the rest
+are still synthesised (see "Still to do").  The colosseum theme
+(`music_boss.wav`, area 0) was the first one captured; this session extended
+the same pipeline to the whole game.
 
 ## What "correct" means here
 
@@ -564,3 +565,32 @@ On Windows the oracle's binary carries the `.exe` suffix, `load_state` needs the
 snapshot converted to the L3 header (`tools/audio/oracle.py` does the launch and
 the connect), and any path echoed back inside a JSON reply must be sent with
 forward slashes.
+
+### The title theme, and the effects that were proven
+
+Two gaps closed after the first pass:
+
+- **The title theme** needs no save state at all. `capture_music.py` grew a
+  `--start-frame` cold-boot mode (no `--resume-state`); the title screen's music
+  starts around frame 360, so the capture starts at frame 1800 to be inside the
+  loop. Its manifest entry carries `"state": "title"` instead of an area, which
+  `check_audio_assets.py` uses as `DC_STATE=title` for the playback check.
+
+- **The pickup effect** (`$1C`) was proven positionally, not by button: in the
+  reservoir's item room, walking right 25 and 70 frames sends it, while walking
+  left 70 frames, standing still for 70 frames, and walking right for only 6
+  frames send nothing. The item is a short walk to the right, and the sound
+  appears exactly when the player reaches it.
+
+`make_sfx_asset.py` now records the proof text in `sfx_manifest.json` beside
+each asset, so "why is this the pickup sound" is answered by the shipped file.
+Two cut-quality fixes came out of listening to the numbers: the tail is cut
+where the envelope falls to 20 % of its peak (below that it is the music voice
+the driver stole) and the leading silence — the driver answers a command about
+100 ms late — is trimmed down to a 5 ms pre-roll. Jump is 0.15 s, pickup 0.95 s.
+
+Still unproven and deliberately unwired: `$05`/`$14` (fire attack with the
+crest, in the buster save), `$07`/`$16` (combat room), `$0E`/`$30` (pressed Y in
+rooms without the crest). The same button produces different ids in different
+rooms, which is what a context-dependent sound looks like, so none of them is
+safe to label from one observation.

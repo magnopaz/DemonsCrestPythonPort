@@ -714,7 +714,7 @@ def game_init(game: Game, asset_dir: str) -> bool:
             game.campaign_mode = True
             game.state = C.GAME_PLAYING
             game.state_timer = 0
-    audio_start_music()
+    audio_start_music(game_music_for_state(game))
     return True
 
 
@@ -1399,9 +1399,31 @@ def game_room_music(game: Game) -> int:
     return audio_music_for_area(area, level)
 
 
-def game_sync_music(game: Game) -> None:
+def game_music_for_state(game: Game) -> int:
+    """The track the current state should play, without the frame overlays."""
     stage_track = game_room_music(game)
-    track = stage_track
+    if game.state == C.GAME_TITLE:
+        return C.MUSIC_TITLE
+    if game.state == C.GAME_ENDING:
+        return C.MUSIC_ENDING
+    if game.state == C.GAME_OVERWORLD:
+        return C.MUSIC_OVERWORLD
+    if game.state in (C.GAME_PLAYING, C.GAME_PAUSED, C.GAME_SUBSCREEN,
+                      C.GAME_SHOP, C.GAME_DIALOGUE, C.GAME_CONTINUE):
+        # A live boss overrides the room theme, except in the colosseum, whose
+        # own theme is the Somulo fight.
+        if game.objects.boss_present and game.objects.boss_alive and \
+                stage_track != C.MUSIC_BOSS:
+            return C.MUSIC_BOSS_COMMON
+    return stage_track
+
+
+def game_sync_music(game: Game) -> None:
+    # The track follows the room/state, and it is set before the restart and
+    # boss-intro overlays below: those return early for a whole sequence of
+    # frames, and the theme must not be stuck on whatever played before.
+    audio_set_track(game_music_for_state(game))
+
     if game.state == C.GAME_PLAYING and game.restart_timer > 0:
         t_left = game.restart_timer
         if t_left > 60:
@@ -1425,23 +1447,6 @@ def game_sync_music(game: Game) -> None:
     if game.state == C.GAME_PLAYING and game.boss_intro > 0 and \
             game_update_boss_intro(game):
         return
-
-    if game.state == C.GAME_TITLE:
-        track = C.MUSIC_TITLE
-    elif game.state == C.GAME_ENDING:
-        track = C.MUSIC_ENDING
-    elif game.state == C.GAME_OVERWORLD:
-        track = C.MUSIC_OVERWORLD
-    elif game.state in (C.GAME_PLAYING, C.GAME_PAUSED, C.GAME_SUBSCREEN,
-                        C.GAME_SHOP, C.GAME_DIALOGUE, C.GAME_CONTINUE):
-        # A live boss overrides the room theme, except in the colosseum, whose
-        # own theme is the Somulo fight.
-        if game.objects.boss_present and game.objects.boss_alive and \
-                stage_track != C.MUSIC_BOSS:
-            track = C.MUSIC_BOSS_COMMON
-        else:
-            track = stage_track
-    audio_set_track(track)
 
 
 def game_start_talk(game: Game, pages: list[int]) -> None:

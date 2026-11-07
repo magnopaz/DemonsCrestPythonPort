@@ -59,10 +59,13 @@ def build_track(name: str, spec: dict, capture: Path, outdir: Path, recomp: Path
             raise FileNotFoundError(f"no capture for {name}: {live}")
     else:
         cmd = [sys.executable, str(ROOT / "tools" / "audio" / "capture_music.py"),
-               "--recomp", str(recomp), "--save", str(recomp / spec["save"]),
-               "--out", str(capture),
+               "--recomp", str(recomp), "--out", str(capture),
                "--seconds", str(spec.get("capture_seconds", 120)),
                "--settle-frames", str(spec.get("settle_frames", 120))]
+        if spec.get("cold_boot"):
+            cmd += ["--start-frame", str(spec.get("start_frame", 900))]
+        else:
+            cmd += ["--save", str(recomp / spec["save"])]
         if not spec.get("neutralise_objects", True):
             cmd.append("--keep-objects")
         run(cmd)
@@ -103,8 +106,9 @@ def build_track(name: str, spec: dict, capture: Path, outdir: Path, recomp: Path
         "name": name,
         "file": asset.name,
         "area": spec.get("area"),
+        "state": spec.get("state"),
         "note": spec.get("note", ""),
-        "source": str(spec["save"]),
+        "source": str(spec.get("save", "(cold boot)")),
         "source_capture": str(capture.relative_to(ROOT)),
         "capture_sha1": sha1(live),
         "asset_sha1": sha1(asset),
@@ -150,7 +154,17 @@ def main() -> int:
             raise SystemExit(f"make_music_asset: unknown track(s): {sorted(missing)}")
 
     args.outdir.mkdir(parents=True, exist_ok=True)
-    entries = []
+    manifest_path = args.outdir / "music_manifest.json"
+    # Merge into the existing manifest: a `--track` run must not drop the other
+    # entries (a partial build used to replace the whole file).
+    previous: list[dict] = []
+    if manifest_path.is_file():
+        try:
+            previous = json.loads(manifest_path.read_text()).get("tracks", [])
+        except ValueError:
+            previous = []
+    entries = [e for e in previous
+               if e.get("name") not in {t["name"] for t in tracks}]
     failures = []
     for t in tracks:
         try:
@@ -160,7 +174,10 @@ def main() -> int:
             failures.append(t["name"])
             print(f"{t['name']}: skipped: {exc}", file=sys.stderr)
 
-    manifest_path = args.outdir / "music_manifest.json"
+    order = {}
+    for i, t in enumerate(spec["tracks"]):
+        order[t["name"]] = i
+    entries.sort(key=lambda e: order.get(e.get("name"), 999))
     manifest = {"tracks": entries}
     manifest_path.write_text(json.dumps(manifest, indent=1))
     print(f"make_music_asset: {len(entries)} track(s) -> {manifest_path}")
