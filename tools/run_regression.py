@@ -494,6 +494,16 @@ def main() -> int:
         check(pit_dmg.returncode == 0,
               "pit damage: HP/damage check failed\n" + pit_dmg.stdout[-800:])
 
+        # ---- Boss HP from docs/boss_hp.txt (table + rooms + runtime) ----
+        boss_hp = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_boss_hp.py"),
+             "--binary", str(binary), "--assets", str(assets),
+             "--tmp", str(out)],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=600)
+        check(boss_hp.returncode == 0,
+              "boss hp: table/runtime check failed\n" + boss_hp.stdout[-800:])
+
         # ---- End-to-end campaign playthrough ----
         play = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "check_playthrough.py"),
@@ -701,7 +711,7 @@ def main() -> int:
           "hippogriff fight, arma crest/map chain, mode 7 map, "
           "object placement/placeholders, $72 flames, up-door pad_mask, "
           "death continue hub, pit boss opening/launch + damage, "
-          "boss defeat + multi-area loads)")
+          "boss hp (boss_hp.txt), boss defeat + multi-area loads)")
     return 0
 
 

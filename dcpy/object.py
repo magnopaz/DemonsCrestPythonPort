@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 import re
 
+from .bosses import boss_hp
 from .consts import (
     CREST_TIME, CREST_ULTIMATE, LEVEL_OBJECT_BOSS, LEVEL_OBJECT_ENEMY,
     LEVEL_OBJECT_NPC, LEVEL_OBJECT_PICKUP_CREST, LEVEL_OBJECT_PLATFORM,
@@ -407,7 +408,7 @@ def _spawn_boss(pool: ObjectPool, src) -> None:
     o.y_fx = float_to_fx(by)
     o.origin_x_fx = o.x_fx
     o.origin_y_fx = o.y_fx
-    o.hp = 6 if src.species == 0x33 else (10 if forced_second else 8)
+    o.hp = boss_hp(o.species, src.flags)
     o.facing = 1  # sheets face right; the AI updates this as it turns
     hp_env = env("DC_BOSS_HP")
     if hp_env:
@@ -2716,8 +2717,8 @@ def objects_check_projectiles(pool: ObjectPool, projectiles, player=None) -> Non
                                 n.y_fx = o.y_fx + 40 * FX_ONE
                                 n.origin_x_fx = n.x_fx
                                 n.origin_y_fx = n.y_fx
-                                n.hp = 10
-                                n.max_hp = 10
+                                n.hp = boss_hp(0x8D, 0)
+                                n.max_hp = n.hp
                                 n.substate = 1  # second form
                                 pool.boss_alive = True
                                 pool.events |= OBJECT_EVENT_BOSS_DEFEATED

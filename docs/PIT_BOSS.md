@@ -577,7 +577,67 @@ O port passou a usar isso:
   forma Ultimate.
 
 **O que continua por medir:** a *animação* de morte do corpo. A take do poço
-não tem kill (§7.11) e a de stage 3/4 mostra outros bosses; o estado `$05=2` do
-`$6B` (`$1E05`/`$E29A`, 12 passos) segue por portar. As caixas 24×30/8×8 são do
-port — o ROM usa `$809CA4($E2C0)` com os parâmetros `±$40`/`±$28`, que estão
-lidos mas dependem do `$1DCE`/scroll ainda não simulado.
+não tem kill (§7.11) e a de stage 3/4 mostra outros bosses; a leitura da ROM
+está em §7.13 — falta a rotina de dano partilhada que arma `$26`/`$1E05` antes
+de se portar a sequência. As caixas 24×30/8×8 são do port — o ROM usa `$809CA4($E2C0)` com os
+parâmetros `±$40`/`±$28`, que estão lidos mas dependem do `$1DCE`/scroll ainda
+não simulado.
+
+### 7.13 A morte do corpo na ROM (lida em 2026-11-07)
+
+A tabela de estados do `$6B` (`$83:BFF3`) tem três ponteiros e é indexada pelo
+**valor** de `$05`, não por `$05*2`:
+
+| `$05` | handler | o que é |
+|---|---|---|
+| 0 | `$83:BFF9` | subida (sub-tabela `$83:BFFE`) |
+| 2 | `$83:C198` | hover: fixa `$31=80`, `$34=$1DD1+$0C-$1DD7` |
+| 4 | `$83:C1C2` | estado com sub-tabela `$83:C200` e a animação de morte |
+
+`$C198` termina assim:
+
+```
+lda $1DEB
+cmp #$02
+bne rts
+lda #$04
+sta $05
+```
+
+Ou seja, **quando `$1DEB=2` o corpo passa a `$05=4`** (a §7.11 dizia `$05=2`:
+o valor 2 é o hover, não a morte).
+
+`$C1C2` faz `ldx $06; jsr ($C200,X)` — quatro sub-handlers (`$C208`, `$C280`,
+`$C362`, `$C3E0`) — e logo depois corre a animação:
+
+```
+lda $26; beq rts            ; $26 = animação activa
+dec $27; bne rts
+ldx $1E05
+cpx #$0C; bne .passo
+stz $26; lda #$80; trb $36  ; fim: pára e limpa o bit 7 de $36
+.passo:
+lda #$03; sta $27           ; 3 frames por passo
+lda $E29A,X
+sta $0000; sta $0002; sta $0004
+lda #$0800; ldx #$0000
+jsl $80A18D                 ; limpa bits de OAM/tile nos três endereços
+inc $1E05
+```
+
+A tabela `$81:E29A` tem 12 bytes: `0E 00 0E 00 0E 00 0E 00 0E 00 0E 00` — 12
+passos de 3 frames (36 no total), alternando 14/0.
+
+**Quem arma a animação:** não é o `$C504`. Aquele handler põe `$26=1`,
+`$27=1`, `$1E05=0` quando `$36` chega a 6 (`cmp #$03`, `cmp #$06`,
+`tsb $36 #$80`), mas **é outra espécie**: os handlers de objecto do banco `$83`
+são chamados por stubs `JSL alvo; RTS` de 5 bytes no banco `$82`, e o `$6B`
+tem o seu em `$82:FA9E` (`jsl $83:BFDD`), enquanto `$C504` tem o seu em
+`$82:F846` (`jsl $83:C504`). Ou seja, o limiar 3/6 é de outro objecto e **não
+contradiz** os 10 HP do corpo.
+
+O que falta é a rotina de dano partilhada: é ela que deve pôr `$26`/`$1E05` no
+objecto que morre (o `$1DEB=2` que faz `$C198` trocar para `$05=4` é escrito
+por `$83:BA5B`, `$83:BCDE` ou `$83:C334`). Até isso estar lido, o que está
+medido é só a sequência 12×3 com o par 14/0 e o estado final (`$26=0`,
+`$36 &= ~$80`).

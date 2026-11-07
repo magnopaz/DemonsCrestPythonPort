@@ -1,16 +1,16 @@
-# Handoff — sessões de 2026-11-03/04
+# Handoff — sessões de 2026-11-03 a 2026-11-07
 
 *Para retomar noutra sessão. Ler isto primeiro, depois `docs/NEXT_STEPS.md`.*
 
 ## Estado
 
 - Repo: `~/Projetos/opencode/DemonsCrestPythonPort`
-- `HEAD` = o commit *Pit of Ovununu: port the `$69` launch controller*
-  (2026-11-06), **árvore limpa**. As secções desta sessão estão no fim do
-  ficheiro.
-- Regressão verde: `DISPLAY=:99 python3 tools/run_regression.py` → PASS
-  (~7 min). Xvfb em `:99`; sem ele os demos falham com
-  "X11: Failed to open display".
+- `HEAD` = *Boss HP: table from boss_hp.txt + checker* (2026-11-07),
+  **árvore limpa**. As secções das últimas sessões estão no fim do ficheiro.
+- Regressão verde com **`.venv/bin/python`**:
+  `DISPLAY=:99 .venv/bin/python tools/run_regression.py` → PASS (~7 min, até
+  ~22 min com a máquina carregada). Xvfb em `:99`; sem ele os demos falham com
+  "X11: Failed to open display". O `python3` do sistema não tem raylib.
 - Assets são git-ignored e regeneráveis com `tools/build_assets.sh`
   (precisa da ROM e de `captures/`).
 
@@ -435,3 +435,50 @@ animação de morte do corpo do Ovununu (`$05=2`, `$1E05`/`$E29A`, 12 passos).
 
 **Regressão:** `DISPLAY=:99 .venv/bin/python tools/run_regression.py` → PASS
 (EXIT=0), resumo com `pit boss opening/launch + damage`.
+
+
+## HP dos bosses por tabela (2026-11-07, sessão 7)
+
+**Feito:** `dcpy/bosses.py` + `tools/check_boss_hp.py`. O `_spawn_boss` deixou
+de usar `6/8/10` e lê `boss_hp(species, flags)`; a segunda forma do Phalanx
+nasce com **127** (era 10). Valores de `docs/boss_hp.txt`:
+
+| species | flags | boss | HP |
+|---|---|---|---|
+| `$A5` | 0/2/4 | Arma 1/2/3 | 16/32/72 |
+| `$09` | 0/2/4 | Hippogriff 1/2/3 | 16/24/64 |
+| `$7B`/`$7C` | 0 | Scula (Toss/Roll) | 24/10 |
+| `$6F` | 0 | Holothurion | 72 |
+| `$16` | 0 | Ovununu | 10 |
+| `$82` | 0 | Crawler | 36 |
+| `$58` | 0 | Flame Lord | 26 |
+| `$86`/`$8D` | 0 | Phalanx / 2.ª forma | 50/127 |
+| `$BC` | 0 | Dark Demon | 200 |
+| `$33` | — | Somulo | 6 (3+3 do guião) |
+| `$13` | — | Grewon | 64 |
+| `$68` | — | Belth | 32 |
+
+`docs/BOSS_HP.md` tem o mapa completo, as fontes e o que continua fora da
+tabela (Flier 1/2, Phalanx 3, forma voadora do Flame Lord, dano por forma).
+
+**Checker (na regressão):** três passes — o documento contra a tabela, todas as
+salas com boss contra a tabela, e o boot de cada sala a ler a coluna `hp` do
+`DC_TRACE_OBJECTS` (16 salas; 18 corridas com a fase 2 do Phalanx). Uma espécie
+nova que caia no fallback 8 falha alto.
+
+**Achado (ROM):** a tabela de estados do `$6B` (`$83:BFF3`) é indexada pelo
+**valor** de `$05` (0/2/4), não por `$05*2`; o estado de morte é `$05=4`, não
+`$05=2` como dizia a §7.11. A animação (`$83:C1C2`) são **12 passos de 3
+frames** com a tabela `$81:E29A` (`0E 00` ×6) e `$26`/`$27`/`$1E05`; `$C198`
+só troca para `$05=4` quando `$1DEB=2`. O `$C504` que mata aos 6 (`$36`) é
+**outra espécie** (stub próprio em `$82:F846`; o do `$6B` é `$82:FA9E`), por
+isso não contradiz os 10 HP. Falta a rotina de dano partilhada que arma
+`$26`/`$1E05`; detalhe em `docs/PIT_BOSS.md` §7.13. **Não portar a animação
+antes disso.**
+
+**Próximo:** a flag de diálogo do Arma 2 (o segundo encontro não repete o
+diálogo); depois a morte do corpo do Ovununu, `sub 4` exacto, a arte do poço e
+o lock da arena.
+
+**Regressão:** `DISPLAY=:99 .venv/bin/python tools/run_regression.py` → PASS
+(EXIT=0), resumo com `boss hp (boss_hp.txt)`.

@@ -127,10 +127,18 @@ lançamento (`sub 6`+, dez sub-subestados) descodificada mas não portada.
 de 4 px da take (`tools/oracle/measure_pit_eyes.py` mede, `_PIT_EYE_TRACK`
 guarda). Também se removeu a porta `8→10` que expulsava o jogador no frame 1.
 As tabelas dos olhos estão resolvidas (banco `$81`, `$81:E2DF` com stride 12,
-`docs/PIT_BOSS.md` §7.6). **Falta:** o lançamento dos olhos (`sub 6`+, precisa de
-`$D0BE`, `$809CA4`, `$809D8E`, `$808C95/99`), fechar a regra de `sub 4` com a
-tabela (hoje ~25 px de erro; o medido dá 2 px), o dano/HP/morte do corpo, a arte
-e o lock da arena.
+`docs/PIT_BOSS.md` §7.6). **Falta:** fechar a regra de `sub 4` com a tabela
+(hoje ~25 px de erro; o medido dá 2 px), a animação de morte do corpo (lida em
+`docs/PIT_BOSS.md` §7.13; falta a rotina de dano partilhada que arma
+`$26`/`$1E05`), a arte e o lock da arena.
+
+**HP (2026-11-07):** a tabela área→HP existe — `dcpy/bosses.py` lê
+`docs/boss_hp.txt` (Arma 16/32/72, Hippogriff 16/24/64, Scula 24/10,
+Holothurion 72, Crawler 36, Flame Lord 26, Phalanx 50/127, Dark Demon 200,
+Belth 32, Grewon 64; Somulo fica no guião 3+3). `tools/check_boss_hp.py` está na
+regressão: compara o documento com a tabela, todas as salas com boss e o `hp`
+do `DC_TRACE_OBJECTS` em runtime. O dano por forma do Firebrand ainda não está
+ligado (só Ultimate 5 / resto 1). Ver `docs/BOSS_HP.md`.
 
 - **Poço (área 8)**: `$6B` sobe atrás do jogador (y 700→212 medido), `$6C` são
   os olhos que voam, `$69` fica fixo no fundo. Não é `$16`; a entrada da área 54
