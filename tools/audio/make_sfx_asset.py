@@ -27,6 +27,9 @@ COMMANDS = {
     0x01: ("jump",
            "pressing B alone in the cemetery, the slope, the colosseum and the "
            "Hippogriff fight sends exactly this byte, and nothing else does"),
+    0x0e: ("shoot",
+           "three presses of Y in the cemetery send exactly two of these and "
+           "nothing else; the same room idle for the same 170 frames sends none"),
     0x1c: ("pickup",
            "walking right into the reservoir's item sends it; walking left, "
            "standing still, and only 6 frames of walking right do not"),
@@ -54,7 +57,8 @@ def main() -> int:
     args = ap.parse_args()
 
     dirs = args.captures or [ROOT / "captures" / "audio" / "sfx",
-                             ROOT / "captures" / "audio" / "sfx_pickup"]
+                             ROOT / "captures" / "audio" / "sfx_pickup",
+                             ROOT / "captures" / "audio" / "sfx_shoot"]
     effects = load_effects(dirs)
     if not effects:
         print("make_sfx_asset: no captured effects", file=sys.stderr)

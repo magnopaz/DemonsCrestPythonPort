@@ -11,8 +11,8 @@ That only works when the two runs are sample-identical, and by default they are
 not: the emulator produces audio faster than the dummy device drains it, so the
 output ring drops samples at wall-clock-dependent points (two "identical" runs
 measured a mean absolute difference of ~1,900 LSB).  Pacing the emulation to
-real time removes the drops ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `audio_stats` reports `dropped=0` and the two runs
-compare *bit-identical* ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â which is what `paced_run()` does here.
+real time removes the drops — `audio_stats` reports `dropped=0` and the two runs
+compare *bit-identical* — which is what `paced_run()` does here.
 
 One pair of runs yields every effect the input script triggered: the commands
 the game sent are decoded from the run's port traffic, each is cut out of the

@@ -421,6 +421,10 @@ def audio_play(sfx_id: int) -> None:
         return
     if rl.IsSoundValid(sfx[sfx_id]):
         rl.PlaySound(sfx[sfx_id])
+        if env_flag("DC_AUDIO_DEBUG_SFX"):
+            name = SFX_NAMES[sfx_id] if sfx_id < len(SFX_NAMES) else sfx_id
+            _debug(f"audio: play {name} "
+                   f"({'ROM' if sfx_from_rom[sfx_id] else 'procedural'})")
 
 
 def audio_start_music(track: int = MUSIC_MURKLAND) -> None:

@@ -561,6 +561,11 @@ python3 tools/audio/make_sfx_asset.py
 python3 tools/check_audio_assets.py --python .venv/Scripts/python.exe
 ```
 
+One more Windows trap: editing a UTF-8 file with \Get-Content | Set-Content\ in PowerShell re-encodes it and turns every em dash into three
+characters (it happened to \README.md\ and \capture_sfx.py\ this session). Edit files here with a tool that keeps the encoding,
+and if it happens, the damage is reversible: decode the text, encode each character back to the byte it came from (cp1252 for the
+extended range, identity for the C1 holes) and decode that as UTF-8 — it may need two passes if the file was hit twice.
+
 On Windows the oracle's binary carries the `.exe` suffix, `load_state` needs the
 snapshot converted to the L3 header (`tools/audio/oracle.py` does the launch and
 the connect), and any path echoed back inside a JSON reply must be sent with
@@ -627,3 +632,21 @@ all. Three changes:
 every stage fallback must resolve to a track that has a file, and no asset may
 be orphaned. A bad table edit now fails the check instead of leaving one room
 silent.
+
+### The fire attack
+
+`$0E` is the fireball. Three presses of Y in the cemetery send exactly two of
+these and nothing else, and the same room idling for the same 170 frames sends
+none — so it is the shot, not an enemy reacting to the player. That also
+explains why the same button looked inconsistent elsewhere (`$05`/`$14` in the
+buster save, `$30` in another room): with the fire crest the attack changes
+level and the driver keys a different sound. The port's own SFX log says the
+cemetery demo fires 16 times and jumps twice, which is the population those
+probes sample from.
+
+Effects that are captured and proven: jump (`$01`), shoot (`$0E`), pickup
+(`$1C`). Effects still synthesised: land, break, hurt, enemy-hit. Idling in two
+boss fights for 10 s produced no commands at all, so hurt is not reachable by
+standing still; the next step is to walk into a known enemy and correlate the
+command with the player's HP byte in WRAM, which is the same trick the room
+survey used for music.

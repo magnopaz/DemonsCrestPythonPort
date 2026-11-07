@@ -143,7 +143,7 @@ python3 tools/check_hippogriff.py      # whole suite: tools/run_regression.py
 - The full campaign (every room, shop stock, all four endings) is translated
   but only area 1's content is gated by the C suite so far.
 - Audio: the whole soundtrack is the ROM's own audio (17 looping WAVs selected
-  from a measured room table, see `docs/AUDIO_PLAN.md`), and the jump and
+  from a measured room table, see `docs/AUDIO_PLAN.md`), and the jump, fireball and
   item-pickup effects are captured from the console — the other effects are
   still the procedural stand-ins. No sample-exact A/B has been run against the
   C binary's device output.
