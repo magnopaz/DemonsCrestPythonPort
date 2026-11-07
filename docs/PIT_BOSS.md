@@ -527,3 +527,28 @@ documentadas para quando o escalonador for conhecido.
 frame (2 bancos? atualização alternada?), ou (b) a máquina de estágios do `$6B`
 (`$C051/$C073/$C0B0/$C0DF/$C145/$C15D`) portada, que dá `$1DEF` de graça e
 elimina a tabela de fases. Depois `_PIT_EYE_TRACK` cai.
+
+### 7.11 Dano/HP/morte: o que a take não tem (2026-11-06)
+
+Replay da luta inteira (14200–17200, leituras leves a cada 5 frames) sobre o
+slot do `$6B` e os globais `$1DD0..$1E08`:
+
+- O corpo percorre `$06` 0→2→4→6→8→10→12→14 e repete o ciclo 6/8/10/12/14
+  enquanto sobe; aos **15750** passa a `$05=2` (o estado 1, o hover) e fica lá
+  até ao fim.
+- **`$1DEB` nunca sai de 0** e **`$1DEA` só cai a 0 em 16970** (o reset da sala,
+  quando o jogador morre). Não há morte do corpo na take: nenhum `$05` de
+  colapso, nenhum `$1DEB=2`, nenhuma saída do corpo.
+- `$3D` do `$69` também não chega ao fim do guião (`$BC9A`, o único sítio que
+  escreve `$1DEB=2`); o guião começa (é ele que põe `$1DEE=4` em 15753) mas não
+  fecha o ciclo.
+
+**Conclusão:** HP, número de hits e sequência de morte do corpo **não são
+mensuráveis nesta take** — ela acaba com o jogador a morrer, não com o boss.
+Para portar dano/HP/morte é preciso uma take em que o boss do poço morra (ou a
+rotina de dano do ROM lida de outra forma). Fica pedido ao utilizador.
+
+**Achado de ferramenta:** o emulador **não** crasha no jogo — uma corrida sem
+leituras chegou ao 17201. O que fecha o socket do debug server são as leituras
+frequentes (`run_to_frame` + `read_ram` a cada frame); a passo 5 e a passo 30
+aguenta. Para medir a luta, ler pouco e de longe.
