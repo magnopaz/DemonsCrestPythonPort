@@ -1,11 +1,11 @@
 # Audio: playing the ROM's music and sound effects
 
-Status: **every stage theme and the title theme are the ROM's own audio** —
-16 looping WAVs, one per room family, selected by the port from a measured
-room table.  Two sound effects (jump, pickup) are the console's own; the rest
-are still synthesised (see "Still to do").  The colosseum theme
-(`music_boss.wav`, area 0) was the first one captured; this session extended
-the same pipeline to the whole game.
+Status: **the whole soundtrack is the ROM's own audio** — 17 looping WAVs
+(title, every stage family, both boss themes, the town, the overworld and the
+ending), selected by the port from a measured room table.  Two sound effects
+(jump, pickup) are the console's own; the rest are still synthesised (see
+"Still to do").  The colosseum theme (`music_boss.wav`, area 0) was the first
+one captured; this session extended the same pipeline to the whole game.
 
 ## What "correct" means here
 
@@ -594,3 +594,36 @@ crest, in the buster save), `$07`/`$16` (combat room), `$0E`/`$30` (pressed Y in
 rooms without the crest). The same button produces different ids in different
 rooms, which is what a context-dependent sound looks like, so none of them is
 safe to label from one observation.
+
+### The ending cue, and loops that follow the music
+
+**The ending** was the one track that kept coming out silent. The ending save
+resumes with its APU already stopped — `--resume-state` restores the title's
+own resume chunk, the cutscene runs, and the music it had is gone. But
+`captures/audio/songs.json` says the ending save's song signature (`5e1ddc`) is
+the one Phalanx's second form loads, so the cue is captured from
+`Phalanx_fight_second.sav` and the port plays it for `GAME_ENDING` as well. The
+manifest entry selects by `"state": "ending"` rather than an area, which
+`check_audio_assets.py` feeds as `DC_STATE=ending`.
+
+**Loop length** got a real fix. The period search was bounded by a per-track
+`loop` range, and those ranges were guesses: `music_demon_hideout`'s envelope
+peaks at 36.5 s while its window started at 40, so the tool returned the best
+period *inside the window* — 40.23 s, which is not a period of that music at
+all. Three changes:
+
+- the range is now `[6, 80]` s for every track, so the measurement decides;
+- the envelope's strongest peak is often one bar (the colosseum's is 8.71 s,
+  with harmonics at 17.4 and 26.1), and looping a bar cuts the piece's phrase
+  structure. `make_music_asset.py` now probes 2x, 3x and 4x the measured period
+  and keeps the longest multiple whose correlation is still at least 85 % of
+  the base — the colosseum went from 34.81 s to 52.22 s, six whole 8.71 s bars;
+- the probes used to write the real asset, so an unsuccessful probe left a
+  one-frame WAV behind while the manifest described the good period (caught by
+  the frame-count check). Probes now write to a scratch file and only the
+  accepted period owns the asset.
+
+`check_audio_assets.py` also grew a mapping check: every `AREA_MUSIC` entry and
+every stage fallback must resolve to a track that has a file, and no asset may
+be orphaned. A bad table edit now fails the check instead of leaving one room
+silent.

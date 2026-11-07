@@ -68,6 +68,10 @@ def main() -> int:
     ap.add_argument("--seconds", type=float, default=120.0)
     ap.add_argument("--settle-frames", type=int, default=120,
                     help="frames to run before the capture starts")
+    ap.add_argument("--from-start", action="store_true",
+                    help="capture the first N seconds after the settle window "
+                         "instead of the last N (for cues that play once and "
+                         "stop, like the ending)")
     ap.add_argument("--keep-objects", action="store_true",
                     help="do not neutralise object slots (captures SFX too)")
     ap.add_argument("--port", type=int, default=4402)
@@ -97,12 +101,15 @@ def main() -> int:
             client.run_to(client.frame() + 2)
 
         frames = int(args.seconds * 60)
+        count = int(args.seconds * NATIVE_RATE)
+        begin_at_start = int(client.cmd("audio_stats")["produced"])
         client.run_to(client.frame() + frames)
         time.sleep(0.4)  # let the ring catch up with the last simulated frames
         stats = client.cmd("audio_stats")
         produced = int(stats["produced"])
-        count = int(args.seconds * NATIVE_RATE)
-        begin = max(0, produced - count)
+        # A looping track is taken from the end (the ring holds the most recent
+        # audio); a one-shot cue has to be taken from the moment it starts.
+        begin = begin_at_start if args.from_start else max(0, produced - count)
         # The server echoes the path back inside a JSON string, so a Windows
         # path's backslashes would break the reply: send forward slashes.
         res = client.cmd(f"audio_wav {wav.as_posix()} {begin} {count}")

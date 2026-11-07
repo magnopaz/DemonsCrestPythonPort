@@ -7,6 +7,9 @@ __pycache__/
 # C helper builds (tools/audio/build_audio_tools.sh writes build/)
 build/
 
+# Editor
+.vscode/
+
 # ROM-derived assets and captures are never committed (see README)
 assets/generated/
 assets/rom/

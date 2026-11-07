@@ -199,6 +199,9 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=Path("captures/audio/sfx"))
     ap.add_argument("--settle", type=int, default=90)
     ap.add_argument("--port", type=int, default=4800)
+    ap.add_argument("--dump-commands", action="store_true",
+                    help="print every decoded command with its offset into the "
+                         "capture (how a trigger is attributed to an input)")
     args = ap.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -270,6 +273,14 @@ def main() -> int:
         }
 
         steps = script_steps(script, f0)
+        if args.dump_commands:
+            print(f"{job}: {len(cmds)} command(s)")
+            for cmd in cmds:
+                offset = (cmd.sample - p0) / NATIVE_RATE
+                step, buttons = step_for(steps, cmd.frame)
+                print(f"  cmd 0x{cmd.cmd:02x} at {offset:6.3f}s  "
+                      f"step={step or '?'} ({buttons or '-'}) "
+                      f"args={cmd.args}")
         for cmd in cmds:
             if cmd.cmd == POLL:
                 continue

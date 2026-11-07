@@ -258,6 +258,50 @@ def check_determinism(binary: Path, assets: Path, track: dict,
               f"({len(a.read_bytes())} bytes)")
 
 
+def check_mapping(assets: Path, tracks: list[dict]) -> None:
+    """Every room must resolve to a track, and every track must have an asset.
+
+    The room -> track table is data, so a bad edit (an area beyond the room set,
+    a track with no captured file) would otherwise only show up as silence in
+    one room of a playthrough.
+    """
+    sys.path.insert(0, str(ROOT))
+    from dcpy import consts as C  # noqa: E402  (no raylib in this module)
+
+    errors: list[str] = []
+    if len(C.MUSIC_TRACK_NAMES) != C.MUSIC_TRACK_COUNT:
+        errors.append(f"{len(C.MUSIC_TRACK_NAMES)} track names for "
+                      f"{C.MUSIC_TRACK_COUNT} tracks")
+    have = {t["name"] for t in tracks}
+    for area, track in sorted(C.AREA_MUSIC.items()):
+        if not 0 <= area < 113:
+            errors.append(f"AREA_MUSIC[{area}] is outside the 113 rooms")
+        if not 0 < track < C.MUSIC_TRACK_COUNT:
+            errors.append(f"AREA_MUSIC[{area}] = {track} is not a track")
+            continue
+        stem = C.MUSIC_TRACK_NAMES[track]
+        if stem not in have:
+            errors.append(f"area {area} wants {stem}.wav, which is not in the "
+                          "manifest (room would fall back to the synth loop)")
+    for level, track in sorted(C.AREA_LEVEL_MUSIC.items()):
+        if not 0 < track < C.MUSIC_TRACK_COUNT:
+            errors.append(f"AREA_LEVEL_MUSIC[{level!r}] = {track} is not a track")
+            continue
+        stem = C.MUSIC_TRACK_NAMES[track]
+        if stem not in have:
+            errors.append(f"level {level} fallback wants {stem}.wav, missing")
+    missing = sorted(have - {C.MUSIC_TRACK_NAMES[t]
+                             for t in range(1, C.MUSIC_TRACK_COUNT)})
+    for stem in missing:
+        errors.append(f"{stem}.wav has no MusicTrack (loaded but never played)")
+    if errors:
+        for e in errors:
+            print(f"FAIL mapping: {e}", file=sys.stderr)
+        raise SystemExit(1)
+    print(f"  {len(C.AREA_MUSIC)} mapped rooms + {len(C.AREA_LEVEL_MUSIC)} level "
+          f"fallbacks resolve to tracks with assets")
+
+
 def main() -> int:
     args = parse_args()
     tracks = check_assets(args.assets)
@@ -265,6 +309,7 @@ def main() -> int:
     if not tracks:
         print(f"SKIP: no audio manifest under {args.assets}/audio")
         return 77
+    check_mapping(args.assets, tracks)
     if args.skip_playback:
         return 0
     for track in tracks:

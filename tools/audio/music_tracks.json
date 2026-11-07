@@ -20,10 +20,10 @@
    "settle_frames": 1,
    "neutralise_objects": false,
    "loop": [
-    15,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -35,10 +35,10 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    40,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -50,10 +50,10 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    40,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -65,10 +65,10 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    40,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -80,10 +80,10 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    40,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -95,10 +95,10 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    40,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -110,10 +110,10 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    40,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -125,10 +125,10 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    40,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -140,10 +140,10 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    40,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -155,10 +155,10 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    40,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -170,10 +170,10 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    40,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -185,10 +185,10 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    40,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -200,10 +200,10 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    40,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -215,10 +215,10 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    30,
-    50
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -230,10 +230,10 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    30,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
   },
   {
@@ -245,11 +245,26 @@
    "settle_frames": 120,
    "neutralise_objects": true,
    "loop": [
-    40,
-    70
+    6,
+    80
    ],
-   "loop_start": 70,
+   "loop_start": 60,
    "snap": 1.0
+  },
+  {
+   "name": "music_ending",
+   "note": "the ending cue: the ending save's APU song signature is the same one Phalanx's second form loads (group 5e1ddc in captures/audio/songs.json), so it is captured from that fight. The ending save itself resumes silent: the cutscene stops the music.",
+   "save": "build-trace/saves/Phalanx_fight_second.sav",
+   "capture_seconds": 180,
+   "settle_frames": 120,
+   "neutralise_objects": true,
+   "loop": [
+    6,
+    80
+   ],
+   "loop_start": 60,
+   "snap": 1.0,
+   "state": "ending"
   }
  ]
 }

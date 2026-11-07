@@ -79,19 +79,54 @@ def build_track(name: str, spec: dict, capture: Path, outdir: Path, recomp: Path
     if not wav_loop.is_file():
         run(["gcc", "-O2", "-std=c11", "-o", str(wav_loop),
              str(ROOT / "tools" / "audio" / "wav_loop.c"), "-lm"])
-    # Paths go to the C tool with forward slashes: it echoes them back inside
-    # its JSON summary, and a Windows backslash would make that invalid JSON.
-    res = run([str(wav_loop), str(live).replace("\\", "/"),
-               "--find-loop", f"{lo},{hi}",
-               "--loop-start", str(spec.get("loop_start", 0)),
-               "--snap-start", str(spec.get("snap", 0.5)),
-               "--loop-out", str(asset).replace("\\", "/"), "--json"])
-    info = json.loads(res.stdout.strip().splitlines()[-1])
+    loop_start = spec.get("loop_start", 0)
+    snap = spec.get("snap", 0.5)
+
+    def cut_at(period_lo: float, period_hi: float, out: Path) -> dict:
+        # Paths go to the C tool with forward slashes: it echoes them back
+        # inside its JSON summary, and a Windows backslash would break it.
+        res = run([str(wav_loop), str(live).replace("\\", "/"),
+                   "--find-loop", f"{period_lo},{period_hi}",
+                   "--loop-start", str(loop_start),
+                   "--snap-start", str(snap),
+                   "--loop-out", str(out).replace("\\", "/"), "--json"])
+        return json.loads(res.stdout.strip().splitlines()[-1])
+
+    info = cut_at(lo, hi, asset)
     if not info.get("loop_written"):
         # No clean period in the search window: the caller decides whether that
         # is fatal.  `make_music_asset.py` skips the track and reports it.
         raise ValueError(f"no loop found in {lo}-{hi}s "
                          f"(best {info.get('candidates', [{}])[0]})")
+
+    # A short period is often one bar, and the piece repeats every two or four.
+    # Looping a bar is valid but musically wrong, so try the multiples of the
+    # measured period and keep the longest that still correlates nearly as well.
+    # The probes write to a scratch file: only the accepted period may own the
+    # real asset, or the last probe (which may have found nothing) wins.
+    base_corr = (info.get("candidates") or [{"corr": 0}])[0].get("corr", 0)
+    period = info["period_seconds"]
+    capture_seconds = info["seconds"]
+    chosen_range = (lo, hi)
+    scratch = outdir / f".{name}.probe.wav"
+    for k in (2, 3, 4):
+        target = period * k
+        if target + loop_start + 2.0 >= capture_seconds or target > hi * 2:
+            break
+        wider = cut_at(target - 0.4, target + 0.4, scratch)
+        if not wider.get("loop_written"):
+            continue
+        corr = (wider.get("candidates") or [{"corr": 0}])[0].get("corr", 0)
+        if corr >= base_corr * 0.85:
+            chosen_range = (target - 0.4, target + 0.4)
+    if chosen_range != (lo, hi):
+        info = cut_at(chosen_range[0], chosen_range[1], asset)
+        if not info.get("loop_written"):
+            raise ValueError(f"no loop at the accepted period {chosen_range}")
+    try:
+        scratch.unlink()
+    except FileNotFoundError:
+        pass
 
     # A seamless cut has a seam step of the same order as ordinary adjacent
     # samples; a click is orders of magnitude larger.
