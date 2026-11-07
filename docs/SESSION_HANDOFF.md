@@ -397,3 +397,41 @@ corre (2 bancos? actualização alternada?) ou portar a máquina de estágios do
 `$6B` (`$C051/$C073/$C0B0/$C0DF/$C145/$C15D`), que dá `$1DEF` de graça.
 
 **Regressão:** `check_pit_boss.py` → PASS com a árvore revertida.
+
+
+## HP/dano dos bosses a partir do `boss_hp.txt` (2026-11-06, sessão 6)
+
+**Fonte nova:** `docs/boss_hp.txt` (fornecida pelo utilizador) — HP de todos os
+bosses e dano de cada transformação do Firebrand. Ovununu: **10 no corpo, 3 por
+olho**; Fire/Buster/Claw/Tidal 1, Demon Fire 3, Earth (chão) 2, Earth (ar) 1,
+Aerial 2, Legendary/Ultimate 5.
+
+**Feito (`4725a54`):** o `$6B` nasce com 10 e cada `$6C` com 3 (antes `hp = 1`);
+ambos entram no caminho dos projéteis (`objects_check_projectiles` ganhou o
+parâmetro `player`, caixas 24×30 e 8×8, flash 8); o dano vem de
+`_pit_damage(player)` (Ultimate 5, resto 1 — as outras formas não estão
+modeladas). Olho morto faz `pit_dead++` (`$1DF8`); corpo morto fecha a luta como
+`$1DEB=2` (`pit_fight` off, `pit_opened=2`, `boss_defeated`).
+`tools/check_pit_damage.py` está na regressão: 10 tiros matam o corpo, 3 o olho,
+um tiro de 5 mata um olho.
+
+**Takes novas do utilizador:**
+- `~/Projetos/opencode/build-trace/captures/rec_stage3_trace/rec_20261107_045055`
+  (28 299 frames): áreas 10 → 12 → 14 → **50** (boss, 19 301) → 16 (23 001) →
+  **50** (23 701). Duas lutas; depois da primeira morte a floresta deixa de
+  arder (estado de mundo por portar).
+- `.../rec_stage4_trace/rec_20261107_050932` (34 087 frames): **o boss é o
+  Arma 2** (dito pelo utilizador). Primeiro encontro tem diálogo, o segundo não
+  — é uma flag de "intro vista".
+
+**Falta:** tabela **área → HP** a partir do `boss_hp.txt` (hoje `_spawn_boss` dá
+8 a qualquer boss que não seja `$33`/`$86`; Arma 1 = 16, Arma 2 = 32, Belth 32,
+Hippogriff 16/24/64, Grewon 64, Phalanx 50/127/128); flag de diálogo do Arma 2;
+animação de morte do corpo do Ovununu (`$05=2`, `$1E05`/`$E29A`, 12 passos).
+
+**Armadilha de ambiente:** correr a regressão com **`.venv/bin/python`**;
+`python3` do sistema não tem raylib (`ModuleNotFoundError: No module named
+'raylib'`) e a regressão falha antes dos demos.
+
+**Regressão:** `DISPLAY=:99 .venv/bin/python tools/run_regression.py` → PASS
+(EXIT=0), resumo com `pit boss opening/launch + damage`.
