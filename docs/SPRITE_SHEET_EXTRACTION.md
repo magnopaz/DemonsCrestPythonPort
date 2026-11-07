@@ -144,7 +144,7 @@ not a quota.
 | `Arma.gif` (2nd fight) | `$A5` flags 2 | 19 | same rows, green palette | Entry `a5_f2` |
 | `Ultimate Arma.gif` | `$A5` flags 4 | 24 | + hurricane/demon fire | Entry `a5_f4` |
 | `Crawler.gif` | `$82` (+`$83/$84/$85` parts) | 7 (3) | move | Body row only; parts still open |
-| `Dark Demon.gif` | `$BC` (+`$8A` effects) | 11 (3) | idle, attack | Top two body rows; `$8A` effects separate |
+| `Dark Demon.gif` | `$BC` (+`$8A` effects) | 11 (3) | idle, attack, fallen angel | Captions split the top row; `$8A` effects separate |
 | `Flame Lord.gif` | `$58` (+`$5C-$5F`) | 4 (3) | idle | Left of the idle row is teleport flame, not the boss |
 | `Grewon.gif` | `$13` | 19 (6) | idle/walk/attack/hurt | Second palette repeats the same rows |
 | `Hipogriff.gif` | `$09` | 23 (6) | idle/walk/attack | Statue pose and credit block skipped |
