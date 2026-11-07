@@ -200,9 +200,9 @@ def audit_species(assets: Path, quarantine: bool) -> dict:
             species_warnings.extend(warns)
             if "px_hash" in info:
                 digest_owners.setdefault(info["px_hash"], []).append(key)
-        if len(frames) > 8:
+        if len(frames) > 64:
             species_errors.append(
-                f"species {key}: {len(frames)} frames; loader caps at 8")
+                f"species {key}: {len(frames)} frames; loader caps at 64")
         if len(frames) > 1:
             xs = [float(f.get("anchor_x", 0)) for f in frames]
             ys = [float(f.get("anchor_y", 0)) for f in frames]

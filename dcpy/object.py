@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 import re
 
+from . import enemy_defs
 from .bosses import boss_damage, boss_hp
 from .consts import (
     CREST_TIME, CREST_ULTIMATE, LEVEL_OBJECT_BOSS,
@@ -20,12 +21,13 @@ from .consts import (
     OBJECT_BOSS, OBJECT_CREST_ITEM,
     OBJECT_ENEMY, OBJECT_ENEMY_SHOT, OBJECT_EVENT_BOSS_DEFEATED,
     OBJECT_EVENT_BREAK, OBJECT_EVENT_CREST_PICKUP, OBJECT_EVENT_ENEMY_HIT,
+    OBJECT_EVENT_ENEMY_SHOOT,
     OBJECT_EVENT_FIRE_PIECE, OBJECT_EVENT_PICKUP, OBJECT_EVENT_TALISMAN,
     OBJECT_NONE, OBJECT_NPC, OBJECT_PICKUP, OBJECT_PLATFORM, OBJECT_POOL_SIZE,
-    OBJECT_TALISMAN, OBJECT_URN,
+    OBJECT_TALISMAN, OBJECT_URN, SFX_NAME_TO_ID,
 )
 from .level import level_floor_at, level_is_solid_at, level_is_wall_at
-from .util import eprint, env, env_flag, float_to_fx, fx_to_float
+from .util import as_int, eprint, env, env_flag, float_to_fx, fx_to_float
 
 FX_ONE = 256
 HEART_POPUP_FX = 0x0400  # $85:C1D1 initial upward velocity 4.0
@@ -70,6 +72,9 @@ class Object:
         self.facing = 0  # $09: 1 right, -1 left
         self.hp = 0
         self.max_hp = 0
+        self.damage = 1  # authored contact damage
+        self.attack_cd = 0  # authored attack cooldown, in frames
+        self.attack_index = 0  # round-robin through authored patterns
         self.anim_frame = 0  # $3F: animation frame (sub 18 spin target)
         self.anim_phase = 0  # $40: $CF6E animation phase
         self.anim_timer = 0  # $41: frames left in the animation phase
@@ -109,6 +114,7 @@ class ObjectPool:
         self.pit_count = 0  # $00C4:$45: the $69's 24-bit countdown
         self.last_fire_piece = 0
         self.last_talisman = 0  # 1..4 = Buster/Tornado/Claw/Demon Fire
+        self.sfx_queue: list[int] = []  # authored sounds to play this frame
 
 
 # --------------------------------------------------------------------------
@@ -184,6 +190,9 @@ def _reset_object(o: Object) -> None:
     o.facing = 0
     o.hp = 0
     o.max_hp = 0
+    o.damage = 1
+    o.attack_cd = 0
+    o.attack_index = 0
     o.anim_frame = 0
     o.anim_phase = 0
     o.anim_timer = 0
@@ -243,6 +252,17 @@ def _spawn_pickup(pool: ObjectPool, x: float, bottom_y: float) -> None:
     o.state = 0
 
 
+def _queue_def_sound(pool: ObjectPool, defn: dict, slot: str) -> None:
+    """Queue one of the authored sound slots (spawn/attack/hurt/death)."""
+    sounds = defn.get("sounds") if isinstance(defn, dict) else None
+    if not isinstance(sounds, dict):
+        return
+    name = sounds.get(slot)
+    sfx_id = SFX_NAME_TO_ID.get(name) if isinstance(name, str) else None
+    if sfx_id is not None:
+        pool.sfx_queue.append(sfx_id)
+
+
 def _spawn_enemy(pool: ObjectPool, src) -> None:
     o = _alloc(pool)
     if o is None:
@@ -256,7 +276,14 @@ def _spawn_enemy(pool: ObjectPool, src) -> None:
     o.y_fx = float_to_fx(src.y)
     o.origin_x_fx = o.x_fx
     o.origin_y_fx = o.y_fx
-    o.hp = 3 if src.species == 0x26 else 2
+    defn = enemy_defs.get(src.species, src.flags)
+    if defn is not None:
+        status = defn.get("status") or {}
+        o.hp = max(1, as_int(status.get("hp"), 2))
+        o.damage = max(0, as_int(status.get("contact_damage"), 1))
+        _queue_def_sound(pool, defn, "spawn")
+    else:
+        o.hp = 3 if src.species == 0x26 else 2
     o.max_hp = o.hp
     if env_flag("DC_BOSS_HURT"):  # test hook: show the damage tint
         o.hp = o.max_hp // 2 if o.max_hp > 1 else 1
@@ -264,20 +291,22 @@ def _spawn_enemy(pool: ObjectPool, src) -> None:
     o.timer = 24
     o.vx_fx = 0x0080 if (src.flags & 1) else -0x0080
     o.facing = 1 if o.vx_fx >= 0 else -1
+    o.attack_cd = 45 if defn is not None else 0
 
 
 # Hostile projectile spawned by the species $67 ghoul ($82877B in the
 # original): the child object runs its own species handler, so the native port
 # models it as a straight-flying object with the captured $67 sprite.
 def _spawn_enemy_shot(pool: ObjectPool, x: float, y: float, vx: int,
-                      vy: int) -> None:
+                      vy: int, species: int = 0x67,
+                      damage: int = 1) -> None:
     o = _alloc(pool)
     if o is None:
         return
     _reset_object(o)
     o.active = True
     o.type = OBJECT_ENEMY_SHOT
-    o.species = 0x67
+    o.species = species
     o.x_fx = float_to_fx(x)
     o.y_fx = float_to_fx(y)
     o.origin_x_fx = o.x_fx
@@ -285,6 +314,7 @@ def _spawn_enemy_shot(pool: ObjectPool, x: float, y: float, vx: int,
     o.vx_fx = vx
     o.vy_fx = vy
     o.hp = 1
+    o.damage = max(0, damage)
 
 
 # Somulo's fireball: a normal hostile shot, but marked so that hitting the
@@ -414,6 +444,13 @@ def _spawn_boss(pool: ObjectPool, src) -> None:
     hp_env = env("DC_BOSS_HP")
     if hp_env:
         o.hp = _atoi(hp_env)
+    boss_def = enemy_defs.get(o.species, src.flags)
+    if boss_def is not None and not hp_env:
+        o.hp = max(1, as_int((boss_def.get("status") or {}).get("hp"), o.hp))
+        o.damage = max(0, as_int(
+            (boss_def.get("status") or {}).get("contact_damage"), 1))
+    if boss_def is not None and boss_def.get("attacks"):
+        o.attack_cd = 90
     o.max_hp = o.hp
     o.state = 0
     pool.boss_alive = True
@@ -493,6 +530,7 @@ def objects_init(pool: ObjectPool, level) -> None:
     pool.pit_count = 0
     pool.last_fire_piece = 0
     pool.last_talisman = 0
+    pool.sfx_queue = []
     pool.boss_phase = 1
     # $96 is the script/NPC actor: the shopkeepers and the library old man in
     # 46..49/55, the avenue's townsperson in area 4, and the arena controller
@@ -822,7 +860,7 @@ def _pit_damage(player) -> int:
 
 # The body's climb, sampled every 20 frames from the pit take (frame 14400 is
 # the room entry; 15750 is the top). The ROM's internal stages are $3E/scroll
-# driven and not mapped yet (docs/PIT_BOSS.md §5); this is the measured curve.
+# driven and not mapped yet (docs/PIT_BOSS.md Â§5); this is the measured curve.
 _PIT_RISE = (
     (0, 700.0), (20, 698.5), (40, 693.5), (60, 690.0),
     (80, 688.1), (100, 687.1), (120, 671.4), (140, 650.8),
@@ -872,7 +910,7 @@ def _pit_body_y(t: int) -> float:
 #                      then `$1DDE == 0` -> sub 6 (the launch machine)
 #   sub 6+ `$83:C913`  launch: ten sub-substates at `$83:C918`
 #
-# State 2 (`$83:CD14`) is the core eye: it rides the body at (+1, +$1C) —
+# State 2 (`$83:CD14`) is the core eye: it rides the body at (+1, +$1C) â€”
 # measured exactly on the take.  States 4 (`$83:CDCE`, a `$3B` timer then
 # `$828777` despawn) and 6 (`$83:CE18`, spawn a `$6C` child) never occur in the
 # 11 000 frames measured, so they are documented but not implemented here.
@@ -880,7 +918,7 @@ def _pit_body_y(t: int) -> float:
 # The park positions and the swarm's y track are measured, not derived: the
 # handler indexes `$E2D5`/`$E2DF`/`$E2E1`/`$E2E3` in WRAM with the slot index
 # through a `$15xx` word table whose base is still unresolved (docs/PIT_BOSS.md
-# §7), so the take is the source exactly as for the body's climb.
+# Â§7), so the take is the source exactly as for the body's climb.
 PIT_EYE_CORE_INDEX = 10   # record flag of the eleventh $6C (the body's eye)
 PIT_EYE_RELEASE = 220     # frames of fight before $1DF7: the body starts up
 
@@ -895,7 +933,7 @@ PIT_EYE_RELEASE = 220     # frames of fight before $1DF7: the body starts up
 #   C      = velocity cap, D = acceleration step
 #
 # Data bank at object-update time is $81 (verified: these rows reproduce the ten
-# measured park positions 10/10, docs/PIT_BOSS.md §7.6).
+# measured park positions 10/10, docs/PIT_BOSS.md Â§7.6).
 _PIT_EYE_ROWS = (
     ( 96, 226,  8,  52, 1),
     (104, 208, 16,  88, 2),
@@ -1022,9 +1060,9 @@ def _pit_eye_offset(index, t):
 # states $06=8/10/12/14 and the shared $49 tail.  Everything below is the ROM
 # transcribed; the only measured numbers are the four release frames (the $69
 # release controller's $40/$3F machine is not ported yet, so docs/PIT_BOSS.md
-# §7.7 keeps the take's schedule) and the $06=4 swarm track above.
+# Â§7.7 keeps the take's schedule) and the $06=4 swarm track above.
 #
-# Bank-$81 tables (docs/PIT_BOSS.md §7.6):
+# Bank-$81 tables (docs/PIT_BOSS.md Â§7.6):
 _PIT_SPEED = (0, 48, 95, 143, 181, 212, 235, 251,
               255, 5, 6, 10, 9, 6, 8, 10)              # $81:E357
 _PIT_DIRBITS = (0x05, 0x06, 0x0A, 0x09, 0x06, 0x08, 0x0A, 0x0C,
@@ -1049,7 +1087,7 @@ _PIT_CODE8 = (0, 1, 2, 3, 4, 0, 0, 0,
 # The four satellites the take launches draw their $E407/$E417 scale, their
 # $E41D/$E41E return timer and (for the three that get there) their $E423
 # restart state from the fight's LCG.  Those draws are measured per eye from
-# the take's slots (docs/PIT_BOSS.md §7.7); the $009C seed at 14201 is not
+# the take's slots (docs/PIT_BOSS.md Â§7.7); the $009C seed at 14201 is not
 # measured, so the port replays the values instead of the sequence.  Eyes
 # without an entry keep using $BC904B.
 _PIT_EYE_DRAW = {
@@ -1086,7 +1124,7 @@ _PIT_EYE_REACH = {0: 206.0, 1: 179.0, 7: 181.0, 2: 191.0}
 # 0x9E0B at frame 15601, but something the port does not model consumes the
 # LCG between there and the controller's first draw; 0xDC27 is the seed that
 # reproduces the take's four releases (flags 0, 1, 7, 2 at fight frames
-# 1583/1616/1649/2450, docs/PIT_BOSS.md §7.9).
+# 1583/1616/1649/2450, docs/PIT_BOSS.md Â§7.9).
 _PIT_SEED = 0xDC27
 
 _PIT_E015 = (0, 1, 2, 3, 4, 5, 6, 7, 5, 4, 3, 2, 1, 0, 9, 8,
@@ -1114,7 +1152,7 @@ def _pit_rng(pool: ObjectPool) -> int:
 def _pit_start_fight(pool: ObjectPool) -> None:
     """$1DEA=1 and the $69's fight state: reset $1DDE/$1DE9 and the seed."""
     pool.pit_fight = True
-    # $BC904B's seed at the take's fight start, read from $009C (PIT_BOSS §7.9).
+    # $BC904B's seed at the take's fight start, read from $009C (PIT_BOSS Â§7.9).
     pool.pit_rng = _PIT_SEED
     pool.pit_parked = [9] * 10
     pool.pit_launched = 0
@@ -1725,7 +1763,7 @@ def _update_pit_core(pool: ObjectPool, o: Object, player) -> None:
 def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
     """Area 8's boss: $69 raises the fight flag, $6B climbs, $6C eyes follow.
 
-    Measured on the pit take (docs/PIT_BOSS.md §4 and §7): $1DEA goes 1 when
+    Measured on the pit take (docs/PIT_BOSS.md Â§4 and Â§7): $1DEA goes 1 when
     the player leaves the arena's entry corner; the body stays at y=700 for
     199 frames and then climbs to ~209 over ~1350 frames, bobbing at 187..216
     in state 2.  The ten satellite eyes park on their measured x, are released
@@ -1791,7 +1829,7 @@ def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
         if o.timer >= PIT_EYE_RELEASE:
             o.substate = 4
     elif o.substate == 4:
-        # $C838: the band clamp is still measured (docs/PIT_BOSS.md §7.6);
+        # $C838: the band clamp is still measured (docs/PIT_BOSS.md Â§7.6);
         # $1DDE[flag] = 0 (this eye's release, from the $69 controller) sends
         # it to the launch machine.
         if index < len(pool.pit_parked) and not pool.pit_parked[index]:
@@ -1811,6 +1849,204 @@ def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
         _pit_eye_state12(pool, o, player)
     elif o.substate == 14:
         _pit_eye_state14(pool, o, player, row, body_y)
+
+
+NATIVE_ENEMY_SPECIES = (0x2C, 0x07, 0x67)
+
+
+def _def_number(value, default: float, lo: float, hi: float) -> float:
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return default
+    if out != out:  # NaN
+        return default
+    return max(lo, min(hi, out))
+
+
+def _def_ai_enabled(species: int, defn: dict) -> bool:
+    """Authored movement replaces native handlers only when asked.
+
+    The three ported enemy handlers keep their exact ROM behaviour by default;
+    *new* species (and anything without a native handler) use the authored
+    profile.  ``override_ai`` is the explicit opt-in for a ported enemy.
+    """
+    movement = defn.get("movement") or {}
+    return bool(movement.get("override_ai")) or \
+        species not in NATIVE_ENEMY_SPECIES
+
+
+def _def_fire_attack(pool: ObjectPool, o: Object, player, defn: dict,
+                     attack: dict) -> None:
+    ox = fx_to_float(o.x_fx)
+    oy = fx_to_float(o.y_fx)
+    kind = attack.get("type")
+    damage = max(0, as_int(attack.get("damage"), 1))
+    if kind in ("projectile", "spread", "burst"):
+        count = max(1, min(8, as_int(attack.get("count"), 1)))
+        spread = _def_number(attack.get("spread"), 0.0, 0.0, 90.0) * \
+            math.pi / 180.0
+        speed = _def_number(attack.get("speed"), 1.5, 0.1, 8.0) * FX_ONE
+        aim = attack.get("aim") or "player"
+        if aim == "facing":
+            base = 0.0 if o.facing >= 0 else math.pi
+        elif aim == "up":
+            base = -math.pi / 2.0
+        elif aim == "down":
+            base = math.pi / 2.0
+        else:
+            dx = player.x - ox
+            dy = (player.y - 10.0) - oy
+            base = math.atan2(dy, dx)
+        shot_species = as_int(attack.get("species"), 0x67)
+        for index in range(count):
+            if count == 1:
+                angle = base
+            else:
+                angle = base + spread * ((index / (count - 1)) - 0.5)
+            _spawn_enemy_shot(
+                pool, ox, oy,
+                _c_int(math.cos(angle) * speed),
+                _c_int(math.sin(angle) * speed),
+                shot_species, damage)
+        sfx = attack.get("sfx") or (defn.get("sounds") or {}).get("attack")
+        sfx_id = SFX_NAME_TO_ID.get(sfx) if isinstance(sfx, str) else None
+        if sfx_id is not None:
+            pool.sfx_queue.append(sfx_id)
+        else:
+            pool.events |= OBJECT_EVENT_ENEMY_SHOOT
+    elif kind == "lunge":
+        o.state = 2
+        o.phase = 16
+        o.vx_fx = 0x0180 if player.x >= ox else -0x0180
+    elif kind == "melee":
+        if abs(player.x - ox) < 26.0 and abs(player.y - oy) < 30.0:
+            _damage_player(player, ox, damage)
+
+
+def _tick_def_attacks(pool: ObjectPool, o: Object, player, defn: dict) -> None:
+    """Run authored attack patterns for a boss without replacing its AI."""
+    attacks = defn.get("attacks") or []
+    if not attacks or o.hp <= 0 or o.state in (5, 6):
+        return
+    o.attack_cd -= 1
+    if o.attack_cd > 0:
+        return
+    ox = fx_to_float(o.x_fx)
+    oy = fx_to_float(o.y_fx)
+    attack = attacks[o.attack_index % len(attacks)]
+    reach = _def_number(attack.get("range"), 180.0, 0.0, 4096.0)
+    if abs(player.x - ox) > reach or abs(player.y - oy) > max(96.0, reach):
+        return
+    o.attack_index = (o.attack_index + 1) % max(1, len(attacks))
+    if attack.get("type") == "lunge":
+        # Boss movement is state-machine territory; a data lunge would fight
+        # the ported AI, so only the ranged/melee patterns run for bosses.
+        o.attack_cd = 60
+        return
+    _def_fire_attack(pool, o, player, defn, attack)
+    o.attack_cd = max(1, as_int(attack.get("cooldown"), 90))
+
+
+def _update_def_enemy(pool: ObjectPool, o: Object, level, player,
+                      defn: dict) -> None:
+    """Data-driven enemy movement + attack scheduler (authored species)."""
+    movement = defn.get("movement") or {}
+    kind = movement.get("ai") or "walker"
+    speed = _def_number(movement.get("speed"), 0.5, 0.0, 8.0) * FX_ONE
+    aggro = _def_number(movement.get("range"), 160.0, 0.0, 4096.0)
+    bob = _def_number(movement.get("bob"), 0.0, -128.0, 128.0)
+    gravity = bool(movement.get("gravity", True))
+    ox = fx_to_float(o.x_fx)
+    oy = fx_to_float(o.y_fx)
+    dx = player.x - ox
+    dy = (player.y - 10.0) - oy
+    near = abs(dx) <= aggro
+    if abs(dx) > 2.0:
+        o.facing = 1 if dx > 0 else -1
+    direction = 1 if o.facing >= 0 else -1
+
+    # Attacks first: a turret can fire while standing still.
+    o.attack_cd -= 1
+    attacks = defn.get("attacks") or []
+    if attacks and o.attack_cd <= 0 and near:
+        attack = attacks[o.attack_index % len(attacks)]
+        o.attack_index = (o.attack_index + 1) % max(1, len(attacks))
+        _def_fire_attack(pool, o, player, defn, attack)
+        o.attack_cd = max(1, as_int(attack.get("cooldown"), 90))
+
+    surf = level_floor_at(level, ox, oy + 4.0)
+    if gravity and surf is not None:
+        o.y_fx = float_to_fx(surf)
+        oy = surf
+
+    if kind == "flyer":
+        target_y = fx_to_float(o.origin_y_fx) + \
+            math.sin(o.timer * 0.07) * max(4.0, bob or 14.0)
+        if near and abs(dy) < 96.0:
+            target_y = player.y - 18.0
+        o.y_fx += _c_int(max(-0.9, min(0.9, (target_y - oy) * 0.08)) * FX_ONE)
+        if near:
+            step = _c_int(speed) if speed > 0 else 0x0068
+            o.x_fx += direction * step
+        o.state = 1
+    elif kind == "charger":
+        if o.state == 2:
+            o.x_fx += o.vx_fx
+            o.phase -= 1
+            gx = fx_to_float(o.x_fx)
+            surface = level_floor_at(level, gx, fx_to_float(o.y_fx) + 4.0)
+            if surface is not None:
+                o.y_fx = float_to_fx(surface)
+            if o.x_fx < level.play_min_x * FX_ONE or \
+                    o.x_fx > level.play_max_x * FX_ONE or o.phase <= 0:
+                o.state = 0
+                o.x_fx = max(int(level.play_min_x * FX_ONE),
+                             min(int(level.play_max_x * FX_ONE), o.x_fx))
+        else:
+            if near and abs(dx) < 96.0:
+                o.state = 2
+                o.phase = 24
+                o.vx_fx = _c_int(3.0 * FX_ONE) * direction
+            else:
+                o.state = 1
+                o.x_fx += direction * _c_int(speed)
+                if level_is_wall_at(level, fx_to_float(o.x_fx) +
+                                    direction * 8.0, oy - 8.0):
+                    o.facing = -o.facing
+    elif kind == "walker":
+        o.state = 1
+        if near:
+            o.x_fx += direction * _c_int(speed)
+        else:
+            if o.vx_fx == 0:
+                o.vx_fx = _c_int(speed) * direction
+            o.x_fx += o.vx_fx
+            if abs(o.x_fx - o.origin_x_fx) > max(16.0, aggro * 0.5) * FX_ONE:
+                o.vx_fx = -o.vx_fx
+                o.facing = -o.facing
+        if level_is_wall_at(level, fx_to_float(o.x_fx) +
+                            direction * 8.0, fx_to_float(o.y_fx) - 8.0):
+            o.x_fx -= direction * _c_int(speed)
+            o.vx_fx = -o.vx_fx
+            o.facing = -o.facing
+        if gravity:
+            surface = level_floor_at(level, fx_to_float(o.x_fx),
+                                     fx_to_float(o.y_fx) + 4.0)
+            if surface is not None:
+                o.y_fx = float_to_fx(surface)
+    elif kind == "turret":
+        o.state = 0
+        if gravity:
+            surface = level_floor_at(level, ox, oy + 4.0)
+            if surface is not None:
+                o.y_fx = float_to_fx(surface)
+    else:  # stationary
+        o.state = 0
+
+    # Keep authored spawns inside the room's playable strip.
+    o.x_fx = max(int(level.play_min_x * FX_ONE),
+                 min(int(level.play_max_x * FX_ONE), o.x_fx))
 
 
 def objects_update(pool: ObjectPool, level, player) -> None:
@@ -1891,6 +2127,9 @@ def objects_update(pool: ObjectPool, level, player) -> None:
             o.timer += 1
             if o.hit_flash > 0:
                 o.hit_flash -= 1
+            boss_def = enemy_defs.get(o.species, o.flags)
+            if boss_def is not None:
+                _tick_def_attacks(pool, o, player, boss_def)
             dx = player.x_fx - o.x_fx
             dy = (player.y_fx - 16 * FX_ONE) - o.y_fx
             if o.species == 0x33:
@@ -2368,14 +2607,17 @@ def objects_update(pool: ObjectPool, level, player) -> None:
                         pool.events |= OBJECT_EVENT_BOSS_DEFEATED
                         _spawn_pickup(pool, ox, oy)
                 else:
-                    _damage_player(player, ox, 1)
+                    _damage_player(player, ox, o.damage if o.damage > 0 else 1)
             continue
 
         if o.type == OBJECT_ENEMY:
             ox = fx_to_float(o.x_fx)
             oy = fx_to_float(o.y_fx)
             o.timer += 1
-            if o.species == 0x2C:
+            defn = enemy_defs.get(o.species, o.flags)
+            if defn is not None and _def_ai_enabled(o.species, defn):
+                _update_def_enemy(pool, o, level, player, defn)
+            elif o.species == 0x2C:
                 # Area 2 Skeleton walker: ground patrol.
                 o.state = 1
                 o.x_fx += o.vx_fx
@@ -2500,9 +2742,10 @@ def objects_update(pool: ObjectPool, level, player) -> None:
                     o.hp = 0
                     o.active = False
                     pool.events |= OBJECT_EVENT_ENEMY_HIT
+                    _queue_def_sound(pool, defn or {}, "death")
                     _spawn_pickup(pool, ox, oy + 8.0)
                 else:
-                    _damage_player(player, ox, 1)
+                    _damage_player(player, ox, o.damage if o.damage > 0 else 1)
             continue
 
         if o.hit_flash > 0:
@@ -2518,7 +2761,7 @@ def objects_update(pool: ObjectPool, level, player) -> None:
                     o.active = False
                 elif (abs(sx - player.x) < 9.0 and
                       abs(sy - (player.y - 6.0)) < 16.0):
-                    _damage_player(player, sx, 1)
+                    _damage_player(player, sx, o.damage if o.damage > 0 else 1)
                 continue
             o.x_fx += o.vx_fx
             o.y_fx += o.vy_fx
@@ -2537,7 +2780,7 @@ def objects_update(pool: ObjectPool, level, player) -> None:
                 continue
             if (abs(sx - player.x) < 10.0 and
                     abs(sy - (player.y - 10.0)) < 12.0):
-                _damage_player(player, sx, 1)
+                _damage_player(player, sx, o.damage if o.damage > 0 else 1)
                 if o.substate == 1:
                     _spawn_firewall(pool, sx, sy)
                 o.active = False
@@ -2622,15 +2865,25 @@ def objects_check_projectiles(pool: ObjectPool, projectiles, player=None) -> Non
                     _spawn_pickup(pool, ox, oy + URN_HALF)
                     break
             elif o.type == OBJECT_ENEMY and \
-                    (o.species == 0x67 or o.state != 0):
+                    (o.species == 0x67 or o.state != 0 or
+                     enemy_defs.get(o.species, o.flags) is not None):
                 # Ghouls are hittable in every state: the ROM's $05 values are
-                # behaviour states, not an emerge phase.
+                # behaviour states, not an emerge phase.  Authored species are
+                # always hittable (a turret stays in state 0).
                 if abs(px - ox) <= 12.0 and abs(py - oy) <= 12.0:
                     p.active = False
+                    defn = enemy_defs.get(o.species, o.flags)
+                    if defn is not None:
+                        defense = max(0, as_int(
+                            (defn.get("status") or {}).get("defense"), 0))
+                        dmg = max(1, dmg - defense)
+                        _queue_def_sound(pool, defn, "hurt")
                     o.hp -= dmg
                     o.hit_flash = 8
                     pool.events |= OBJECT_EVENT_ENEMY_HIT
                     if o.hp <= 0:
+                        if defn is not None:
+                            _queue_def_sound(pool, defn, "death")
                         _spawn_pickup(pool, ox, oy + 8.0)
                         o.active = False
                     break

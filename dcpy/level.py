@@ -97,6 +97,8 @@ class Level:
         self.gate_next_area = -1
         self.gate_marker = 0
         self.gate_entry = 0
+        self.music = -1
+        self.bg_atlas_area = -1
         self.world_w = 0
         self.world_h = 0
         self.backdrop = rl.rgb(8, 8, 16)
@@ -200,6 +202,10 @@ def _level_load_file(level: Level, assets, path: str) -> bool:
     level.gate_next_area = as_int(root.get("gate_next_area"), -1)
     level.gate_marker = as_int(root.get("gate_marker"), 0)
     level.gate_entry = as_int(root.get("gate_entry"), 0)
+    # Authored fields (all optional): a room may override the track it plays
+    # and may borrow another area's BG atlas when it is a new map.
+    level.music = as_int(root.get("music"), -1)
+    level.bg_atlas_area = as_int(root.get("bg_atlas_area"), level.area_id)
     backdrop = root.get("backdrop")
     if isinstance(backdrop, list) and len(backdrop) >= 3:
         rgb = [as_int(v, (8, 8, 16)[i]) for i, v in enumerate(backdrop[:3])]
@@ -303,20 +309,51 @@ def _level_load_file(level: Level, assets, path: str) -> bool:
     return True
 
 
+def _authored_rooms_dir(directory: str) -> str:
+    override = os.environ.get("DC_AUTHORED_ROOMS")
+    if override:
+        return override
+    authored = os.environ.get("DC_AUTHORED_DIR")
+    if authored:
+        return os.path.join(authored, "rooms")
+    return os.path.join(os.path.dirname(os.path.abspath(directory)),
+                        "authored", "rooms")
+
+
+def _load_room_with_override(level: Level, assets, directory: str,
+                             name: str) -> bool:
+    """Load ``name`` from the authored overlay first, then the ROM tree.
+
+    The editor writes its rooms to ``assets/authored/rooms``; checking that
+    directory here makes the game read the edited room without touching the
+    generated tree.  A malformed authored file falls back to the generated one
+    instead of leaving the level half-loaded.
+    """
+    authored = os.path.join(_authored_rooms_dir(directory), name)
+    generated = os.path.join(directory, name)
+    if file_exists(authored):
+        if _level_load_file(level, assets, authored):
+            return True
+        eprint(f"level: authored room {authored} failed; using generated room",
+              flush=True)
+        level_unload(level)
+    if file_exists(generated):
+        return _level_load_file(level, assets, generated)
+    return False
+
+
 def level_load(level: Level, assets, directory: str) -> bool:
     area = env_int("DC_AREA")
     if area is not None:   # DC_AREA=0 is the colosseum, not "unset"
-        path = os.path.join(directory, f"room_area{area}.json")
-        if file_exists(path):
-            return _level_load_file(level, assets, path)
-    return _level_load_file(level, assets, os.path.join(directory, "room.json"))
+        if _load_room_with_override(level, assets, directory,
+                                    f"room_area{area}.json"):
+            return True
+    return _load_room_with_override(level, assets, directory, "room.json")
 
 
 def level_load_area(level: Level, assets, directory: str, area_id: int) -> bool:
-    path = os.path.join(directory, f"room_area{area_id}.json")
-    if not file_exists(path):
-        return False
-    return _level_load_file(level, assets, path)
+    return _load_room_with_override(level, assets, directory,
+                                    f"room_area{area_id}.json")
 
 
 def level_unload(level: Level) -> None:

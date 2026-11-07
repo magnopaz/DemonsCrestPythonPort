@@ -1,4 +1,4 @@
-"""Asset loading (port of assets.c).
+﻿"""Asset loading (port of assets.c).
 
 Reads the same ROM-derived `assets/generated` tree the C port uses.
 """
@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 
-from . import rl
+from . import enemy_defs, rl
 from .anim import (PlayerAnim, ProjectileAnim, anim_load, anim_load_forms,
                    projectile_anim_load)
 from .consts import DC_CAMPAIGN_AREAS
@@ -16,7 +16,7 @@ from .util import as_float, as_int, eprint, file_exists, read_json
 DC_BG_PALETTES = 8
 DC_OBJ_PALETTES = 8
 DC_SPECIES_MAX = 64
-DC_SPECIES_FRAMES = 10
+DC_SPECIES_FRAMES = 64
 DC_SPECIES_STATES = 16
 DC_STATE_FRAMES = 8
 DC_SPECIES_PARTS = 8
@@ -140,8 +140,26 @@ def _load_one(directory: str, name: str):
     return tex
 
 
+def _load_one_optional(directory: str, name: str):
+    """Load a sprite from the ROM tree or the authored overlay.
+
+    Species entries edited in the tool can point at ``sprites/foo.png`` in
+    ``assets/authored``.  Try the generated tree first, then the authored root,
+    then ``authored/sprites`` so a frame can be authored without writing into
+    the extracted asset tree.
+    """
+    authored = os.environ.get("DC_AUTHORED_DIR") or os.path.join(
+        os.path.dirname(os.path.abspath(directory)), "authored")
+    for base in (directory, authored, os.path.join(authored, "sprites")):
+        path = os.path.join(base, name)
+        if file_exists(path):
+            return _load_one(base, name)
+    eprint(f"assets: missing sprite {name}", flush=True)
+    return None
+
+
 def _load_part_texture(part: SpeciesPart, directory: str, name: str) -> bool:
-    tex = _load_one(directory, name)
+    tex = _load_one_optional(directory, name)
     if tex is None:
         return False
     part.texture = tex
@@ -209,24 +227,35 @@ def _load_species_parts(sheet: SpeciesSheet, entry: dict,
 
 
 def _load_species_sheets(assets: Assets, directory: str) -> None:
-    path = os.path.join(directory, "species_anim.json")
-    if not file_exists(path):
-        return
-    try:
-        root = read_json(path)
-    except (OSError, ValueError):
-        return
-    # The shipped format (bake_enemy_sheets.py, extract_species.py, the C port)
-    # is an object keyed by species hex: {"species": {"2c": {...}}}.  Accept the
-    # legacy list form too; iterating a dict directly yields keys and silently
-    # loaded zero sheets, which is why every enemy fell back to procedural art.
-    raw = root.get("species")
-    if isinstance(raw, dict):
-        entries = list(raw.values())
-    elif isinstance(raw, list):
-        entries = raw
-    else:
-        return
+    def read_entries(path: str) -> dict:
+        if not file_exists(path):
+            return {}
+        try:
+            root = read_json(path)
+        except (OSError, ValueError):
+            return {}
+        raw = root.get("species") if isinstance(root, dict) else root
+        # The shipped format is an object keyed by species hex:
+        # {"species": {"2c": {...}}}.  Accept the legacy list form too;
+        # iterating a dict directly yields keys and silently loaded zero
+        # sheets, which is why every enemy once fell back to procedural art.
+        if isinstance(raw, dict):
+            return {str(key): entry for key, entry in raw.items()
+                    if isinstance(entry, dict)}
+        if isinstance(raw, list):
+            return {f"{index:02x}": entry for index, entry in enumerate(raw)
+                    if isinstance(entry, dict)}
+        return {}
+
+    # Generated first, then the authored overlay (same key replaces the ROM
+    # entry).  The editor writes only the entries it changed.
+    entries_by_key = read_entries(os.path.join(directory, "species_anim.json"))
+    authored_dir = os.environ.get("DC_AUTHORED_DIR") or os.path.join(
+        os.path.dirname(os.path.abspath(directory)), "authored")
+    for key, entry in read_entries(os.path.join(
+            authored_dir, "species_anim.json")).items():
+        entries_by_key[key] = entry
+    entries = list(entries_by_key.values())
     for entry in entries:
         if not isinstance(entry, dict):
             continue
@@ -248,7 +277,7 @@ def _load_species_sheets(assets: Assets, directory: str) -> None:
             if not isinstance(tex_name, str):
                 continue
             slot = SpeciesFrame()
-            tex = _load_one(directory, tex_name)
+            tex = _load_one_optional(directory, tex_name)
             if tex is None:
                 continue
             slot.texture = tex
@@ -492,6 +521,9 @@ def assets_load(assets: Assets, directory: str) -> bool:
     if assets.species_count > 0:
         print(f"assets: {assets.species_count} per-species sprite sheet(s)",
               flush=True)
+    authored_dir = os.environ.get("DC_AUTHORED_DIR") or os.path.join(
+        os.path.dirname(os.path.abspath(directory)), "authored")
+    enemy_defs.load(authored_dir)
     assets.ready = True
     return True
 

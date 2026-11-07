@@ -61,6 +61,7 @@ OBJECT_EVENT_BOSS_DEFEATED = 0x08
 OBJECT_EVENT_CREST_PICKUP = 0x10
 OBJECT_EVENT_FIRE_PIECE = 0x20
 OBJECT_EVENT_TALISMAN = 0x40
+OBJECT_EVENT_ENEMY_SHOOT = 0x80  # authored enemy fired an attack pattern
 
 # Level object kinds (level.h)
 LEVEL_OBJECT_NONE = 0
@@ -128,6 +129,11 @@ SFX_PICKUP = 4
 SFX_HURT = 5
 SFX_ENEMY_HIT = 6
 SFX_COUNT = 7
+
+# Authored enemy-sound names (same order as audio.SFX_NAMES).
+SFX_NAMES = ["jump", "land", "shoot", "break", "pickup", "hurt",
+             "enemy_hit"]
+SFX_NAME_TO_ID = {name: index for index, name in enumerate(SFX_NAMES)}
 
 # Music tracks.  The ROM picks a song per room family, so the port carries one
 # track per stage (plus the shared boss/town/overworld/ending cues) instead of

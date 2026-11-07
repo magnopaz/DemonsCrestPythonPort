@@ -288,3 +288,55 @@ audit rejects an array with "no 'species' object". Merge with a dict update
 (snippet in `docs/AI_CHARACTER_PIPELINE.md` §6) and re-run
 `audit_sprites.py --strict`. The first enemy built this way (species `0x120`, 7
 frames, `1 species, 7 frames, 0 error(s)`) is written up in §7.5 of that doc.
+
+## Belth's missing poses
+
+The generated Belth entry only had the walking row (3 frames) because
+`bake_boss_rows.py` was pointed at one measured band. `tools/dc_extract/
+bake_belth_animation.py` slices the labelled `Belth.gif` rows (idle, taunt,
+walk, attack, jump, charge, turn, hurt, death), keys the flat sheet background,
+removes captions/specks, and writes a 32-frame **authored** entry plus PNGs
+under `assets/authored/sprites/`. The entry carries a `state_names` map so the
+Enemy Editor shows `State 3 · attack` instead of a bare number.
+
+The Python port's `DC_SPECIES_FRAMES` is now 64 (the frozen C reference keeps
+10), so the full authored set loads. The generated 3-frame entry is untouched;
+the authored overlay wins at load time.
+
+```sh
+python tools/dc_extract/bake_belth_animation.py
+python tools/audit_sprites.py --assets assets/generated --strict
+```
+
+## Visual content tools
+
+`tools/editor/` is the browser-based content suite:
+
+- **Map Builder**: rooms, BG0/BG1 tiles, collision shapes and environment
+  flags (hazard/water/breakable), objects, doors, spawns, play/camera bounds,
+  per-room music, a game-accurate 256x224 preview and a "Render in game"
+  button that runs the real Python port headlessly on the unsaved room
+  (`DC_AUTHORED_ROOMS` temp copy + `DC_SCREENSHOT_RT`).
+- **Enemy Editor**: species frames/anchors/durations, state animations, stats,
+  movement AI, attack patterns and sound slots. Authored patterns run for
+  data-driven enemies, and ranged/melee patterns are layered onto bosses.
+- **Player Editor**: Firebrand's base sheet plus the six crest forms; all 11
+  clips (`idle`, `walk`, `jump`, `hover`, `fall`, `land`, `attack`, `spell`,
+  `flying`, `hurt`, `death`), frame order/anchors/durations, loop flags and a
+  stage with the 12x22 gameplay hitbox. Saves to
+  `assets/authored/player_anim.json` and `player_forms.json`; `dcpy/anim.py`
+  merges those over the generated sheets.
+- **Asset Browser**: every generated and authored PNG with dimensions and the
+  rooms/species/player records that use it.
+
+Start it with `python tools/editor/server.py` and open the printed localhost
+URL. It writes to `assets/authored/` by default; the runtime already prefers
+that overlay (`level.py` for rooms, `assets.py` for species, `enemy_defs.py`
+for stats/attacks/sounds, `anim.py` for player sheets). Backend tests:
+`python tools/editor/test_editor.py`; browser self-test:
+`http://127.0.0.1:8765/web/test.html`. Full workflow and API reference:
+`tools/editor/README.md`.
+
+For the sprite-sheet extraction playbook (measured bands, column splitting,
+anchors, authored overlays, all sheet/species targets), see
+[SPRITE_SHEET_EXTRACTION.md](SPRITE_SHEET_EXTRACTION.md).

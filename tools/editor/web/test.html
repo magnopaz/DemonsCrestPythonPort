@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Editor self-test</title>
+  <style>
+    html, body { margin: 0; background: #0b0c10; color: #d9dce6;
+      font-family: "Cascadia Mono", monospace; }
+    iframe { width: 100%; height: 780px; border: 0; display: block; }
+    #results { white-space: pre-wrap; font-size: 11px; padding: 12px;
+      border-top: 1px solid #2a2e3a; background: #101218; }
+    .pass { color: #79d0bd; }
+    .fail { color: #e26a6a; }
+  </style>
+</head>
+<body>
+  <iframe id="app" src="/#map/48"></iframe>
+  <pre id="results">running…</pre>
+  <script type="module">
+    import { encodeTile, decodeTile } from "./js/util.js";
+    const results = [];
+    const frame = document.getElementById("app");
+    const out = document.getElementById("results");
+    out.textContent = "module started; waiting for the app iframe…";
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    async function until(fn, timeout = 12000) {
+      const start = Date.now();
+      while (Date.now() - start < timeout) {
+        const value = fn();
+        if (value) return value;
+        await sleep(80);
+      }
+      throw new Error("timeout waiting for the app");
+    }
+
+    async function freeArea(start = 990) {
+      for (let area = start; area < start + 40; area += 1) {
+        const response = await fetch(`/api/rooms/${area}`);
+        if (response.status === 404) return area;
+      }
+      throw new Error("no free test room area");
+    }
+
+    async function check(name, fn) {      const started = performance.now();
+      try {
+        const detail = await fn();
+        results.push({ name, ok: true, detail, ms: Math.round(performance.now() - started) });
+      } catch (error) {
+        results.push({ name, ok: false, detail: error.message,
+          stack: (error.stack || "").split("\n").slice(0, 4).join("\n"),
+          ms: Math.round(performance.now() - started) });
+      }
+      const line = `${results.at(-1).ok ? "PASS" : "FAIL"} ${name} — ${results.at(-1).detail}`;
+      out.innerHTML = results.map((r) =>
+        `<span class="${r.ok ? "pass" : "fail"}">${r.ok ? "PASS" : "FAIL"}</span> ${r.name} — ${r.detail}`).join("\n");
+    }
+
+    try {
+      const getWin = () => frame.contentWindow;
+      const app = await until(() => {
+        const win = getWin();
+        return win && win.__dcApp && win.__dcApp.current ? win.__dcApp : null;
+      });
+      const win = getWin();
+      const doc = frame.contentDocument;
+      const api = (path, opts) => fetch(path, opts).then((r) => r.json());
+
+      await check("meta loaded", () => {
+        if (app.meta.music.length !== 18) throw new Error("music list length");
+        if (app.meta.shape_values.length !== 28) throw new Error("shape list length");
+        return `${app.rooms.length} rooms, ${app.species.length} species, ${app.meta.music.length} tracks`;
+      });
+
+      const map = app.current;
+      await check("map room 48 loaded", () => {
+        if (map.room.area_id !== 48) throw new Error(`area ${map.room.area_id}`);
+        if (map.room.world.width !== 256) throw new Error("world width");
+        return `${map.room.name} · ${map.room.world.width}×${map.room.world.height}`;
+      });
+
+      await check("tile word roundtrip", () => {
+        const word = encodeTile(517, 5, true, false);
+        const decoded = decodeTile(word);
+        if (decoded.tile !== 517 || decoded.pal !== 5 || !decoded.flipH || decoded.flipV)
+          throw new Error(JSON.stringify(decoded));
+        return `0x${word.toString(16)}`;
+      });
+
+      await check("collision pointer paint + undo", () => {
+        const col = map.room.collision;
+        let cx = 1, cy = 1;
+        outer: for (let y = 0; y < col.height; y += 1) {
+          for (let x = 0; x < col.width; x += 1) {
+            if ((col.attrs[y * col.width + x] || 0) === 0) { cx = x; cy = y; break outer; }
+          }
+        }
+        const world = { x: cx * col.cell + 8, y: cy * col.cell + 8 };
+        const before = col.attrs[cy * col.width + cx];
+        map.brush.shape = 0x01;
+        map.brush.env = 0x20;
+        map.brush.size = 1;
+        map.setTool("collision");
+        const screen = map.worldToScreen(world.x, world.y);
+        const rect = map.canvas.getBoundingClientRect();
+        const opts = { bubbles: true, cancelable: true, pointerId: 1,
+          clientX: rect.left + screen.x, clientY: rect.top + screen.y,
+          button: 0, buttons: 1 };
+        map.canvas.dispatchEvent(new win.PointerEvent("pointerdown", opts));
+        map.canvas.dispatchEvent(new win.PointerEvent("pointerup", { ...opts, buttons: 0 }));
+        const after = col.attrs[cy * col.width + cx];
+        if (after !== 0x21) throw new Error(`attr ${after.toString(16)} at ${cx},${cy}`);
+        map.undo();
+        const restored = map.room.collision.attrs[cy * map.room.collision.width + cx];
+        if (restored !== before) throw new Error(`undo ${restored} != ${before}`);
+        map.setTool("select");
+        return `cell ${cx},${cy} -> 0x21 -> undo 0x${restored.toString(16)}`;
+      });
+
+      await check("collision overlay render", () => {
+        const previous = map.show.collision;
+        map.show.collision = true;
+        map.setTool("collision");
+        try {
+          map.render();
+        } finally {
+          map.show.collision = previous;
+          map.setTool("select");
+        }
+        return "render completed";
+      });
+
+      await check("tile paint + undo", () => {
+        const layer = map.room.bg[1];
+        const tx = 5, ty = 6;
+        const before = layer.tilemap[ty * layer.map_width + tx];
+        map.tile.layer = 1;
+        map.tile.index = 7;
+        map.tile.pal = 2;
+        map.tile.flipH = false;
+        map.tile.flipV = false;
+        map.brush.mode = "paint";
+        map.brush.size = 1;
+        map.setTool("tile");
+        const world = { x: tx * 8 + 4, y: ty * 8 + 4 };
+        const screen = map.worldToScreen(world.x, world.y);
+        const rect = map.canvas.getBoundingClientRect();
+        const opts = { bubbles: true, cancelable: true, pointerId: 2,
+          clientX: rect.left + screen.x, clientY: rect.top + screen.y,
+          button: 0, buttons: 1 };
+        map.canvas.dispatchEvent(new win.PointerEvent("pointerdown", opts));
+        map.canvas.dispatchEvent(new win.PointerEvent("pointerup", { ...opts, buttons: 0 }));
+        const after = layer.tilemap[ty * layer.map_width + tx];
+        if (after !== encodeTile(7, 2)) throw new Error(`word 0x${after.toString(16)}`);
+        map.undo();
+        const restored = map.room.bg[1].tilemap[ty * map.room.bg[1].map_width + tx];
+        if (restored !== before) throw new Error("tile undo");
+        map.setTool("select");
+        return `tile ${tx},${ty} -> 0x${after.toString(16)} -> undo`;
+      });
+
+      await check("object place / duplicate / delete", () => {
+        map.setTool("select");
+        const before = map.room.objects.length;
+        map._place.type = "enemy";
+        map._place.speciesKey = "2c";
+        map._place.flags = 0;
+        map.placeObject({ x: 96, y: 160 }, { button: 0 });
+        if (map.room.objects.length !== before + 1) throw new Error("place");
+        map.duplicateSelection();
+        if (map.room.objects.length !== before + 2) throw new Error("duplicate");
+        map.deleteSelection();
+        if (map.room.objects.length !== before + 1) throw new Error("delete");
+        map.undo();
+        map.undo();
+        map.undo();
+        if (map.room.objects.length !== before) throw new Error("undo objects");
+        return `${before} objects, place/dup/delete/undo OK`;
+      });
+
+      await check("object copy/paste", () => {
+        map.setTool("select");
+        const before = map.room.objects.length;
+        map.select({ kind: "object", index: 0 });
+        map.copySelection();
+        map.pasteClipboard();
+        if (map.room.objects.length !== before + 1) throw new Error("paste object");
+        map.undo();
+        if (map.room.objects.length !== before) throw new Error("undo paste object");
+        if (!map.room.transitions.length) throw new Error("no doors");
+        map.select({ kind: "transition", index: 0 });
+        map.copySelection();
+        const doors = map.room.transitions.length;
+        map.pasteClipboard();
+        if (map.room.transitions.length !== doors + 1) throw new Error("paste door");
+        map.undo();
+        if (map.room.transitions.length !== doors) throw new Error("undo paste door");
+        map.select(null);
+        return `${before} objects / ${doors} doors round trip`;
+      });
+
+      await check("room template + resize", async () => {
+        const blank = await api("/api/rooms/new", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ area: 989, width: 512, height: 256,
+            name: "selftest", atlas_area: 48, template: "floor" }),
+        });
+        if (!blank.ok) throw new Error(blank.error || "new room failed");
+        if (blank.room.collision.attrs.length !== 32 * 16) throw new Error("collision size");
+        const resized = await api("/api/rooms/989/resize", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ room: blank.room, width: 1024, height: 512,
+            resize_bg0: false, resize_collision: true }),
+        });
+        if (!resized.ok) throw new Error(resized.error || "resize failed");
+        if (resized.room.world.width !== 1024) throw new Error("resize width");
+        if (resized.room.collision.attrs.length !== 64 * 32) throw new Error("resize collision");
+        return "blank 512x256 -> 1024x512";
+      });
+
+      await check("save room to authored + delete override", async () => {
+        const area = await freeArea(990);
+        const blank = await api("/api/rooms/new", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ area, width: 512, height: 256,
+            name: "selftest-save", atlas_area: 48 }),
+        });
+        blank.room.music = 12;
+        blank.room.objects.push({ type: "enemy", species: 44, flags: 0,
+          x: 100, y: 180 });
+        const saved = await api(`/api/rooms/${area}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ room: blank.room, target: "authored" }),
+        });
+        if (!saved.ok) throw new Error(JSON.stringify(saved.validation?.errors || saved.error));
+        const loaded = await api(`/api/rooms/${area}`);
+        if (loaded.source !== "authored") throw new Error(`source ${loaded.source}`);
+        if (loaded.room.music !== 12) throw new Error("music not saved");
+        if (loaded.room.objects.length !== 1) throw new Error("object not saved");
+        await api(`/api/rooms/${area}`, { method: "DELETE" });
+        const gone = await fetch(`/api/rooms/${area}`);
+        if (gone.status !== 404) throw new Error(`delete status ${gone.status}`);
+        return saved.path;
+      });
+
+      await check("enemy 2c load / animation undo", async () => {
+        const host = doc.createElement("div");
+        host.style.cssText = "position:fixed;left:-4000px;top:0;width:1200px;height:800px";
+        doc.body.appendChild(host);
+        const Enemy = app.EnemyEditor;
+        const enemy = new Enemy({ app, container: host, arg: "2c" });
+        await enemy.init();
+        if (enemy.entry.species !== 44) throw new Error("species");
+        if (enemy.frames.length !== 3) throw new Error(`frames ${enemy.frames.length}`);
+        enemy.pushUndo("test state");
+        enemy.states["0"].push(1);
+        const added = enemy.states["0"].length;
+        enemy.undo();
+        const after = enemy.states["0"].length;
+        if (after !== added - 1) throw new Error(`undo state ${after}/${added}`);
+        enemy.destroy();
+        host.remove();
+        return `${enemy.frames.length} frames, state undo OK`;
+      });
+
+      await check("enemy validation API", async () => {
+        const detail = await api("/api/species/2c");
+        const report = await api("/api/validate/species", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "2c", entry: detail.entry,
+            definition: detail.definition || {} }),
+        });
+        if (report.errors?.length) throw new Error(report.errors[0].message);
+        return `${report.warnings.length} warning(s)`;
+      });
+
+      await check("Belth 32-frame authored set", async () => {
+        const detail = await api("/api/species/68");
+        if (detail.source !== "authored") throw new Error(`source ${detail.source}`);
+        if (detail.entry.frames.length !== 32)
+          throw new Error(`frames ${detail.entry.frames.length}`);
+        if (!detail.entry.state_names || detail.entry.state_names["3"] !== "attack")
+          throw new Error("state names");
+        const missing = detail.entry.frames.filter((f) => !f.url).length;
+        if (missing) throw new Error(`${missing} frame URL(s) unresolved`);
+        return `${detail.entry.frames.length} frames, state names present`;
+      });
+
+      await check("player editor data", async () => {
+        const data = await api("/api/player");
+        if (!data.base || data.forms.length !== 6)
+          throw new Error(`forms ${data.forms?.length}`);
+        if (data.clip_names.length !== 11)
+          throw new Error(`clips ${data.clip_names.length}`);
+        const detail = await api("/api/player/2");
+        if (!detail.entry.clips.idle)
+          throw new Error("aerial has no idle clip");
+        const missing = Object.values(detail.entry.clips)
+          .flatMap((c) => c.steps).filter((s) => !s.url).length;
+        if (missing) throw new Error(`${missing} frame URL(s) unresolved`);
+        return `base + ${data.forms.length} forms, 11 clips, ${detail.entry.clips.idle.steps.length} aerial idle frames`;
+      });
+
+      await check("map save/revert through the editor", async () => {
+        let area = 0;
+        for (let candidate = 990; candidate < 1010; candidate += 1) {
+          const response = await fetch(`/api/rooms/${candidate}`);
+          if (response.status === 404) { area = candidate; break; }
+        }
+        if (!area) throw new Error("no free test area");
+        const blank = await api("/api/rooms/new", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ area, width: 512, height: 256,
+            name: "selftest-editor", atlas_area: 48 }),
+        });
+        const created = await api(`/api/rooms/${area}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ room: blank.room, target: "authored" }),
+        });
+        if (!created.ok) throw new Error("setup save failed");
+        const host = doc.createElement("div");
+        host.style.cssText = "position:fixed;left:-4000px;top:0;width:1200px;height:800px";
+        doc.body.appendChild(host);
+        const m = new app.MapEditor({ app, container: host, arg: String(area) });
+        await m.init();
+        m.room.name = "selftest-map";
+        await m.save();
+        if (m.dirty) throw new Error("still dirty after save");
+        const savedRoom = await api(`/api/rooms/${area}`);
+        if (savedRoom.source !== "authored") throw new Error(`source ${savedRoom.source}`);
+        if (savedRoom.room.name !== "selftest-map") throw new Error("name not saved");
+        await api(`/api/rooms/${area}`, { method: "DELETE" });
+        const gone = await fetch(`/api/rooms/${area}`);
+        if (gone.status !== 404) throw new Error("override not removed");
+        m.destroy();
+        host.remove();
+        return `area ${area} authored -> deleted round trip`;
+      });
+
+      await check("enemy save/revert through the API", async () => {
+        let key = "ee01";
+        for (let i = 1; i < 20 && app.peakSpecies(key); i += 1) {
+          key = `ee${String(i + 1).padStart(2, "0")}`;
+        }
+        if (app.peakSpecies(key)) throw new Error("no free species key");
+        const base = await api("/api/species/2c");
+        const entry = {
+          ...base.entry,
+          species: 0xee01,
+          source: "editor selftest",
+          frames: base.entry.frames.map((frame) => ({
+            texture: frame.texture, anchor_x: frame.anchor_x,
+            anchor_y: frame.anchor_y, duration: frame.duration,
+            width: frame.actual_width, height: frame.actual_height,
+          })),
+        };
+        const definition = {
+          name: "Selftest Skeleton",
+          status: { hp: 7, contact_damage: 2, defense: 1, invulnerable: false },
+          movement: { ai: "flyer", speed: 1, range: 180, bob: 8,
+            gravity: false, override_ai: false },
+          attacks: [{ type: "projectile", cooldown: 90, range: 180,
+            count: 2, spread: 20, speed: 1.5, damage: 2, species: 0x67,
+            aim: "player", sfx: "shoot", telegraph: 12 }],
+          sounds: { attack: "shoot" },
+        };
+        const saved = await api(`/api/species/${key}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entry, definition }),
+        });
+        if (!saved.ok) throw new Error(JSON.stringify(saved.validation?.errors || saved));
+        const detail = await api(`/api/species/${key}`);
+        if (detail.source !== "authored") throw new Error(`source ${detail.source}`);
+        if (detail.definition.status.hp !== 7) throw new Error("definition HP");
+        if (detail.definition.attacks.length !== 1) throw new Error("attack");
+        if (detail.definition.species !== 0xee01) throw new Error("species stamp");
+        await api(`/api/species/${key}`, { method: "DELETE" });
+        await app.reloadSpecies();
+        const gone = await fetch(`/api/species/${key}`);
+        if (gone.status !== 404) throw new Error("override not removed");
+        return `${key} definition round trip`;
+      });
+
+      await check("compare with generated", async () => {
+        await map.setCompareToOriginal(true);
+        if (!map.originalRoom) throw new Error("no original room");
+        if (!map.compareToOriginal) throw new Error("compare flag");
+        const before = map.diffSummary();
+        if (before.collision !== 0) throw new Error(`initial diff ${before.collision}`);
+        const col = map.room.collision;
+        const index = col.attrs.findIndex((v) => v === 0);
+        if (index < 0) throw new Error("no empty cell");
+        map.pushUndo("compare test");
+        col.attrs[index] = 0x21;
+        const after = map.diffSummary();
+        if (after.collision !== 1) throw new Error(`diff ${after.collision}`);
+        map.undo();
+        await map.setCompareToOriginal(false);
+        if (map.compareToOriginal || map.originalRoom) throw new Error("compare off");
+        return "original fetched, diff counted, overlay toggled";
+      });
+
+      await check("render in game", async () => {
+        await map.renderInGame(60);
+        const img = doc.querySelector("#modal-root .modal img");
+        if (!img) throw new Error("no rendered image in modal");
+        const src = img.getAttribute("src") || "";
+        if (!src.includes("/captures/editor_render/")) throw new Error(src);
+        doc.querySelector("#modal-root .modal-close")?.click();
+        return src;
+      });
+
+      await check("area 100 renders", async () => {
+        const host = doc.createElement("div");
+        host.style.cssText = "position:fixed;left:-4000px;top:0;width:1200px;height:800px";
+        doc.body.appendChild(host);
+        const m = new app.MapEditor({ app, container: host, arg: "100" });
+        await m.init();
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        m.render();
+        const canvas = m.canvas;
+        const ctx = canvas.getContext("2d");
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let colored = 0;
+        for (let i = 0; i < data.length; i += 4 * 97) {
+          if (data[i] + data[i + 1] + data[i + 2] > 40) colored += 1;
+        }
+        const cx = Math.floor(canvas.width / 2);
+        const cy = Math.floor(canvas.height / 2);
+        const mid = ctx.getImageData(cx, cy, 1, 1).data;
+        const info = `view ${m.view.x.toFixed(1)},${m.view.y.toFixed(1)} z${m.view.zoom.toFixed(2)} canvas ${canvas.width}x${canvas.height} css ${m.cssW}x${m.cssH} colored ${colored} mid ${mid[0]},${mid[1]},${mid[2]},${mid[3]} bg1=${m.assets?.bg1?.[0]?.url}`;
+        m.destroy();
+        host.remove();
+        if (colored < 30) throw new Error(info);
+        return info;
+      });
+
+      await check("asset browser data", async () => {
+        const data = await api("/api/assets");
+        if (!data.images || data.images.length < 300) throw new Error("too few images");
+        const unused = data.images.filter((img) => !img.usage.length).length;
+        return `${data.images.length} PNGs, ${unused} unused`;
+      });
+
+      await check("map screenshot pixels", () => {
+        const canvas = map.canvas;
+        const ctx = canvas.getContext("2d");
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let colored = 0;
+        for (let i = 0; i < data.length; i += 4 * 97) {
+          if (data[i] + data[i + 1] + data[i + 2] > 40) colored += 1;
+        }
+        if (colored < 50) throw new Error(`only ${colored} colored samples`);
+        return `${colored} colored samples`;
+      });
+
+    } catch (error) {
+      results.push({ name: "harness", ok: false, detail: error.message,
+        stack: (error.stack || "").split("\n").slice(0, 6).join("\n") });
+    }
+    window.__testResults = results;
+    try {
+      await fetch("/api/_selftest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ results }),
+      });
+    } catch (error) {
+      results.push({ name: "post results", ok: false, detail: String(error) });
+    }
+    parent.document.getElementById("results").textContent = JSON.stringify(results, null, 1);
+    parent.document.title = results.every((r) => r.ok) ? "PASS" : "FAIL";
+  </script>
+</body>
+</html>

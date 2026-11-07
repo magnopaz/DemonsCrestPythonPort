@@ -126,44 +126,73 @@ def _parse_clips(anim: PlayerAnim, clips, directory: str) -> bool:
     return anim.ready
 
 
-def anim_load(anim: PlayerAnim, directory: str) -> bool:
-    path = os.path.join(directory, "player_anim.json")
+def _authored_dir(directory: str) -> str:
+    """The editable overlay next to ``assets/generated`` (or DC_AUTHORED_DIR)."""
+    return os.environ.get("DC_AUTHORED_DIR") or os.path.join(
+        os.path.dirname(os.path.abspath(directory)), "authored")
+
+
+def _read_optional_json(path: str):
     if not file_exists(path):
-        return False
+        return None
     try:
         root = read_json(path)
     except (OSError, ValueError):
+        return None
+    return root if isinstance(root, dict) else None
+
+
+def anim_load(anim: PlayerAnim, directory: str) -> bool:
+    path = os.path.join(directory, "player_anim.json")
+    root = _read_optional_json(path)
+    if root is None:
         return False
+    # Authored clips override generated clips one by one, so a partial save from
+    # the Player Editor still keeps every untouched clip.
+    overlay = _read_optional_json(os.path.join(
+        _authored_dir(directory), "player_anim.json"))
+    if overlay is not None and isinstance(overlay.get("clips"), dict):
+        merged = dict(root.get("clips") or {})
+        merged.update(overlay["clips"])
+        root = dict(root)
+        root["clips"] = merged
     return _parse_clips(anim, root.get("clips"), directory)
 
 
 def anim_load_forms(anims: list[PlayerAnim], max_forms: int,
                     directory: str) -> int:
     path = os.path.join(directory, "player_forms.json")
-    if not file_exists(path):
+    root = _read_optional_json(path)
+    if root is None:
         return 0
-    try:
-        root = read_json(path)
-    except (OSError, ValueError):
-        return 0
+    overlay = _read_optional_json(os.path.join(
+        _authored_dir(directory), "player_forms.json"))
+    by_form: dict[int, dict] = {}
+    for source in (root, overlay):
+        if not isinstance(source, dict):
+            continue
+        for entry in source.get("forms") or []:
+            if not isinstance(entry, dict):
+                continue
+            form = entry.get("form")
+            if not isinstance(form, (int, float)):
+                continue
+            index = int(form)
+            if 0 <= index < max_forms:
+                by_form[index] = entry
     count = 0
-    for entry in root.get("forms") or []:
-        if count >= max_forms:
-            break
-        form = entry.get("form")
-        if not isinstance(form, (int, float)):
-            continue
-        index = int(form)
-        if index < 0 or index >= max_forms:
-            continue
+    for index, entry in sorted(by_form.items()):
         if _parse_clips(anims[index], entry.get("clips"), directory):
             count += 1
     return count
 
 
 def anim_unload_forms(anims: list[PlayerAnim], count: int) -> None:
-    for i in range(count):
-        anim_unload(anims[i])
+    # Forms are overlaid by index, so a ready form can live outside the first
+    # ``count`` slots. Unload every ready sheet instead of assuming order.
+    for anim in anims:
+        if anim.ready:
+            anim_unload(anim)
 
 
 def anim_step(anim: PlayerAnim, clip: int, index: int):

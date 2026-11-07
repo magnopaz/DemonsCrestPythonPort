@@ -203,9 +203,9 @@ def game_transition_to_area(game: Game, area_id: int, spawn_id: int) -> bool:
     prev_area = game.level.area_id
     if not level_load_area(game.level, game.assets, game.asset_dir, area_id):
         level_load_area(game.level, game.assets, game.asset_dir, prev_area)
-        assets_load_area_bg(game.assets, game.level.area_id)
+        assets_load_area_bg(game.assets, game.level.bg_atlas_area)
         return False
-    assets_load_area_bg(game.assets, game.level.area_id)
+    assets_load_area_bg(game.assets, game.level.bg_atlas_area)
     player_init(game.player, game.level)
     game.intro_timer = 110
     if "DC_BOSS_CLEAR" in os.environ:
@@ -532,7 +532,7 @@ def game_init(game: Game, asset_dir: str) -> bool:
         return False
     if not level_load(game.level, game.assets, asset_dir):
         return False
-    assets_load_area_bg(game.assets, game.level.area_id)
+    assets_load_area_bg(game.assets, game.level.bg_atlas_area)
     player_init(game.player, game.level)
     game.intro_timer = 110
     projectiles_init(game.projectiles)
@@ -777,6 +777,14 @@ def game_update_simulation(game: Game) -> None:
         audio_play(C.SFX_SHOOT)
     objects_check_projectiles(game.objects, game.projectiles, game.player)
     objects_update(game.objects, game.level, game.player)
+    # Authored enemy sounds: the object layer queues exact SFX ids; the
+    # generic ENEMY_SHOOT event is the fallback when a pattern has no sound.
+    if game.objects.sfx_queue:
+        for sfx_id in game.objects.sfx_queue:
+            audio_play(sfx_id)
+        game.objects.sfx_queue.clear()
+    if game.objects.events & C.OBJECT_EVENT_ENEMY_SHOOT:
+        audio_play(C.SFX_SHOOT)
     if (game.objects.events & C.OBJECT_EVENT_FIRE_PIECE) and \
             game_narrative_enabled():
         piece = game.objects.last_fire_piece
@@ -1393,6 +1401,9 @@ def game_update_options(game: Game) -> None:
 def game_room_music(game: Game) -> int:
     """The track the current room's family plays (measured from the ROM)."""
     area = game.level.area_id
+    # An authored room may pin its own track; -1 means "use the area table".
+    if 0 <= game.level.music < C.MUSIC_TRACK_COUNT:
+        return game.level.music
     level = ""
     if 0 <= area < len(game.assets.room_levels):
         level = game.assets.room_levels[area]

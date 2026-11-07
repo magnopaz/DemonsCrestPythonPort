@@ -154,14 +154,14 @@ def _draw_layer(assets, layer, level, camera, index: int) -> None:
             if next_y > 224:
                 next_y = 224
             band_x = float(layer.scroll_x) + cam_dx * band.factor
-            _draw_layer_band(assets, layer, level.area_id, wrap_x, wrap_y,
+            _draw_layer_band(assets, layer, level.bg_atlas_area, wrap_x, wrap_y,
                              index == 0, band_x, origin_y, scan_y, next_y,
                              level.bg[1].map_w)
             scan_y = next_y
         return
 
     origin_x = camera.x + offset_x
-    _draw_layer_band(assets, layer, level.area_id, wrap_x, wrap_y, index == 0,
+    _draw_layer_band(assets, layer, level.bg_atlas_area, wrap_x, wrap_y, index == 0,
                      origin_x, origin_y, 0, 224, level.bg[1].map_w)
 
 

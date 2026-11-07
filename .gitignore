@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 .venv/
 __pycache__/
 *.pyc
@@ -13,6 +13,7 @@ build/
 # ROM-derived assets and captures are never committed (see README)
 assets/generated/
 assets/rom/
+assets/authored/backups/
 captures/
 saves/
 
