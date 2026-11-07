@@ -700,7 +700,7 @@ def main() -> int:
     print("regression: PASS (demos 6,7,9,10,11,12,13, boss data/runtime, "
           "hippogriff fight, arma crest/map chain, mode 7 map, "
           "object placement/placeholders, $72 flames, up-door pad_mask, "
-          "death continue hub, pit boss opening/launch, "
+          "death continue hub, pit boss opening/launch + damage, "
           "boss defeat + multi-area loads)")
     return 0
 
