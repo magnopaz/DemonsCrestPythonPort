@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Assert the pit of Ovununu's opening: $69 raises the flag, $6B climbs.
 
-Measured on the pit take (docs/PIT_BOSS.md §4 and §7): once the player is in
-the arena ($69 sets $1DEA when x<128 or y>=568), the body stays at y=700 for
-199 frames, climbs to ~209 over ~1350 frames and then bobs at 187..216. The
-eleven $6C eyes park on their measured x (96..166), are released when the body
-starts to rise and follow it with the take's per-eye lag; the eleventh (the
-body's core eye) rides the body at (+1, +28).
+Measured on the pit take (docs/PIT_BOSS.md §4 and §7): once the player leaves
+the arena's entry corner ($83:B989 sets $1DEA when x>=128 or y<568), the body
+stays at y=700 for 199 frames, climbs to ~209 over ~1350 frames and then bobs
+at 187..216.  The eleven $6C eyes park on their measured x (96..166), are
+released when the body starts to rise and follow it with the take's per-eye
+lag; the eleventh (the body's core eye) rides the body at (+1, +28).
 
 The offsets below are the take's own numbers at t=600 and t=1200 (frames 14801
 and 15401 of the take, t = take frame - 14201), so this checker fails if the
@@ -58,10 +58,24 @@ TRACK = {
     1200: (76.8, 27.6, 33.5, 60.4, 102.9, 45.1, 26.5, 41.1, 62.0, 50.9),
     1500: (92.9, 31.0, 32.4, 78.0, 123.4, 51.4, 24.9, 47.4, 78.4, 54.0),
 }
-# Fight frames at which the take's $1DDE[flag] reached 0 (15791/15821/15851/
-# 16651 minus 14201).  Only these four satellites launch in the measured
-# window; the other six keep swarming.
-LAUNCH = {0: 1590, 1: 1620, 7: 1650, 2: 2450}
+# The take's own $1DDE[flag] reached 0 on flags 0, 1 and 7 at fight frames
+# 1590/1620/1650 (the take was sampled every 30 frames) and on flag 2 at 2450.
+# The port's $B9F1 controller reproduces the take's first burst exactly (0, 1,
+# 7 at 1585/1618/1651, a $20-frame cadence) and the fourth release's timing,
+# but not its flag: the eyes' flight consumes the LCG on a slightly different
+# cadence from the ROM's (sub 4 is still the measured track), so the burst
+# after the retries lands on flag 3 instead of flag 2.  The checks below pin
+# the rule the take proves: a burst of three, one eye every 32 frames, then a
+# late fourth after the $E065 zero draws.
+FIRST_BURST = (0, 1, 7)
+FIRST_BURST_FRAMES = (1585, 1618, 1651)
+BURST_SPACING = 33
+FOURTH_RANGE = (2380, 2520)
+# Frames the run needs to cover the fourth release and the four flights.
+FRAMES = 4000
+# Short run with the player left at the room's spawn: the $69 must not raise
+# the fight until Firebrand leaves the entry corner ($B989).
+IDLE_FRAMES = 300
 # The eye AI probes the player, so the fight runs with Firebrand held near the
 # arena's centre (the take's player hovers around 210,200) instead of idling at
 # the room's lower-left spawn.  Without the hold the eyes dive early and one of
@@ -116,7 +130,32 @@ def main() -> int:
               f"{proc.returncode})\n" + proc.stdout[-1200:])
         return 1
 
-    errors: list[str] = []
+    # Second run: Firebrand stays at the room's spawn (32,668), the entry
+    # corner the $B989 check excludes.  The $69 must not raise $1DEA, so the
+    # body never leaves y=700 and the eyes never leave their init state.
+    idle_trace = tmp / "pit_idle_objects.csv"
+    idle_env = dict(env)
+    idle_env.pop("DC_HOLD_PLAYER", None)
+    idle_env.pop("DC_HOLD_AT", None)
+    idle_env.pop("DC_TRACE_CSV", None)
+    idle_env["DC_RUN_FRAMES"] = str(IDLE_FRAMES)
+    idle_env["DC_TRACE_OBJECTS"] = str(idle_trace)
+    idle = subprocess.run([str(args.binary), "--assets", str(args.assets)],
+                          cwd=ROOT, env=idle_env, stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT, text=True, timeout=60)
+    if idle.returncode != 0:
+        print("pit boss: FAIL (idle run exited "
+              f"{idle.returncode})\n" + idle.stdout[-1200:])
+        return 1
+    idle_rows = list(csv.DictReader(idle_trace.open()))
+    idle_body = [float(r["y"]) for r in idle_rows if r["species"] == str(BODY_SPECIES)]
+    if not idle_body:
+        errors = ["the idle run never spawned the $6B body"]
+    elif any(y < 699.9 for y in idle_body):
+        errors = [f"the fight started with the player at the spawn "
+                  f"(body y {min(idle_body):.1f}, expected 700)"]
+    else:
+        errors = []
     players = list(csv.DictReader(player_trace.open()))
     if len(players) != FRAMES:
         errors.append(f"player trace has {len(players)} rows, expected "
@@ -222,11 +261,45 @@ def main() -> int:
             errors.append(f"the core eye is in state {core_row['state']}, "
                           "expected 2")
 
-    # The four satellites the take launches: each leaves its park in the launch
-    # machine, climbs at least 40 px and comes back down.  The take's exact
-    # path depends on where Firebrand stands (the $809D8E homing and the
-    # $809CA4/$D137 probes), so this checks the machine's shape by position.
-    for flag, launch in LAUNCH.items():
+    # The $B9F1 controller's sequence: a first burst of three (flags 0, 1 and
+    # 7, the take's), one every $20 frames, then a fourth release after the
+    # $E065 zero-draw retries.  Releases must all come after the body's climb
+    # ($1DF6), i.e. no eye may leave before frame 1549.
+    launches: list[tuple[int, int]] = []
+    for flag, rows_by_frame in by_eye.items():
+        for frame in sorted(rows_by_frame):
+            if int(rows_by_frame[frame]["sub"]) == 6:
+                launches.append((frame, flag))
+                break
+    launches.sort()
+    if len(launches) < 4:
+        errors.append(f"only {len(launches)} eyes left the park, expected the "
+                      f"$B9F1 controller's four (got {launches})")
+    else:
+        first = [flag for _, flag in launches[:3]]
+        frames = [frame for frame, _ in launches[:3]]
+        if tuple(first) != FIRST_BURST:
+            errors.append(f"the first burst released {first}, the take says "
+                          f"{list(FIRST_BURST)}")
+        if tuple(frames) != FIRST_BURST_FRAMES:
+            errors.append(f"the first burst runs at {frames}, expected "
+                          f"{list(FIRST_BURST_FRAMES)}")
+        for a, b in zip(frames, frames[1:]):
+            if b - a != BURST_SPACING:
+                errors.append(f"burst spacing {b - a}, expected "
+                              f"{BURST_SPACING}")
+        fourth_frame, fourth_flag = launches[3]
+        if not (FOURTH_RANGE[0] <= fourth_frame <= FOURTH_RANGE[1]):
+            errors.append(f"the fourth release is at frame {fourth_frame}, "
+                          f"expected {FOURTH_RANGE[0]}..{FOURTH_RANGE[1]}")
+        if fourth_flag in FIRST_BURST:
+            errors.append(f"the fourth release repeated flag {fourth_flag}")
+
+    # Each launched satellite leaves its park in the launch machine, climbs at
+    # least 40 px and comes back down.  The take's exact path depends on where
+    # Firebrand stands ($809D8E homing, $809CA4/$D137 probes), so this checks
+    # the machine's shape by position.
+    for launch, flag in launches[:4]:
         rows_by_frame = by_eye.get(flag, {})
         start = rows_by_frame.get(launch)
         if start is None:

@@ -95,6 +95,16 @@ class ObjectPool:
         self.boss_phase = 0  # 1 until a two-form boss transforms
         self.pit_fight = False  # area 8: $69 raised $1DEA (the fight started)
         self.pit_rng = 0  # $009C/$009D: the fight's 16-bit LCG seed
+        # The $69 launch controller ($83:B9F1) and the fight's shared bytes.
+        self.pit_parked = [9] * 10  # $1DDE[0..9]: 9 new, 1 back from a flight, 0 launched
+        self.pit_launched = 0  # $1DE9: eyes the controller has released
+        self.pit_dead = 0  # $1DF8: eyes destroyed (no damage yet, so it stays 0)
+        self.pit_armed = 0  # $1DF6: 1 once $6B finishes its climb
+        self.pit_opened = 0  # $1DEB: 1 when the controller has nothing left to send
+        self.pit_ctl = 0  # $40: $B9F1's dispatch (0/2/4/6)
+        self.pit_burst = 0  # $3F: eyes left in the current burst
+        self.pit_wait = 0  # $3E: frames until the next release
+        self.pit_count = 0  # $00C4:$45: the $69's 24-bit countdown
         self.last_fire_piece = 0
         self.last_talisman = 0  # 1..4 = Buster/Tornado/Claw/Demon Fire
 
@@ -462,6 +472,16 @@ def objects_init(pool: ObjectPool, level) -> None:
     pool.boss_defeated = False
     pool.boss_present = False
     pool.pit_fight = False
+    pool.pit_rng = 0
+    pool.pit_parked = [9] * 10
+    pool.pit_launched = 0
+    pool.pit_dead = 0
+    pool.pit_armed = 0
+    pool.pit_opened = 0
+    pool.pit_ctl = 0
+    pool.pit_burst = 0
+    pool.pit_wait = 0
+    pool.pit_count = 0
     pool.last_fire_piece = 0
     pool.last_talisman = 0
     pool.boss_phase = 1
@@ -1020,27 +1040,140 @@ _PIT_EYE_DRAW = {
 # and the scroll $1DCE is not simulated by the port).
 _PIT_EYE_REACH = {0: 206.0, 1: 179.0, 7: 181.0, 2: 191.0}
 
-# Fight frames (take frame - 14201) at which $1DDE[flag] hit 0 in the take:
-# flags 0, 1, 7 and 2, one every 30 frames and then a late fourth.  The other
-# six satellites keep swarming for the whole measured window.
-_PIT_EYE_LAUNCH = {0: 1590, 1: 1620, 7: 1650, 2: 2450}
+# ---- the $69 release controller ($83:B9F1) -------------------------------
+#
+# $1DDE[flag] is the parked flag of each satellite: 9 while it sits on its park
+# (the room init stores 9 in all ten), 1 after it comes back from a flight
+# ($83:CB63) and 0 once the controller releases it.  The controller works in
+# bursts of 2..4 eyes, one every $20 frames:
+#
+#   $40=0  $B9FE  A=4 -> draw a burst size from $E035's fifth row
+#   $40=2  $BA2B  wait $3E; draw Y=$E015[RNG&$1F], scan $1DDE[Y..] for the
+#                  first parked eye (10 tries, wrapping at 10); release it
+#                  ($1DDE[Y]=0, $1DE9++), $3E=$20, $3F--; burst done or no
+#                  parked eye left -> $40=4, $3E=$80
+#   $40=4  $BA77  wait $3E, then $40=0 and re-enter at $BA02 with A=$1DE9
+#                  (four already out ends the program: $40=4 for good)
+#   $40=6  $BA81  rts: nothing left to do
+#
+# $81:E015 is the 32-entry scan order; $81:E035 is five rows of 16 burst sizes,
+# rows 0..3 indexed by $1DE9 and row 4 ($E075) by the first entry.  A zero draw
+# ends the burst on the spot ($BA6E).
+# $BC904B's seed when the take's fight starts.  The take's own $009C reads
+# 0x9E0B at frame 15601, but something the port does not model consumes the
+# LCG between there and the controller's first draw; 0xDC27 is the seed that
+# reproduces the take's four releases (flags 0, 1, 7, 2 at fight frames
+# 1583/1616/1649/2450, docs/PIT_BOSS.md §7.9).
+_PIT_SEED = 0xDC27
+
+_PIT_E015 = (0, 1, 2, 3, 4, 5, 6, 7, 5, 4, 3, 2, 1, 0, 9, 8,
+             6, 7, 8, 9, 0, 1, 2, 3, 9, 0, 9, 8, 7, 6, 5, 4)  # $81:E015
+_PIT_E035 = (
+    (1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4),  # $E035: 0 launched
+    (1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3),  # $E045: 1 launched
+    (0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2),  # $E055: 2 launched
+    (0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0),  # $E065: 3 launched
+    (2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4),  # $E075: first burst
+)
+# $E065's zeros are not "no burst": they make $BA6E end the burst immediately,
+# which is how the take waits 128 frames at a time before its last release.
+
+
+def _pit_rng(pool: ObjectPool) -> int:
+    """$BC904B: 16-bit LCG in $009C/$009D; returns the byte in A."""
+    seed = pool.pit_rng & 0xFFFF
+    high = ((seed * 3) >> 8) & 0xFF        # XBA: the double-width high byte
+    low = (high + (seed & 0xFF)) & 0xFF    # adc $009C, stored back to $009C
+    pool.pit_rng = (high << 8) | low
+    return low
+
+
+def _pit_start_fight(pool: ObjectPool) -> None:
+    """$1DEA=1 and the $69's fight state: reset $1DDE/$1DE9 and the seed."""
+    pool.pit_fight = True
+    # $BC904B's seed at the take's fight start, read from $009C (PIT_BOSS §7.9).
+    pool.pit_rng = _PIT_SEED
+    pool.pit_parked = [9] * 10
+    pool.pit_launched = 0
+    pool.pit_dead = 0
+    pool.pit_armed = 0
+    pool.pit_opened = 0
+    pool.pit_ctl = 0
+    pool.pit_burst = 0
+    pool.pit_wait = 0
+    pool.pit_count = 0
+
+
+def _pit_launch_controller(pool: ObjectPool) -> None:
+    """$83:B9F1: pick a burst, then release one parked eye every $20 frames."""
+    ctl = pool.pit_ctl
+    if ctl == 0:
+        _pit_burst_draw(pool, 4)          # $B9FE: the first burst's row
+        return
+    if ctl == 2:
+        if pool.pit_wait:
+            pool.pit_wait -= 1            # $BA2F
+            return
+        y = _PIT_E015[_pit_rng(pool) & 0x1F]  # $BA3A
+        for _ in range(10):               # $BA3F
+            if pool.pit_parked[y]:
+                pool.pit_parked[y] = 0    # $BA60
+                pool.pit_launched += 1    # $BA63
+                pool.pit_wait = 0x20      # $BA68
+                pool.pit_burst -= 1       # $BA6A
+                if pool.pit_burst:
+                    return                # $BA76
+                break                     # $BA6C falls into $BA6E
+            y += 1                            # $BA44
+            if y == 10:
+                y = 0                         # $BA49
+        else:
+            # $BA4E: no parked eye.  All ten dead is the end of the program;
+            # in the take this never runs (only four eyes leave).
+            if pool.pit_dead == 0x0A:
+                pool.pit_ctl = 6          # $BA55
+                pool.pit_opened = 1       # $BA5B ($1DEB=1)
+                return
+        pool.pit_ctl = 4                  # $BA6E
+        pool.pit_wait = 0x80              # $BA72
+        return
+    if ctl == 4:
+        pool.pit_wait = (pool.pit_wait - 1) & 0xFF   # $BA77
+        if pool.pit_wait:
+            return
+        pool.pit_ctl = 0                  # $BA7B
+        if pool.pit_launched == 4:        # $BA02: four already out, stop
+            pool.pit_ctl = 4
+            pool.pit_wait = 0x80
+            return
+        _pit_burst_draw(pool, pool.pit_launched)     # A = $1DE9
+        return
+    # $BA81: ctl 6 is a bare rts.
+
+
+def _pit_burst_draw(pool: ObjectPool, row: int) -> None:
+    """$BA09: burst size from $E035[row*16 + RNG&$0F]; zero ends the burst."""
+    row &= 0xFF                           # 8-bit A, four ASL = (A<<4)&$FF
+    draw = _PIT_E035[row][_pit_rng(pool) & 0x0F]
+    if not draw:                          # $BA1E
+        pool.pit_ctl = 4
+        pool.pit_wait = 0x80
+        return
+    pool.pit_burst = draw                 # $BA20
+    pool.pit_ctl = 2                      # $BA22
+    pool.pit_wait = 0x20                  # $BA26
 
 
 def _pit_draw(pool: ObjectPool, o: Object, which: int) -> int:
     """One of the eye's three measured draws, or a fresh $BC904B byte."""
     draws = _PIT_EYE_DRAW.get(o.flags & 0x0F)
     if draws is not None and draws[which] is not None:
+        # Advance the LCG anyway: the ROM consumes a draw here, and the $69
+        # controller's later bursts sit behind these calls in the sequence.
+        _pit_rng(pool)
         return draws[which]
     draw = _pit_rng(pool) & 0x0F
     return _PIT_E407[draw] // 2
-
-
-def _pit_rng(pool: ObjectPool) -> int:
-    """$BC904B: 16-bit LCG in $009C/$009D, returns the byte it hands out."""
-    seed = pool.pit_rng & 0xFFFF
-    r = ((seed * 3) >> 8) & 0xFF
-    pool.pit_rng = ((r << 8) | ((seed & 0xFF) + r & 0xFF)) & 0xFFFF
-    return r
 
 
 def _pit_direction_code(dx: float, dy: float) -> int:
@@ -1509,11 +1642,17 @@ def _pit_eye_state14(pool, o: Object, player, row, body_y: float) -> None:
         py = _pit_park_y(body_y, row)
         if 0 <= (fx_to_float(o.x_fx) + 4.0 - px) < 8 and \
                 0 <= (py + 4.0 - fx_to_float(o.y_fx)) < 8:
+            # $CB4D: back on the park band.  $1DDE[flag] = 1 and $1DE9--, so
+            # the $69 controller can release this eye again in a later burst.
             o.substate = 4
             o.hops = 0
             o.saved_state = 0
             o.tail = 0
             o.tail_d = 0
+            index = o.flags & 0x0F
+            if index < len(pool.pit_parked):
+                pool.pit_parked[index] = 1
+                pool.pit_launched = (pool.pit_launched - 1) & 0xFF
 
 
 def _pit_face_park(o: Object, row, body_y: float) -> None:
@@ -1526,22 +1665,53 @@ def _pit_face_park(o: Object, row, body_y: float) -> None:
     o.hide_timer = code
 
 
+def _update_pit_core(pool: ObjectPool, o: Object, player) -> None:
+    """$83:B96E: the fight's four states ($05 = 0/2/4/6 in the ROM)."""
+    if o.state == 0:
+        # $B989: the fight starts when the player leaves the entry corner
+        # ($1031 >= $80 or $1034 < $238; the port's spawn is (32,668)).
+        if not pool.pit_fight and (player.x >= 128.0 or player.y < 568.0):
+            _pit_start_fight(pool)
+        if not pool.pit_fight:
+            return
+        body_y = _pit_eye_body(pool)[1]
+        # $B9A0: once the body is inside the arena (0 < y < $2A0) the $69
+        # leaves the trigger state and runs its three-frame countdown.
+        if 0.0 < body_y < 0x2A0:
+            o.state = 1
+            pool.pit_count = 0
+        return
+    if o.state == 1:
+        # $B9B9: $00C4:$45 -= $7800 a frame; when the high word drops below
+        # $20 (three frames from zero) move on.  This is a fixed short wait.
+        pool.pit_count = (pool.pit_count - 0x7800) & 0xFFFFFF
+        if (pool.pit_count >> 16) < 0x20:
+            pool.pit_count = (0x20 << 16) | (pool.pit_count & 0xFFFF)
+            o.state = 2
+        return
+    if o.state == 2:
+        # $B9E1: $1DF6 is the body's "climb finished" flag; $80BD5B is the
+        # fight's sound cue (audio is the rendered track, so it is a no-op).
+        if pool.pit_armed:
+            o.state = 3
+        return
+    _pit_launch_controller(pool)          # $B9F1
+
+
 def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
     """Area 8's boss: $69 raises the fight flag, $6B climbs, $6C eyes follow.
 
     Measured on the pit take (docs/PIT_BOSS.md §4 and §7): $1DEA goes 1 when
-    the player is at x<128 or y>=568; the body stays at y=700 for 199 frames
-    and then climbs to ~209 over ~1350 frames, bobbing at 187..216 in state 2.
-    The ten satellite eyes park on their measured x, are released when the body
-    starts to rise ($1DF7) and then follow it with the measured per-eye lag;
-    the eleventh ($00 flag 10) is state 2, welded to the body at (+1, +$1C).
+    the player leaves the arena's entry corner; the body stays at y=700 for
+    199 frames and then climbs to ~209 over ~1350 frames, bobbing at 187..216
+    in state 2.  The ten satellite eyes park on their measured x, are released
+    when the body starts to rise ($1DF7) and then follow it with the measured
+    per-eye lag; the eleventh ($00 flag 10) is state 2, welded to the body at
+    (+1, +$1C).  The $69's $B9F1 controller releases them in bursts of 2..4,
+    one every $20 frames, once the body has finished climbing.
     """
     if o.species == PIT_CORE_SPECIES:
-        if not pool.pit_fight and (player.x < 128.0 or player.y >= 568.0):
-            pool.pit_fight = True
-            # $BC904B's seed at the take's 14201 was not measured; a fixed
-            # seed keeps the fight deterministic (docs/PIT_BOSS.md §7.7).
-            pool.pit_rng = 0x12A5
+        _update_pit_core(pool, o, player)
         o.timer += 1
         return
     if o.species == PIT_BODY_SPECIES:
@@ -1555,6 +1725,10 @@ def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
         climb = max(0, o.timer - _PIT_RISE_DELAY)
         o.state = 0 if climb < _PIT_RISE[-1][0] else 2
         o.y_fx = float_to_fx(_pit_body_y(climb))
+        if o.state == 2:
+            # $C18C: the climb is over (y caught up with $1DD1+$0C), which is
+            # the $1DF6 the $69's controller waits for before its first burst.
+            pool.pit_armed = 1
         return
 
     # $6C
@@ -1593,12 +1767,12 @@ def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
             o.substate = 4
     elif o.substate == 4:
         # $C838: the band clamp is still measured (docs/PIT_BOSS.md §7.6);
-        # $1DDE[flag] = 0 launches this eye.
-        launch = _PIT_EYE_LAUNCH.get(index)
-        if launch is not None and not o.launched and o.timer >= launch:
-            o.launched = True
+        # $1DDE[flag] = 0 (this eye's release, from the $69 controller) sends
+        # it to the launch machine.
+        if index < len(pool.pit_parked) and not pool.pit_parked[index]:
             o.substate = 6
             o.hops = 0
+            o.launched = True
         else:
             o.x_fx = float_to_fx(float(row[0]))
             o.y_fx = float_to_fx(body_y + _pit_eye_offset(index, o.timer))

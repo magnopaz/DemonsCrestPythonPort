@@ -127,6 +127,9 @@ def main() -> int:
                     help="also dump the fight's globals and per-slot parameter "
                          "tables to this CSV ($1DD0..$1E08, $E2C0..$E300, "
                          "$E380..$E3E0)")
+    ap.add_argument("--headers", action="store_true",
+                    help="read only each slot's first 12 bytes ($00/$02/$05/$06/"
+                         "$30..$35); much lighter for step-1 windows")
     ap.add_argument("--recomp", type=Path, default=RECOMP)
     ap.add_argument("--rom", type=Path, default=ROM)
     args = ap.parse_args()
@@ -157,7 +160,7 @@ def main() -> int:
         out = ["gframe,px,py,area8d,slot,flags,species,state,sub,x,y,raw"]
         extra = None
         if args.extra:
-            extra = ["gframe,globals,e2,e3"]
+            extra = ["gframe,rng,globals,e2,e3"]
         for g in range(1, last + 1, args.step):
             if g < args.start:
                 continue
@@ -166,17 +169,30 @@ def main() -> int:
             player = c.read(0x1030, 0x06)
             px = (player[0] | player[1] << 8 | player[2] << 16) / 256.0
             py = (player[3] | player[4] << 8 | player[5] << 16) / 256.0
-            pool = c.read(start_addr, n_bytes)
+            if args.headers:
+                recs = []
+                for i in range(SLOT_COUNT):
+                    base = start_addr + i * STRIDE
+                    head = c.read(base, 7)
+                    rec = bytearray(STRIDE)
+                    rec[:7] = head
+                    if head[2] in PIT_SPECIES:
+                        rec[0x30:0x36] = c.read(base + 0x30, 6)
+                    recs.append(bytes(rec))
+            else:
+                pool = c.read(start_addr, n_bytes)
+                recs = [pool[i * STRIDE:(i + 1) * STRIDE]
+                        for i in range(SLOT_COUNT)]
             if args.extra:
                 # $1DD0..$1E08: the fight's shared globals (phases, flags,
                 # scroll and the eye/body anchor); $E2C0..$E300 and
                 # $E380..$E3E0: the per-slot parameter tables the handlers
                 # index with $03 ($E2D5 -> ...) and $1DED/$1DEE.
-                blobs = (c.read(0x1DD0, 0x38), c.read(0xE2C0, 0x40),
-                         c.read(0xE380, 0x60))
+                blobs = (c.read(0x009C, 0x02), c.read(0x1DD0, 0x38),
+                         c.read(0xE2C0, 0x40), c.read(0xE380, 0x60))
                 extra.append(",".join([str(g)] + [b.hex() for b in blobs]))
             for i in range(SLOT_COUNT):
-                rec = pool[i * STRIDE:(i + 1) * STRIDE]
+                rec = recs[i]
                 if not rec[0] and not rec[2]:
                     continue
                 if rec[2] not in PIT_SPECIES:

@@ -5,8 +5,9 @@
 ## Estado
 
 - Repo: `~/Projetos/opencode/DemonsCrestPythonPort`
-- `HEAD` = o commit *Plan the next three steps…* (2026-11-04), **árvore
-  limpa**. As secções desta sessão estão no fim do ficheiro.
+- `HEAD` = o commit *Pit of Ovununu: port the `$69` launch controller*
+  (2026-11-06), **árvore limpa**. As secções desta sessão estão no fim do
+  ficheiro.
 - Regressão verde: `DISPLAY=:99 python3 tools/run_regression.py` → PASS
   (~7 min). Xvfb em `:99`; sem ele os demos falham com
   "X11: Failed to open display".
@@ -324,3 +325,42 @@ do frame. O `$1030`/`$1033` é que são o x/y do jogador (`$1031` é só a parte
 inteira; ler `$1031` dá lixo).
 
 **Regressão:** ver o fim deste ficheiro.
+
+## Passo C — controlador de lançamento do `$69` (2026-11-06, sessão 4)
+
+**Feito:** `$83:B9F1` portado em `dcpy/object.py` — `_update_pit_core` (os quatro
+estados do `$69`), `_pit_launch_controller`, `_pit_burst_draw` e
+`_pit_start_fight`, com `$1DDE`/`$1DE9`/`$1DF8` no `ObjectPool` e as tabelas
+`$81:E015`/`$81:E035`. `_PIT_EYE_LAUNCH` desapareceu.
+
+**O que a ROM corrigiu:**
+- O gatilho estava **invertido** no doc e no port: `$B989` sobe `$1DEA` quando
+  `x >= $80` **ou** `y < $238` (sair do canto de entrada), não quando `x < 128`
+  ou `y >= 568`. `check_pit_boss.py` ganhou 300 frames com o jogador parado no
+  spawn e exige o corpo em y=700.
+- `$1DDE[0..9]` começa todo a **9** (o `txa` está fora do laço em `$B951`), 1 no
+  regresso (`$CB63`) e 0 no lançamento; `$1DE9--` no regresso (`$CB66`).
+- `$1DF6` é o "subiu" do `$6B` (`$C18C`, uma vez); `$1DF8` conta mortos
+  (`$D207: dec $1DE9; inc $1DF8`).
+- O LCG `$BC904B` devolve o **low byte novo**, não o `r = (3*seed)>>8`.
+- `$E035` tem 5 linhas de 16 (a primeira rajada usa `$E075`); `$BA02` termina o
+  programa quando `$1DE9 == 4`.
+
+**Medição:** o trace build do recomp **morre por volta do frame 15810** (o
+debug server fecha o socket, sem mensagem; aconteceu duas vezes, com leituras
+grandes e pequenas). `$009C` foi lido a 15601 (`0x9E0B`). A semente que
+reproduz as libertações da take é **`0xDC27`** (busca exaustiva): flags 0/1/7 em
+1583/1616/1649 e a quarta em 2450, contra 1590/1620/1650/2450 da take
+(amostrada de 30 em 30). `_PIT_EYE_DRAW` fica, mas passou a consumir o LCG para
+não desalinhar os sorteios seguintes.
+
+**Verificação:** no port, luta no frame 2, corpo no topo em 1549, libertações
+0/1/7 em **1585/1618/1651** e a quarta em **2452** — mas a quarta é a flag 3,
+não a 2: o voo dos olhos consome o LCG em fases diferentes das do ROM. O tempo
+bate, a identidade não; dívida em §7.5.6 de `docs/PIT_BOSS.md`.
+
+**Regressão:** `DISPLAY=:99 python3 tools/run_regression.py` → PASS (EXIT=0),
+com `pit boss opening/launch` no resumo.
+
+**Próximo, por ordem:** `sub 4` exacto com as tabelas e apagar `_PIT_EYE_TRACK`;
+depois dano/HP/morte (aí entram `$1DF8` e `$1DEB`), arte e lock.

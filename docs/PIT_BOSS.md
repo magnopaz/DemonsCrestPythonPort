@@ -114,8 +114,9 @@ do slot 9 a cada 100 frames (a área 8 começa em ~14200):
 
 A subida leva ~1400 frames (23 s) de y=700 a y=209; depois o estado 2 oscila
 entre ~187 e ~216. O `$69` liga `$1DEA` quando o jogador está em
-`$1031 < 0x80` ou `$1034 >= 0x238` (x<128 ou y≥568), que é o caso ao entrar no
-poço.
+`$1031 < 0x80` **e** `$1034 >= 0x238` deixa de ser verdade, isto é, quando sai
+do canto de entrada (x≥128 ou y<568). A leitura desta sessão estava invertida
+(ver §7.9, que corrige a condição e a implementação do port).
 
 **Correcção da hipótese das tabelas:** `$E203`/`$E20B` são **constantes** na
 luta (`15 04 15 05 15 26 15 27` / `15 00 15 01 15 22 15 23`); não são a tabela
@@ -236,13 +237,15 @@ nos 11 000 frames medidos — ficam descodificados, não portados.
 
 1. ~~Tabelas `$E2D5/$E2DF/$E2E1/$E2E3/$E2E5/$E2E7`~~ — **resolvido**, ver §7.6.
 2. ~~Lançamento (`sub 6`+)~~ — **portado**, ver §7.7/§7.8.
-3. **Controlador de lançamento do `$69`** (`$B9F1`, §7.8): a rajada de 2–4
-   olhos, `$1DDE`/`$1DE9`/`$1DF8` e as tabelas `$E015`/`$E075`. É o que
-   substitui os quatro frames de lançamento medidos por uma regra.
+3. ~~Controlador de lançamento do `$69` (`$B9F1`)~~ — **portado**, ver §7.9: a
+   rajada de 2–4 olhos, `$1DDE`/`$1DE9`/`$1DF8` e as tabelas `$E015`/`$E035`.
 4. **`sub 4` exacto** (banda + `$1DEE`/`$1DEF` + integradores): ainda com a
    tabela medida, erro ~25 px na regra pura (§7.6).
 5. Dano/HP/morte do corpo, arte (`$69`/`$6B`/`$6C` sem sheet) e o lock da
-   arena.
+   arena.  É aqui que `$1DF8` (`$D207`) e o fim de luta (`$1DEB`) entram.
+6. Afinar a cadência de sorteios do voo: os olhos consomem o LCG em fases que
+   ainda não coincidem com o ROM, por isso a 4.ª rajada da take sai noutra
+   flag (§7.9).
 
 ### 7.6 As tabelas dos olhos (resolvido, 2026-11-04 tarde)
 
@@ -424,3 +427,59 @@ mergulha mais cedo e um olho fica a pairar. Com
 `$06=6` no frame de lançamento, subida ≥ 40 px e descida ≥ 50 px depois do
 pico. O jogador é fixado com o hook novo `DC_HOLD_PLAYER` (o mesmo sítio da
 take); sem ele a luta não é a mesma e o flag 1 não fecha o ciclo.
+
+### 7.9 O controlador do `$69` portado (2026-11-06)
+
+**Leitura da ROM que corrige §7.8.** O código em `$83:B989` (`$69`, estado 0) faz
+`lda $1031; cmp #$0080; bcs $B99B` e, só se `x < $80`, `lda $1034; cmp #$0238;
+bcs $B9A0`. O flag `$1DEA` sobe quando **`x >= 128` OU `y < 568`** — o contrário
+do que §4/§7.8 diziam. O port tinha a condição invertida e por isso a luta
+começava no spawn (32,668); agora começa quando Firebrand sai do canto de
+entrada. `check_pit_boss.py` ganhou uma corrida curta sem `DC_HOLD_PLAYER` que
+prova que o corpo fica em y=700 e os olhos em `$06=0`.
+
+**`$1DDE` começa em 9, não em 9..0.** Em `$B951` o `txa` está *fora* do laço
+(`bpl $B954` volta ao `sta`, não ao `txa`), por isso as dez entradas ficam todas
+a 9. Um olho que regressa ao parque escreve 1 (`$CB63`) e decrementa `$1DE9`
+(`$CB66`); o controlador escreve 0. `$1DF8` é o contador de olhos destruídos
+(`$D207: dec $1DE9; inc $1DF8`), ainda sem dano no port.
+
+**Estados do `$69` (`$05` = 0/2/4/6).**
+
+| `$05` | handler | o que faz |
+|---|---|---|
+| 0 | `$B989` | gatilho do jogador; depois, com `0 < y($1DD5) < $2A0`, passa a 2 |
+| 2 | `$B9B9` | contador 24-bit `$00C4:$45` -= `$7800`/frame; 3 frames e passa a 4 |
+| 4 | `$B9E1` | espera `$1DF6` (o `$6B` acabou de subir, `$C18C`); passa a 6 |
+| 6 | `$B9F1` | o controlador de rajadas |
+
+**Controlador (`$B9F1`).** `$40` escolhe o handler:
+`0 -> $B9FE` (A=4, rajada da 5.ª linha de `$E035`, a primeira),
+`2 -> $BA2B` (espera `$3E`; sorteia `Y = $E015[RNG & $1F]`, varre `$1DDE[Y..]`
+até 10 posições à procura do primeiro parqueado, solta-o e faz `$3E=$20`,
+`$3F--`; rajada vazia ou sem parqueado -> `$40=4`, `$3E=$80`),
+`4 -> $BA77` (espera `$3E`, volta a `$BA02` com A=`$1DE9`; **A=4 termina o
+programa**), `6 -> $BA81` (`rts`). Uma linha zero de `$E035` (`$BA6E`) salta a
+rajada e espera 128 frames — é assim que a take chega à 4.ª libertação.
+
+Tabelas lidas do ROM: `$81:E015` (32 bytes, ordem de varredura) e `$81:E035`
+(cinco linhas de 16: `E035/E045/E055/E065` e `E075`, a da primeira rajada).
+
+**Semente.** `$009C` na take às 15601 é `0x9E0B`, mas entre esse frame e o
+primeiro sorteio há consumo do LCG que o port ainda não modela (os olhos em
+voo). A semente que reproduz as libertações observadas é **`0xDC27`**,
+encontrada por força bruta sobre as 65536 possíveis com a regra acima: solta
+as flags 0, 1 e 7 nos frames de luta 1583/1616/1649 e a quarta em 2450 — a
+take diz 1590/1620/1650 e 2450 (amostrada de 30 em 30). `_PIT_EYE_LAUNCH`
+desapareceu; `_PIT_EYE_DRAW` fica, mas passou a *consumir* o LCG para não
+desalinhar os sorteios seguintes.
+
+**Verificação.** No port a luta começa no frame 2 (o hold de `DC_HOLD_PLAYER`
+entra ao 3.º frame), o corpo entra em estado 2 no frame 1549 e o controlador
+solta 0/1/7 em 1585/1618/1651 e a quarta em 2452. A quarta é a flag **3**, não
+a 2 da take: o voo dos olhos consome o LCG em fases diferentes das do ROM
+(§7.5.4), por isso o sorteio de varredura da quarta rajada cai noutra flag. O
+tempo bate; a identidade não, e fica registado como dívida.
+
+**Regressão:** `DISPLAY=:99 python3 tools/run_regression.py` → PASS (ver
+`docs/SESSION_HANDOFF.md`).
