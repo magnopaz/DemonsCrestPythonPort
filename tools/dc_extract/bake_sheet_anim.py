@@ -195,10 +195,12 @@ SPECS["crawler"] = _boss(
 # -- Dark Demon ($BC) -------------------------------------------------------
 SPECS["dark_demon"] = _boss(
     "dark_demon", "Dark Demon", "bc", 0xBC,
-    [{"name": "idle", "y": (44, 149), "x": (0, 659), "duration": 8},
-     {"name": "attack", "y": (196, 336), "x": (0, 659), "duration": 8}],
-    "Dark Demon.gif top two body rows (idle/charge/attack); the $8A effect "
-    "rows and the credit block are skipped")
+    [{"name": "idle", "y": (44, 149), "x": (0, 410), "duration": 10},
+     {"name": "attack", "y": (44, 149), "x": (410, 659), "duration": 8},
+     {"name": "fallen_angel", "y": (196, 336), "x": (0, 659), "duration": 8}],
+    "Dark Demon.gif: captions read Idle and Charge/Attack + Sin Rain over the "
+    "top row, Fallen Angel Form over the second; the $8A effect rows and the "
+    "credit block are skipped")
 
 # -- Flame Lord ($58) -------------------------------------------------------
 SPECS["flame_lord"] = _boss(

@@ -468,12 +468,15 @@ The older named bakers (`bake_boss_sheets.py`, `bake_boss_rows.py`,
 `assets/generated`; use them only to read their measured boxes, not to ship
 authored art.
 
-**State names are provisional.** Arma/Ultimate Arma names come from the
-sheet's own captions (Idle, Laughing, Intro, Flying, Breath Attack, Divebomb,
-Hurricane, Demon Fire). For the other bosses the names are row-order
-inferences (first body row = `idle`, next = `walk`/`attack`, single recoil =
-`hurt`); the numbers are an editor map, not proof of the object AI. Rename in
-the Editor as the AI is ported. Boss art is not one sprite:
+**State names are provisional.** Arma/Ultimate Arma (Idle, Laughing, Intro,
+Flying, Breath Attack, Divebomb, Hurricane, Demon Fire) and Grewon (Intro/Idle,
+Running, Jump, Breath Attack, Hurt) are decoded from the sheet captions.
+Hipogriff's first row is captioned Flying and the third Charge / Feather
+Attack / Hurt, so its middle row is the second palette set (`flying_b`). For
+the remaining bosses the names are row-order inferences (first body row =
+`idle`, next = `walk`/`attack`, single recoil = `hurt`); the numbers are an
+editor map, not proof of the object AI. Rename in the Editor as the AI is
+ported. Boss art is not one sprite:
 
 - `Arma`: body plus projectile/effect rows; do not include the effect as a
   body frame. Palette variants are flags 0/2/4, not separate sheets.

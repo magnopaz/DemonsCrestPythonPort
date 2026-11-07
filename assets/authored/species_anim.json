@@ -1071,7 +1071,7 @@
      "texture": "sprites/dark_demon/dark_demon_00_idle.png",
      "anchor_x": 63,
      "anchor_y": 98,
-     "duration": 8,
+     "duration": 10,
      "width": 126,
      "height": 98
     },
@@ -1079,7 +1079,7 @@
      "texture": "sprites/dark_demon/dark_demon_01_idle.png",
      "anchor_x": 66,
      "anchor_y": 96,
-     "duration": 8,
+     "duration": 10,
      "width": 132,
      "height": 96
     },
@@ -1087,12 +1087,12 @@
      "texture": "sprites/dark_demon/dark_demon_02_idle.png",
      "anchor_x": 60,
      "anchor_y": 96,
-     "duration": 8,
+     "duration": 10,
      "width": 120,
      "height": 96
     },
     {
-     "texture": "sprites/dark_demon/dark_demon_03_idle.png",
+     "texture": "sprites/dark_demon/dark_demon_03_attack.png",
      "anchor_x": 56,
      "anchor_y": 103,
      "duration": 8,
@@ -1100,7 +1100,7 @@
      "height": 103
     },
     {
-     "texture": "sprites/dark_demon/dark_demon_04_idle.png",
+     "texture": "sprites/dark_demon/dark_demon_04_attack.png",
      "anchor_x": 43,
      "anchor_y": 95,
      "duration": 8,
@@ -1108,7 +1108,7 @@
      "height": 95
     },
     {
-     "texture": "sprites/dark_demon/dark_demon_05_attack.png",
+     "texture": "sprites/dark_demon/dark_demon_05_fallen_angel.png",
      "anchor_x": 35,
      "anchor_y": 134,
      "duration": 8,
@@ -1116,7 +1116,7 @@
      "height": 134
     },
     {
-     "texture": "sprites/dark_demon/dark_demon_06_attack.png",
+     "texture": "sprites/dark_demon/dark_demon_06_fallen_angel.png",
      "anchor_x": 35,
      "anchor_y": 134,
      "duration": 8,
@@ -1124,7 +1124,7 @@
      "height": 134
     },
     {
-     "texture": "sprites/dark_demon/dark_demon_07_attack.png",
+     "texture": "sprites/dark_demon/dark_demon_07_fallen_angel.png",
      "anchor_x": 35,
      "anchor_y": 134,
      "duration": 8,
@@ -1132,7 +1132,7 @@
      "height": 134
     },
     {
-     "texture": "sprites/dark_demon/dark_demon_08_attack.png",
+     "texture": "sprites/dark_demon/dark_demon_08_fallen_angel.png",
      "anchor_x": 35,
      "anchor_y": 134,
      "duration": 8,
@@ -1140,7 +1140,7 @@
      "height": 134
     },
     {
-     "texture": "sprites/dark_demon/dark_demon_09_attack.png",
+     "texture": "sprites/dark_demon/dark_demon_09_fallen_angel.png",
      "anchor_x": 35,
      "anchor_y": 134,
      "duration": 8,
@@ -1148,7 +1148,7 @@
      "height": 134
     },
     {
-     "texture": "sprites/dark_demon/dark_demon_10_attack.png",
+     "texture": "sprites/dark_demon/dark_demon_10_fallen_angel.png",
      "anchor_x": 35,
      "anchor_y": 106,
      "duration": 8,
@@ -1160,11 +1160,13 @@
     "0": [
      0,
      1,
-     2,
+     2
+    ],
+    "1": [
      3,
      4
     ],
-    "1": [
+    "2": [
      5,
      6,
      7,
@@ -1175,11 +1177,12 @@
    },
    "state_names": {
     "0": "idle",
-    "1": "attack"
+    "1": "attack",
+    "2": "fallen_angel"
    },
    "hurt": 0,
    "default": 0,
-   "source": "Dark Demon.gif top two body rows (idle/charge/attack); the $8A effect rows and the credit block are skipped"
+   "source": "Dark Demon.gif: captions read Idle and Charge/Attack + Sin Rain over the top row, Fallen Angel Form over the second; the $8A effect rows and the credit block are skipped"
   },
   "58": {
    "species": 88,
