@@ -711,7 +711,7 @@ def main() -> int:
           "hippogriff fight, arma crest/map chain, mode 7 map, "
           "object placement/placeholders, $72 flames, up-door pad_mask, "
           "death continue hub, pit boss opening/launch + damage, "
-          "boss hp (boss_hp.txt), boss defeat + multi-area loads)")
+          "boss hp/damage (boss_hp.txt), boss defeat + multi-area loads)")
     return 0
 
 

@@ -11,11 +11,12 @@ from __future__ import annotations
 import math
 import re
 
-from .bosses import boss_hp
+from .bosses import boss_damage, boss_hp
 from .consts import (
-    CREST_TIME, CREST_ULTIMATE, LEVEL_OBJECT_BOSS, LEVEL_OBJECT_ENEMY,
-    LEVEL_OBJECT_NPC, LEVEL_OBJECT_PICKUP_CREST, LEVEL_OBJECT_PLATFORM,
-    LEVEL_OBJECT_TALISMAN, LEVEL_OBJECT_UNKNOWN, LEVEL_OBJECT_URN,
+    CREST_TIME, CREST_ULTIMATE, LEVEL_OBJECT_BOSS,
+    LEVEL_OBJECT_ENEMY, LEVEL_OBJECT_NPC, LEVEL_OBJECT_PICKUP_CREST,
+    LEVEL_OBJECT_PLATFORM, LEVEL_OBJECT_TALISMAN, LEVEL_OBJECT_UNKNOWN,
+    LEVEL_OBJECT_URN,
     OBJECT_BOSS, OBJECT_CREST_ITEM,
     OBJECT_ENEMY, OBJECT_ENEMY_SHOT, OBJECT_EVENT_BOSS_DEFEATED,
     OBJECT_EVENT_BREAK, OBJECT_EVENT_CREST_PICKUP, OBJECT_EVENT_ENEMY_HIT,
@@ -810,14 +811,14 @@ PIT_EYE_HP = 3
 
 
 def _pit_damage(player) -> int:
-    """Damage the current form deals, per docs/boss_hp.txt's Ovununu column.
+    """Damage the current form deals to the pit trio.
 
-    Fire/Buster/Claw/Tidal 1, Demon Fire 3, Earth (ground) 2, Earth (air) 1,
-    Aerial 2, Legendary/Ultimate 5.  The port only models the ultimate form
-    explicitly today, so every other form uses the base 1."""
-    if player.crest_form == CREST_ULTIMATE:
-        return 5
-    return 1
+    The body ($6B) and the eyes ($6C) use Ovununu's row in docs/boss_hp.txt,
+    which is keyed on species $16 in dcpy/bosses.py: Fire/Buster/Claw/Tidal 1,
+    Demon Fire 3, Earth (ground) 2, Earth (air) 1, Aerial 2,
+    Legendary/Ultimate 5."""
+    damage = boss_damage(0x16, 0x00, player.crest_form, player.on_ground)
+    return 1 if damage is None else damage
 
 # The body's climb, sampled every 20 frames from the pit take (frame 14400 is
 # the room entry; 15750 is the top). The ROM's internal stages are $3E/scroll
@@ -2656,6 +2657,17 @@ def objects_check_projectiles(pool: ObjectPool, projectiles, player=None) -> Non
                     if ((o.species == 0x33 or o.species == 0x13) and
                             o.hit_flash > 0):
                         continue
+                    # docs/boss_hp.txt: each form's column decides the
+                    # damage; bosses with no row (Somulo's scripted fight)
+                    # keep the projectile's own damage.
+                    # phase 0: the two-form rows (Dark Demon) are not wired
+                    # to a form index yet, so the first value is used.
+                    form_damage = (
+                        boss_damage(o.species, o.flags, player.crest_form,
+                                    player.on_ground)
+                        if player is not None else None)
+                    if form_damage is not None:
+                        dmg = form_damage
                     p.active = False
                     o.hp -= dmg
                     if o.species == 0x33:

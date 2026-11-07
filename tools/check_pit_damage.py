@@ -21,10 +21,12 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from dcpy.consts import CREST_ULTIMATE, OBJECT_EVENT_BOSS_DEFEATED  # noqa: E402
+from dcpy.consts import (  # noqa: E402
+    CREST_AIR, CREST_BASE, CREST_EARTH, CREST_TIME, CREST_ULTIMATE,
+    CREST_WATER, OBJECT_EVENT_BOSS_DEFEATED)
 from dcpy.object import (  # noqa: E402
     PIT_BODY_HP, PIT_BODY_SPECIES, PIT_EYE_HP, PIT_EYE_SPECIES, ObjectPool,
-    _pit_damage, _spawn_unknown, objects_check_projectiles)
+    _pit_damage, _spawn_boss, _spawn_unknown, objects_check_projectiles)
 from dcpy.projectile import ProjectilePool  # noqa: E402
 from dcpy.util import fx_to_float  # noqa: E402
 
@@ -34,6 +36,7 @@ class Player:
         self.x = x
         self.y = y
         self.crest_form = 0
+        self.on_ground = True
         self.active_talisman = 0
         self.invuln_timer = 0
         self.hp = 7
@@ -50,7 +53,7 @@ def spawn(pool, species, x, y, flags=0):
     raise AssertionError(f"{species:#x} did not spawn")
 
 
-def shoot(pool, o, damage=1):
+def shoot(pool, o, damage=1, player=None):
     """Fire one projectile that starts on the body's own box."""
     proj = ProjectilePool()
     p = proj.slots[0]
@@ -58,19 +61,32 @@ def shoot(pool, o, damage=1):
     p.x_fx = o.x_fx
     p.y_fx = o.y_fx
     p.damage = damage
-    objects_check_projectiles(pool, proj)
+    objects_check_projectiles(pool, proj, player)
 
 
 def main() -> int:
     errors: list[str] = []
 
+    # The document's Ovununu column, one row per port form.  Earth splits on
+    # whether Firebrand is grounded; the rest are flat.
     player = Player(128.0, 640.0)
-    if _pit_damage(player) != 1:
-        errors.append(f"base form damage {_pit_damage(player)}, expected 1")
-    player.crest_form = CREST_ULTIMATE
-    if _pit_damage(player) != 5:
-        errors.append(f"ultimate damage {_pit_damage(player)}, expected 5")
-    player.crest_form = 0
+    form_damage = [
+        (CREST_BASE, True, 1, "Fire"),
+        (CREST_EARTH, True, 2, "Earth (ground)"),
+        (CREST_EARTH, False, 1, "Earth (air)"),
+        (CREST_AIR, True, 2, "Aerial"),
+        (CREST_WATER, True, 1, "Tidal"),
+        (CREST_TIME, True, 5, "Legendary"),
+        (CREST_ULTIMATE, True, 5, "Ultimate"),
+    ]
+    for form, grounded, want, label in form_damage:
+        player.crest_form = form
+        player.on_ground = grounded
+        got = _pit_damage(player)
+        if got != want:
+            errors.append(f"{label} damage {got}, expected {want}")
+    player.crest_form = CREST_BASE
+    player.on_ground = True
 
     # Body: 10 hits of 1 damage, then the fight is over.
     pool = ObjectPool()
@@ -80,7 +96,7 @@ def main() -> int:
     pool.pit_fight = True
     pool.boss_alive = True
     for hit in range(1, PIT_BODY_HP + 1):
-        shoot(pool, body)
+        shoot(pool, body, player=player)
         want = PIT_BODY_HP - hit
         if body.active and body.hp != want:
             errors.append(f"after {hit} hits the body has {body.hp}, "
@@ -102,17 +118,65 @@ def main() -> int:
         errors.append(f"eye HP {eye.hp}, docs/boss_hp.txt says {PIT_EYE_HP}")
     pool.pit_fight = True
     for hit in range(1, PIT_EYE_HP + 1):
-        shoot(pool, eye)
+        shoot(pool, eye, player=player)
     if eye.active:
         errors.append("the eye survived 3 fire hits")
     if pool.pit_dead != 1:
         errors.append(f"pit_dead {pool.pit_dead}, expected 1 ($1DF8)")
 
+    # ---- the generic boss path ($A5/$82/$33 in a room) ----
+    def boss(species, flags=0):
+        pool = ObjectPool()
+        _spawn_boss(pool, SimpleNamespace(species=species, flags=flags,
+                                          x=128.0, y=128.0))
+        for o in pool.slots:
+            if o.active and o.type == 6:
+                return pool, o
+        raise AssertionError(f"boss {species:#x} did not spawn")
+
+    # Arma 1: Ultimate 5, Earth (ground) 2, Fire 1.
+    pool, arma = boss(0xA5, 0)
+    hp = arma.hp
+    player.crest_form = CREST_ULTIMATE
+    shoot(pool, arma, player=player)
+    if arma.hp != hp - 5:
+        errors.append(f"Arma 1 ultimate hit: hp {arma.hp}, expected {hp - 5}")
+    hp = arma.hp
+    player.crest_form = CREST_EARTH
+    player.on_ground = True
+    shoot(pool, arma, player=player)
+    if arma.hp != hp - 2:
+        errors.append(f"Arma 1 earth hit: hp {arma.hp}, expected {hp - 2}")
+    hp = arma.hp
+    player.crest_form = CREST_BASE
+    shoot(pool, arma, player=player)
+    if arma.hp != hp - 1:
+        errors.append(f"Arma 1 fire hit: hp {arma.hp}, expected {hp - 1}")
+
+    # Crawler: the document says Earth (ground) is N/A, so the hit does 0.
+    pool, crawler = boss(0x82, 0)
+    hp = crawler.hp
+    player.crest_form = CREST_EARTH
+    player.on_ground = True
+    shoot(pool, crawler, player=player)
+    if crawler.hp != hp:
+        errors.append(f"Crawler earth hit: hp {crawler.hp}, expected {hp}")
+
+    # Somulo has no row: the projectile's own damage is kept (scripted fight).
+    pool, somulo = boss(0x33, 128)
+    hp = somulo.hp
+    player.crest_form = CREST_ULTIMATE
+    shoot(pool, somulo, damage=1, player=player)
+    if somulo.hp != hp - 1:
+        errors.append(f"Somulo hit: hp {somulo.hp}, expected {hp - 1}")
+
     # The ultimate form kills an eye in one hit (5 >= 3).
     pool = ObjectPool()
     eye = spawn(pool, PIT_EYE_SPECIES, 96.0, 254.0, flags=0)
     pool.pit_fight = True
-    shoot(pool, eye, damage=5)
+    player.crest_form = CREST_ULTIMATE
+    shoot(pool, eye, damage=5, player=player)
+    player.crest_form = CREST_BASE
     if eye.active:
         errors.append("a 5-damage hit did not kill an eye")
 
@@ -121,7 +185,7 @@ def main() -> int:
         for e in errors:
             print("  - " + e)
         return 1
-    print("pit damage: PASS (body 10 hits, eye 3, ultimate 5; "
+    print("pit damage: PASS (body 10 hits, eye 3, form damage 1/2/1/2/1/5/5; "
           "the fight ends and sets boss_defeated)")
     return 0
 

@@ -5,7 +5,7 @@
 ## Estado
 
 - Repo: `~/Projetos/opencode/DemonsCrestPythonPort`
-- `HEAD` = *Boss HP: table from boss_hp.txt + checker* (2026-11-07),
+- `HEAD` = *Bosses: per-form damage from boss_hp.txt* (2026-11-07),
   **árvore limpa**. As secções das últimas sessões estão no fim do ficheiro.
 - Regressão verde com **`.venv/bin/python`**:
   `DISPLAY=:99 .venv/bin/python tools/run_regression.py` → PASS (~7 min, até
@@ -459,12 +459,25 @@ nasce com **127** (era 10). Valores de `docs/boss_hp.txt`:
 | `$68` | — | Belth | 32 |
 
 `docs/BOSS_HP.md` tem o mapa completo, as fontes e o que continua fora da
-tabela (Flier 1/2, Phalanx 3, forma voadora do Flame Lord, dano por forma).
+tabela (Flier 1/2, Phalanx 3, forma voadora do Flame Lord).
 
-**Checker (na regressão):** três passes — o documento contra a tabela, todas as
-salas com boss contra a tabela, e o boot de cada sala a ler a coluna `hp` do
-`DC_TRACE_OBJECTS` (16 salas; 18 corridas com a fase 2 do Phalanx). Uma espécie
-nova que caia no fallback 8 falha alto.
+**Dano por forma (mesma sessão):** `dcpy/bosses.py` ganhou `BOSS_DAMAGE` /
+`SPECIES_DAMAGE` — as dez colunas de cada luta — e
+`boss_damage(species, flags, form, grounded)`.  Mapa: base = Fire, Earth =
+Earth (chão 2 / ar 1), Air = Aerial, Water = Tidal, Time = Legendary, Ultimate
+= Ultimate; `N/A` = 0 (imune); células "2/1" (Dark Demon) indexadas por
+`phase` (hoje 0).  `_pit_damage` lê a linha do Ovununu (`$16`) e o ramo
+`OBJECT_BOSS` usa a linha do boss: Hippogriff Aerial 4, Grewon
+Legendary/Ultimate 10, Belth Earth 3, Holothurion imune a Fire.  Somulo (sem
+linha, guião) mantém o dano do projétil.  `check_boss_hp.py` ganhou o passe do
+dano (17 linhas x 10 colunas) e 11 casos forma→coluna; `check_pit_damage.py`
+ganhou 4 casos no ramo genérico (Arma Ultimate/Earth, Crawler N/A, Somulo).
+
+**Checker (na regressão):** quatro passes — o documento contra a tabela (HP e
+as dez colunas de dano), os onze casos forma→coluna, todas as salas com boss
+contra a tabela, e o boot de cada sala a ler a coluna `hp` do
+`DC_TRACE_OBJECTS` (16 salas; 18 verificações com a fase 2 do Phalanx). Uma
+espécie nova que caia no fallback 8 falha alto.
 
 **Achado (ROM):** a tabela de estados do `$6B` (`$83:BFF3`) é indexada pelo
 **valor** de `$05` (0/2/4), não por `$05*2`; o estado de morte é `$05=4`, não

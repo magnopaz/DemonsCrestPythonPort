@@ -51,6 +51,35 @@ Phalanx phase-2 body spawns with `boss_hp(0x8D, 0)` (127) instead of the old
 entry gets `DEFAULT_BOSS_HP = 8`, which the checker treats as an error so a new
 boss cannot silently ship with the wrong number.
 
+## Damage (`boss_damage`)
+
+The document's other columns are the damage each Firebrand form deals.  They
+are copied per fight into `BOSS_DAMAGE` / `SPECIES_DAMAGE`, because they differ
+by boss: Hippogriff takes 4 from Aerial, Grewon 10 from Legendary/Ultimate,
+Belth 3 from Earth (ground), Holothurion is immune to Fire (`N/A` -> 0).
+
+The port's six crest forms map onto the document's form columns:
+
+| port form | column |
+|---|---|
+| base | Fire |
+| Earth, grounded | Earth (Ground) |
+| Earth, airborne | Earth (Air) |
+| Air | Aerial |
+| Water | Tidal |
+| Time | Legendary |
+| Ultimate | Ultimate |
+
+`N/A` means the form cannot hurt that boss (0 damage: the projectile is
+consumed and the boss flashes, HP does not move).  A two-value cell ("2/1")
+is a two-form boss and is indexed by `phase`.  `Buster`, `Claw` and
+`Demon Fire` are attacks the port does not model yet, so they are stored but
+never used.
+
+Bosses with no row (Somulo, whose prologue is scripted) keep the projectile's
+own damage.  The pit trio uses Ovununu's row (`$16`) for both the body and the
+eyes.
+
 ## Not modelled yet
 
 - **Flier 1 (24) and Flier 2 (48)** — the document names them but their
@@ -58,11 +87,8 @@ boss cannot silently ship with the wrong number.
 - **Phalanx 3 (lava stage, 128)** — no separate species in the port yet.
 - **Flame Lord's flying form (20)** — the port has one `$58` body, so it uses
   the land form's 26.
-- **Damage per form** — the document's other columns (Fire 1, Buster 1,
-  Claw 1, Demon Fire 3, Earth ground 2 / air 1, Aerial 2, Tidal 1,
-  Legendary 5, Ultimate 5) are not wired to the player's crests yet.  Today
-  `_pit_damage` gives Ultimate 5 and everything else 1.  When the crest forms
-  are mapped, this is the table to use.
+- **Buster / Claw / Demon Fire** — the document's columns for those attacks
+  exist in `BOSS_DAMAGE` but the port has no such attacks yet.
 - **Scula halves** — the document's 24 (Toss) / 10 (Roll) are assigned to
   `$7B` / `$7C` by size; the ROM's per-slot HP would confirm which is which.
 
@@ -74,8 +100,11 @@ DISPLAY=:99 .venv/bin/python tools/check_boss_hp.py
 
 1. re-reads `docs/boss_hp.txt` and compares every documented entry's name and
    HP (the HP line may list several numbers, e.g. Ovununu's "3 (eyes);
-   10 (main body)");
-2. scans every `room_area*.json` boss record (`$96` is the arena controller,
+   10 (main body)"), and every damage row against all ten of its columns;
+2. unit-checks the form -> column mapping on eleven cases (Hippogriff Aerial 4,
+   Arma 1 Ultimate 5, Arma 3 Legendary 10, Belth Earth 3/1, Crawler and Flame
+   Lord N/A = 0, Dark Demon's two forms);
+3. scans every `room_area*.json` boss record (`$96` is the arena controller,
    not a boss) and fails on any species the table does not cover;
-3. boots each boss room and reads the `hp` column of the object trace; the
+4. boots each boss room and reads the `hp` column of the object trace; the
    second Phalanx form is booted with `DC_BOSS_PHASE=2`.

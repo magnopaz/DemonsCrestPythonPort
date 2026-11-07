@@ -136,9 +136,11 @@ As tabelas dos olhos estão resolvidas (banco `$81`, `$81:E2DF` com stride 12,
 `docs/boss_hp.txt` (Arma 16/32/72, Hippogriff 16/24/64, Scula 24/10,
 Holothurion 72, Crawler 36, Flame Lord 26, Phalanx 50/127, Dark Demon 200,
 Belth 32, Grewon 64; Somulo fica no guião 3+3). `tools/check_boss_hp.py` está na
-regressão: compara o documento com a tabela, todas as salas com boss e o `hp`
-do `DC_TRACE_OBJECTS` em runtime. O dano por forma do Firebrand ainda não está
-ligado (só Ultimate 5 / resto 1). Ver `docs/BOSS_HP.md`.
+regressão: compara o documento com a tabela (HP e as dez colunas de dano),
+onze casos da forma -> coluna, todas as salas com boss e o `hp` do
+`DC_TRACE_OBJECTS` em runtime. O dano por forma já está ligado em todos os
+bosses com entrada; `Buster`/`Claw`/`Demon Fire` não existem no port. Ver
+`docs/BOSS_HP.md`.
 
 - **Poço (área 8)**: `$6B` sobe atrás do jogador (y 700→212 medido), `$6C` são
   os olhos que voam, `$69` fica fixo no fundo. Não é `$16`; a entrada da área 54

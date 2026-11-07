@@ -4,8 +4,9 @@
 Three passes:
 
 1. **document**: re-read ``docs/boss_hp.txt`` and assert every documented
-   entry in ``dcpy/bosses.py`` names a boss from the file and uses one of the
-   HP values listed for it.  This catches a typo in either side;
+   entry in ``dcpy/bosses.py`` names a boss from the file, uses one of the HP
+   values listed for it, and copies all ten damage columns exactly ("N/A" ->
+   None, "2/1" -> (2, 1)).  This catches a typo in either side;
 2. **rooms**: every boss record in ``room_area*.json`` (species ``$96`` is the
    arena controller, not a boss) must resolve through ``boss_hp`` without the
    fallback — a missing species would silently fight with 8 HP;
@@ -36,6 +37,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from dcpy import bosses  # noqa: E402
+from dcpy.consts import (  # noqa: E402
+    CREST_AIR, CREST_BASE, CREST_EARTH, CREST_TIME, CREST_ULTIMATE)
 
 # A boss record whose species is the arena controller is not a boss.
 CONTROLLER_SPECIES = 0x96
@@ -54,9 +57,28 @@ def parse_args() -> argparse.Namespace:
     return ap.parse_args()
 
 
-def parse_doc(path: Path) -> dict[str, list[int]]:
-    """boss name -> the integers on its HP line ("3 (eyes); 10 (body)")."""
-    doc: dict[str, list[int]] = {}
+# The document's column names -> dcpy/bosses.py field names.
+COLUMNS = {
+    "Fire": "fire",
+    "Buster": "buster",
+    "Claw": "claw",
+    "Demon Fire": "demon_fire",
+    "Earth (Ground)": "earth_ground",
+    "Earth (Air)": "earth_air",
+    "Aerial": "aerial",
+    "Tidal": "tidal",
+    "Legendary": "legendary",
+    "Ultimate": "ultimate",
+}
+
+_COLUMN_RE = re.compile(
+    r"^(Fire|Buster|Claw|Demon Fire|Earth \(Ground\)|Earth \(Air\)|Aerial|"
+    r"Tidal|Legendary|Ultimate): (.+)$")
+
+
+def parse_doc(path: Path) -> dict[str, dict]:
+    """boss name -> {"hp": [ints], "fire": value, ...} from its block."""
+    doc: dict[str, dict] = {}
     name: str | None = None
     for line in path.read_text().splitlines():
         line = line.strip()
@@ -65,13 +87,21 @@ def parse_doc(path: Path) -> dict[str, list[int]]:
         if line.startswith("HP:"):
             if name is None:
                 raise ValueError(f"{path}: HP line before a boss name")
-            doc[name] = [int(n) for n in re.findall(r"\d+", line)]
-        else:
-            name = line
+            # "3 (eyes); 10 (main body)" -> both numbers are valid HP values.
+            doc[name]["hp"] = [int(n) for n in re.findall(r"\d+", line)]
+            continue
+        column = _COLUMN_RE.match(line)
+        if column:
+            if name is None:
+                raise ValueError(f"{path}: column before a boss name")
+            doc[name][COLUMNS[column.group(1)]] = column.group(2).strip()
+            continue
+        name = line
+        doc[name] = {}
     return doc
 
 
-def check_doc(doc: dict[str, list[int]], errors: list[str],
+def check_doc(doc: dict[str, dict], errors: list[str],
               report: dict) -> None:
     seen: set[str] = set()
     for species, flags, entry in bosses.documented_entries():
@@ -80,9 +110,10 @@ def check_doc(doc: dict[str, list[int]], errors: list[str],
         if entry.name not in doc:
             errors.append(f"{label}: not in {bosses.DOC}")
             continue
-        if entry.hp not in doc[entry.name]:
+        hp_values = doc[entry.name].get("hp", [])
+        if entry.hp not in hp_values:
             errors.append(
-                f"{label}: hp {entry.hp} not in {doc[entry.name]} "
+                f"{label}: hp {entry.hp} not in {hp_values} "
                 f"for {entry.name}")
             continue
         seen.add(entry.name)
@@ -90,6 +121,63 @@ def check_doc(doc: dict[str, list[int]], errors: list[str],
                               "name": entry.name, "hp": entry.hp})
     missing = sorted(set(doc) - seen)
     report["doc_missing"] = missing
+
+
+def doc_value(text: str):
+    """'N/A' -> None, '1' -> 1, '2/1' -> (2, 1)."""
+    if text == "N/A":
+        return None
+    numbers = tuple(int(part) for part in text.split("/"))
+    return numbers[0] if len(numbers) == 1 else numbers
+
+
+def check_damage(doc: dict[str, dict], errors: list[str],
+                 report: dict) -> None:
+    """Every damage row must match the document's ten columns."""
+    for species, flags, row in bosses.damage_entries():
+        name = bosses.boss_name(species, flags or 0)
+        label = f"{name} ({species:#04x}"
+        label += f"/{flags:#04x})" if flags is not None else f")"
+        if name not in doc:
+            errors.append(f"{label}: damage row but no {bosses.DOC} block")
+            continue
+        for column, field in COLUMNS.items():
+            if field not in doc[name]:
+                errors.append(f"{label}: {bosses.DOC} has no {column} line")
+                continue
+            want = doc_value(doc[name][field])
+            got = getattr(row, field)
+            if want != got:
+                errors.append(f"{label} {column}: table {got} != doc {want}")
+                continue
+        report["damage"].append({"species": species, "flags": flags,
+                                 "name": name})
+
+
+def check_form_damage(errors: list[str], report: dict) -> None:
+    """The form->column mapping, on a few rows the document pins down."""
+    cases = [
+        (0x09, 0x00, CREST_AIR, True, 0, 4, "Hippogriff 1 Aerial"),
+        (0x09, 0x00, CREST_BASE, True, 0, 1, "Hippogriff 1 Fire"),
+        (0xA5, 0x00, CREST_ULTIMATE, True, 0, 5, "Arma 1 Ultimate"),
+        (0xA5, 0x04, CREST_TIME, True, 0, 10, "Arma 3 Legendary"),
+        (0x68, 132, CREST_EARTH, True, 0, 3, "Belth Earth (ground)"),
+        (0x68, 132, CREST_EARTH, False, 0, 1, "Belth Earth (air)"),
+        (0x82, 0x00, CREST_EARTH, True, 0, 0, "Crawler Earth (N/A)"),
+        (0x58, 0x00, CREST_BASE, True, 0, 0, "Flame Lord Fire (N/A)"),
+        (0xBC, 0x00, CREST_BASE, True, 0, 2, "Dark Demon Fire form 1"),
+        (0xBC, 0x00, CREST_BASE, True, 1, 1, "Dark Demon Fire form 2"),
+        (0xBC, 0x00, CREST_ULTIMATE, True, 1, 2, "Dark Demon Ultimate 2"),
+    ]
+    for species, flags, form, grounded, phase, want, label in cases:
+        got = bosses.boss_damage(species, flags, form, grounded, phase)
+        if got != want:
+            errors.append(f"form damage {label}: {got} != {want}")
+            continue
+        report["form_damage"].append({"species": species, "flags": flags,
+                                      "form": form, "damage": got})
+    if bosses.boss_damage(0x33, 128, CREST_BASE) is not None:
+        errors.append("Somulo should have no damage row (scripted fight)")
 
 
 def boss_records(assets: Path) -> dict[int, list[tuple[int, int]]]:
@@ -205,13 +293,17 @@ def main() -> int:
     args = parse_args()
     assets = args.assets.resolve()
     doc_path = args.doc.resolve()
-    report: dict = {"doc": [], "doc_missing": [], "rooms": [], "runtime": []}
+    report: dict = {"doc": [], "doc_missing": [], "damage": [],
+                    "form_damage": [], "rooms": [], "runtime": []}
     errors: list[str] = []
 
     if not doc_path.is_file():
         errors.append(f"missing {doc_path}")
     else:
-        check_doc(parse_doc(doc_path), errors, report)
+        doc = parse_doc(doc_path)
+        check_doc(doc, errors, report)
+        check_damage(doc, errors, report)
+        check_form_damage(errors, report)
 
     if not assets.is_dir():
         errors.append(f"missing assets dir {assets}")
@@ -222,9 +314,11 @@ def main() -> int:
         check_runtime(args.binary.resolve(), assets, records, args.tmp,
                       errors, report)
 
-    print(f"boss hp: {len(report['doc'])} documented entries, "
-          f"{len(records)} boss rooms, {len(report['runtime'])} runtime boss "
-          f"checks, {len(errors)} error(s)")
+    print(f"boss hp: {len(report['doc'])} HP rows, {len(report['damage'])} "
+          f"damage rows, {len(report['form_damage'])} form checks, "
+          f"{len(records)} boss rooms, "
+          f"{len(report['runtime'])} runtime boss checks, "
+          f"{len(errors)} error(s)")
     if report.get("doc_missing"):
         print(f"  note: in the doc but not modelled: {', '.join(report['doc_missing'])}")
     for error in errors:
