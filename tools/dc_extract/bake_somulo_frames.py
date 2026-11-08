@@ -4,13 +4,13 @@
 The atlas (`docs/sprites/...Somulo.gif`) is a *component* sheet: heads, a
 torso and leg grids are drawn separately, so cropping "a Somulo" out of it does
 not work.  The completed walk is in `docs/reference/somulo_walk.gif` (a clean
-2x rip of the same art).  This tool:
+native-resolution rip of the same art).  This tool:
 
 * writes the 16 full-body walk frames from that reference;
 * takes the windup / fire / roar heads from the atlas and overlays them on a
   clean reference body for states 1, 2, 4 and 5;
 * takes the collapsed body from the atlas for state 6/8;
-* writes an authored 22-frame `species_anim.json` entry (no `parts` block), so
+* writes an authored 21-frame `species_anim.json` entry (no `parts` block), so
   the Enemy Editor can see and edit every frame.
 
 The old generated entry used gameplay cuts with gate bars and the arena ground
@@ -35,9 +35,9 @@ SHEET = ROOT / "docs" / "sprites" / \
 REFERENCE = ROOT / "docs" / "reference" / "somulo_walk.gif"
 SPECIES = 0x33
 SPECIES_KEY = "33"
-ANCHOR_X, ANCHOR_Y = 60, 90       # 1x feet anchor in the 241x181 reference
+ANCHOR_X, ANCHOR_Y = 120, 181    # native feet anchor in the 241x181 reference
 
-# Atlas boxes are (y, x, w, h) at 2x, matching bake_somulo_parts.py.
+# Atlas boxes are (y, x, w, h) at native resolution.
 HEADS = {
     "windup": (71, 306, 95, 74),
     "fire": (71, 411, 98, 74),
@@ -63,16 +63,13 @@ def crop_alpha(img: Image.Image, box) -> Image.Image:
     return img.crop((x, y, x + w, y + h))
 
 
-def to_1x(img: Image.Image, box: tuple[int, int, int, int],
-          frame_anchor: tuple[float, float]) -> tuple[Image.Image, int, int]:
-    """Crop a 2x frame, halve it, and return the anchor relative to the crop."""
+def to_native(img: Image.Image, box: tuple[int, int, int, int],
+              frame_anchor: tuple[float, float]) -> tuple[Image.Image, int, int]:
+    """Crop a native-resolution frame and return the anchor relative to it."""
     x0, y0, x1, y1 = box
     crop = img.crop((x0, y0, x1, y1))
-    w = max(1, round(crop.width / 2))
-    h = max(1, round(crop.height / 2))
-    crop = crop.resize((w, h), Image.NEAREST)
-    ax = round(frame_anchor[0] - x0 / 2.0)
-    ay = round(frame_anchor[1] - y0 / 2.0)
+    ax = round(frame_anchor[0] - x0)
+    ay = min(crop.height, round(frame_anchor[1] - y0))
     return crop, ax, ay
 
 
@@ -96,7 +93,7 @@ def bake_walk(reference: list[Image.Image], out: Path) -> list[dict]:
     frames = []
     for i, src in enumerate(reference):
         box = frame_bbox(src)
-        crop, ax, ay = to_1x(src, box, (ANCHOR_X, ANCHOR_Y))
+        crop, ax, ay = to_native(src, box, (ANCHOR_X, ANCHOR_Y))
         name = f"somulo_walk_{i:02d}.png"
         crop.save(out / name)
         frames.append({
@@ -126,7 +123,7 @@ def bake_pose(reference: Image.Image, sheet: Image.Image, head_name: str,
     canvas.alpha_composite(body, (0, 0))
     canvas.alpha_composite(head, at)
     box = frame_bbox(canvas)
-    crop, ax, ay = to_1x(canvas, box, (ANCHOR_X, ANCHOR_Y))
+    crop, ax, ay = to_native(canvas, box, (ANCHOR_X, ANCHOR_Y))
     name = f"somulo_{head_name}.png"
     crop.save(out / name)
     return {
@@ -139,8 +136,7 @@ def bake_pose(reference: Image.Image, sheet: Image.Image, head_name: str,
 def bake_defeated(sheet: Image.Image, out: Path) -> dict:
     y, x, w, h = DEFEATED
     crop = crop_alpha(sheet, (y, x, w, h))
-    # The atlas crop is 2x; halve it and put the feet at the anchor.
-    crop = crop.resize((round(w / 2), round(h / 2)), Image.NEAREST)
+    # The atlas crop is native resolution; put the feet at the anchor.
     bbox = crop.getbbox()
     if bbox is None:
         raise SystemExit("bake_somulo_frames: empty defeated body")
@@ -173,7 +169,7 @@ def main() -> int:
     neutral = len(frames)
     name = "somulo_neutral.png"
     box = frame_bbox(reference[0])
-    crop, ax, ay = to_1x(reference[0], box, (ANCHOR_X, ANCHOR_Y))
+    crop, ax, ay = to_native(reference[0], box, (ANCHOR_X, ANCHOR_Y))
     crop.save(out / name)
     frames.append({
         "texture": f"sprites/somulo/{name}",

@@ -2045,171 +2045,171 @@
    "frames": [
     {
      "texture": "sprites/somulo/somulo_walk_00.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_walk_01.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_walk_02.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_walk_03.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_walk_04.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_walk_05.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 180,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 180
     },
     {
      "texture": "sprites/somulo/somulo_walk_06.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_walk_07.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 180,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 180
     },
     {
      "texture": "sprites/somulo/somulo_walk_08.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_walk_09.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_walk_10.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_walk_11.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 7,
-     "width": 120,
-     "height": 90
+     "width": 241,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_walk_12.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_walk_13.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 180,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 180
     },
     {
      "texture": "sprites/somulo/somulo_walk_14.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_walk_15.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 180,
      "duration": 7,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 180
     },
     {
      "texture": "sprites/somulo/somulo_windup.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 10,
-     "width": 142,
-     "height": 90
+     "width": 283,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_fire.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 10,
-     "width": 143,
-     "height": 90
+     "width": 286,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_roar.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 10,
-     "width": 147,
-     "height": 90
+     "width": 294,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_neutral.png",
-     "anchor_x": 60,
-     "anchor_y": 90,
+     "anchor_x": 120,
+     "anchor_y": 181,
      "duration": 10,
-     "width": 116,
-     "height": 90
+     "width": 232,
+     "height": 181
     },
     {
      "texture": "sprites/somulo/somulo_defeated.png",
-     "anchor_x": 30,
-     "anchor_y": 44,
+     "anchor_x": 59,
+     "anchor_y": 89,
      "duration": 8,
-     "width": 60,
-     "height": 44
+     "width": 119,
+     "height": 89
     }
    ],
    "states": {

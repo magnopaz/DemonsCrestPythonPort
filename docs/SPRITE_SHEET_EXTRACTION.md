@@ -172,7 +172,8 @@ The authoritative species map and existing one-off bakers are listed in
 - [x] Ovnunu `$16` eye (10 frames: 7-frame eye cycle + 3 eyeball examples); `$17`/`$18` parts open
 - [x] Phalanx `$86` / Ultimate Phalanx `$8D` (8 / 4 frames)
 - [x] Scula `$7B`/`$7C` (4 walk / 5 hover full bodies; arm rows open)
-- [x] Somulo `$33` (21 frames; 16 walk + head poses + defeated, `sprites/somulo/`)
+- [x] Somulo `$33` (21 native-resolution frames; 16 walk 232x181 + head poses
+  + defeated, `sprites/somulo/`)
 - [ ] Enemies 1 / Enemies 2 species
 - [x] Player forms 1-5 (`player_forms.json`; base form 0 stays the
   ROM-captured `player_anim.json`)
@@ -491,9 +492,9 @@ ported. Boss art is not one sprite:
   full-body walk frames from `docs/reference/somulo_walk.gif` (the atlas is a
   component sheet, not full-body frames), overlays the atlas windup/fire/roar
   heads on a clean reference body, and adds the atlas collapsed body. The
-  authored entry is 21 frames; states 0/7 use an 8-frame sample of the 16-frame
-  walk because `DC_STATE_FRAMES` is 8. Do not use the old gameplay cuts with
-  gate bars/arena floor.
+  authored entry is 21 native-resolution frames (232x181 walk); states 0/7 use
+  an 8-frame sample of the 16-frame walk because `DC_STATE_FRAMES` is 8. Do not
+  downsample and do not use the old gameplay cuts with gate bars/arena floor.
 
   ```sh
   python tools/dc_extract/bake_somulo_frames.py
