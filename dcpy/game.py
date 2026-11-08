@@ -584,12 +584,14 @@ def game_init(game: Game, asset_dir: str) -> bool:
         game.ending_text = text_find(game.script, "PHALANX WOULD")
         game.town_greet = text_find(game.script, "HAVEN'T SEEN YOU")
         game.town_question = text_find(game.script, "ARE YOU A STRANGER")
+        # text_find() compares one line at a time: a needle that spans a line
+        # break in the ROM block silently resolves to -1.  Keep every needle
+        # inside a single ROM line (the Dialogue view lists the resolutions).
         game.town_story[0] = text_find(game.script, "FIREBRAND HAS RISEN")
-        game.town_story[1] = text_find(game.script, "BURNT THE DEMON REALM")
+        game.town_story[1] = text_find(game.script, "NEARLY BURNT")
         game.town_story[2] = text_find(game.script, "RESCUED US")
-        game.town_story[3] = text_find(game.script, "ARROGANT FOOL")
-        game.town_story[4] = text_find(game.script,
-                                       "ESCAPED FROM THE COLOSSEUM")
+        game.town_story[3] = text_find(game.script, "THANKS TO THAT ARROGANT")
+        game.town_story[4] = text_find(game.script, "ESCAPED FROM THE")
         game.crest_text[C.CREST_EARTH] = text_find(game.script,
                                                    'CREST OF "EARTH"')
         game.crest_text[C.CREST_AIR] = text_find(game.script, 'CREST OF "AIR"')

@@ -58,6 +58,25 @@ def _split_line(src: str) -> list[str]:
     return out
 
 
+def _authored_text_path(asset_dir: str) -> str:
+    """Where the editor keeps its dialogue overlay."""
+    base = os.environ.get("DC_AUTHORED_DIR") or os.path.join(
+        os.path.dirname(os.path.abspath(asset_dir)), "authored")
+    return os.path.join(base, "text_strings.json")
+
+
+def _load_text_overrides(asset_dir: str) -> dict:
+    path = _authored_text_path(asset_dir)
+    if not file_exists(path):
+        return {}
+    try:
+        root = read_json(path)
+    except (OSError, ValueError):
+        return {}
+    entries = root.get("strings") if isinstance(root, dict) else None
+    return entries if isinstance(entries, dict) else {}
+
+
 def text_load_script(script: TextScript, asset_dir: str) -> bool:
     path = os.path.join(asset_dir, "text_strings.json")
     if not file_exists(path):
@@ -67,9 +86,19 @@ def text_load_script(script: TextScript, asset_dir: str) -> bool:
     except (OSError, ValueError):
         return False
     strings = root.get("strings") or []
-    for entry in strings:
+    # The editor writes line edits to assets/authored/text_strings.json.  Only
+    # the pages of an existing block are replaced; block indices stay stable so
+    # every text_find() in the game keeps pointing at the same dialogue.
+    overrides = _load_text_overrides(asset_dir)
+    for index, entry in enumerate(strings):
         if script.count >= TEXT_MAX_STRINGS:
             break
+        entry = dict(entry) if isinstance(entry, dict) else {}
+        override = overrides.get(str(index))
+        if isinstance(override, dict) and isinstance(override.get("pages"), list):
+            entry["pages"] = override["pages"]
+        elif isinstance(override, list):
+            entry["pages"] = override
         pages_out: list[list[str]] = []
         counts_out: list[int] = []
         page_index = 0

@@ -336,14 +336,27 @@ python tools/audit_sprites.py --assets assets/generated --strict
   stage with the 12x22 gameplay hitbox. Saves to
   `assets/authored/player_anim.json` and `player_forms.json`; `dcpy/anim.py`
   merges those over the generated sheets.
+- **Dialogue**: the 518 ROM text blocks with the pages the loader really
+  draws (8 pages × 8 lines, `j` breaks, 47-character lines), a preview using
+  the game's 8x8 font, loader warnings, and the `text_find` needles the game
+  uses — including any that resolve to nothing. Edits go to
+  `assets/authored/text_strings.json`, which `dcpy/text.py` applies.
+- **Coverage**: every object record grouped by species, with record/room
+  counts, art-sheet status, authored HP and per-room validation; filters for
+  placeholders and missing art, with click-through to the Enemy Editor and Map
+  Builder. This is the browser view of `tools/report_coverage.py`.
+- **Checks**: the project's own gates (`tools/check_*.py` plus the full
+  regression) with their output, exit code and timing, run one at a time in
+  the project venv. Checks that boot the game need a display (Xvfb `:99` is
+  detected automatically).
 - **Asset Browser**: every generated and authored PNG with dimensions and the
   rooms/species/player records that use it.
 
 Start it with `python tools/editor/server.py` and open the printed localhost
 URL. It writes to `assets/authored/` by default; the runtime already prefers
 that overlay (`level.py` for rooms, `assets.py` for species, `enemy_defs.py`
-for stats/attacks/sounds, `anim.py` for player sheets). Backend tests:
-`python tools/editor/test_editor.py`; browser self-test:
+for stats/attacks/sounds, `anim.py` for player sheets, `text.py` for dialogue).
+Backend tests: `python tools/editor/test_editor.py`; browser self-test:
 `http://127.0.0.1:8765/web/test.html`. Full workflow and API reference:
 `tools/editor/README.md`.
 

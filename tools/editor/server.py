@@ -141,7 +141,10 @@ class EditorHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 return
             if path.startswith("/web/"):
-                self.serve_static(HERE / "web", path[len("/web/"):])
+                # The UI is a local development tool; never let the browser
+                # serve a stale module after an edit.
+                self.serve_static(HERE / "web", path[len("/web/"):],
+                                  cache=False)
                 return
             if path.startswith("/assets/"):
                 self.serve_static(self.server.workspace.root / "assets",
@@ -204,7 +207,29 @@ class EditorHandler(BaseHTTPRequestHandler):
                 images = self.server.workspace.list_images()
                 self.send_json(200, {"ok": True, "images": images})
                 return
+            if path == "/api/coverage":
+                self.send_json(200, {"ok": True,
+                                     **self.server.workspace.coverage()})
+                return
+            if path == "/api/text":
+                self.send_json(200, {"ok": True,
+                                     **self.server.workspace.text_index()})
+                return
+            if path.startswith("/api/text/"):
+                index = self._parse_index(path, "/api/text/")
+                detail = self.server.workspace.load_text(index)
+                if detail is None:
+                    self.send_error_json(404, f"no text block {index}")
+                    return
+                self.send_json(200, {"ok": True, **detail})
+                return
+            if path == "/api/checks":
+                self.send_json(200, {"ok": True,
+                                     **self.server.workspace.list_checks()})
+                return
             self.send_error_json(404, f"no route for {path}")
+        except ValueError as exc:
+            self.send_error_json(400, str(exc))
         except Exception as exc:  # noqa: BLE001
             traceback.print_exc()
             self.send_error_json(500, str(exc))
@@ -239,6 +264,18 @@ class EditorHandler(BaseHTTPRequestHandler):
                     str(body.get("name") or "image.png"),
                     str(body.get("data") or ""),
                     bool(body.get("overwrite")))
+                self.send_json(200 if result.get("ok") else 400, result)
+                return
+            if path.startswith("/api/text/"):
+                index = self._parse_index(path, "/api/text/")
+                result = self.server.workspace.save_text(index,
+                                                         body.get("pages"))
+                self.send_json(200 if result.get("ok") else 400, result)
+                return
+            if path == "/api/checks/run":
+                result = self.server.workspace.run_check(
+                    str(body.get("name") or ""),
+                    editor_data.clamp_int(body.get("timeout"), 180, 10, 900))
                 self.send_json(200 if result.get("ok") else 400, result)
                 return
             if path == "/api/_selftest":
@@ -294,6 +331,11 @@ class EditorHandler(BaseHTTPRequestHandler):
                 result = ws.delete_species(key)
                 self.send_json(200 if result.get("ok") else 404, result)
                 return
+            if path.startswith("/api/text/"):
+                index = self._parse_index(path, "/api/text/")
+                result = ws.delete_text(index)
+                self.send_json(200 if result.get("ok") else 404, result)
+                return
             self.send_error_json(404, f"no route for {path}")
         except ValueError as exc:
             self.send_error_json(400, str(exc))
@@ -302,7 +344,8 @@ class EditorHandler(BaseHTTPRequestHandler):
             self.send_error_json(500, str(exc))
 
     # -- handlers ---------------------------------------------------------
-    def serve_static(self, base: Path, relative: str) -> None:
+    def serve_static(self, base: Path, relative: str,
+                     cache: bool = True) -> None:
         base = base.resolve()
         target = (base / relative).resolve()
         try:
@@ -313,7 +356,8 @@ class EditorHandler(BaseHTTPRequestHandler):
         if not target.is_file():
             self.send_error_json(404, f"file not found: {relative}")
             return
-        self.serve_file(target, cache=not relative.endswith(".json"))
+        self.serve_file(target,
+                        cache=cache and not relative.endswith(".json"))
 
     def handle_room_get(self, path: str) -> None:
         ws = self.server.workspace
@@ -563,6 +607,17 @@ class EditorHandler(BaseHTTPRequestHandler):
         if area < 0 or area > 4095:
             raise ValueError("room area must be 0..4095")
         return area
+
+    @staticmethod
+    def _parse_index(path: str, prefix: str) -> int:
+        token = path[len(prefix):].strip("/").split("/")[0]
+        try:
+            index = int(token)
+        except ValueError:
+            raise ValueError(f"invalid text block index {token!r}") from None
+        if index < 0:
+            raise ValueError("text block index must be >= 0")
+        return index
 
 
 def _python_executable(root: Path) -> str:

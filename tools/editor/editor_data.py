@@ -21,6 +21,7 @@ the generated tree.
 
 from __future__ import annotations
 
+import ast
 import base64
 import copy
 import json
@@ -28,7 +29,10 @@ import math
 import os
 import re
 import shutil
+import signal
 import struct
+import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -288,13 +292,181 @@ def shape_label(value: int) -> str:
     if a == b:
         return f"Flat at {a}px"
     if a > b:
-        return "Ramp down â†’"
-    return "Ramp up â†’"
+        return "Ramp down →"
+    return "Ramp up →"
 
 
 def shape_preview(value: int) -> list[int]:
     """Surface offset at 16 sample columns, -1 meaning no floor."""
     return [surface_offset(value, x) for x in range(16)]
+
+
+# ---------------------------------------------------------------------------
+# Text blocks (mirrors dcpy/text.py)
+# ---------------------------------------------------------------------------
+
+# These caps are the loader's, not the editor's: the editor shows both the raw
+# JSON and the pages the game will really draw.  `test_editor.py` re-reads
+# dcpy/text.py and proves the numbers still match.
+TEXT_MAX_STRINGS = 640
+TEXT_MAX_PAGES = 8
+TEXT_MAX_LINES = 8
+TEXT_LINE_MAX = 48
+TEXT_GLYPH_W = 8
+TEXT_GLYPH_H = 8
+TEXT_LINE_H = 10
+TEXT_COLUMNS = 16
+TEXT_FIRST = 0x20
+TEXT_LAST = 0x7E
+TEXT_BREAK = "j"          # the ROM's in-line break symbol
+TEXT_APOSTROPHE = "["     # the ROM's in-band apostrophe
+TEXT_FULLSTOP = "\\"      # period/quote stand-in
+
+
+def text_split_line(src: str) -> list[str]:
+    """Split one ROM line exactly like ``dcpy.text._split_line``."""
+    out: list[str] = []
+    buf: list[str] = []
+    for ch in src:
+        if ch == TEXT_BREAK:
+            if buf:
+                out.append("".join(buf))
+            buf = []
+        elif len(buf) + 1 < TEXT_LINE_MAX:
+            buf.append(ch)
+    if buf:
+        out.append("".join(buf))
+    return out
+
+
+def text_copy_line(src: str) -> str:
+    """Apply the runtime's in-band substitutions and trailing truncation."""
+    out = []
+    for ch in src[:TEXT_LINE_MAX - 1]:
+        if ch == TEXT_APOSTROPHE:
+            out.append("'")
+        elif ch == TEXT_FULLSTOP:
+            out.append(".")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def text_normalize(text: str) -> str:
+    """Loose matcher used by ``text_find`` (A-Z/0-9 only, single spaces)."""
+    out: list[str] = []
+    pending = False
+    for ch in text:
+        c = ch.upper()
+        if ("A" <= c <= "Z") or ("0" <= c <= "9"):
+            if pending and out:
+                out.append(" ")
+            pending = False
+            out.append(c)
+        else:
+            pending = True
+    return "".join(out)
+
+
+def text_simulate(pages) -> dict:
+    """Reproduce ``text_load_script`` for one block: what the game displays."""
+    out_pages: list[list[str]] = []
+    counts: list[int] = []
+    page_index = 0
+    raw_pages = pages if isinstance(pages, list) else []
+    for page in raw_pages:
+        if page_index >= TEXT_MAX_PAGES:
+            break
+        lines: list[str] = []
+        for line in page if isinstance(page, list) else []:
+            if len(lines) >= TEXT_MAX_LINES:
+                break
+            if isinstance(line, str):
+                for piece in text_split_line(line):
+                    if len(lines) < TEXT_MAX_LINES:
+                        lines.append(text_copy_line(piece))
+        if lines:
+            out_pages.append(lines)
+            counts.append(len(lines))
+            page_index += 1
+    return {"pages": out_pages, "line_counts": counts}
+
+
+def text_page_pieces(page) -> list[str]:
+    """Every line a raw page expands to after the 'j' split."""
+    pieces: list[str] = []
+    for line in page if isinstance(page, list) else []:
+        if isinstance(line, str):
+            pieces.extend(text_split_line(line))
+    return pieces
+
+
+def text_block_warnings(pages, entry: dict | None = None) -> list[dict]:
+    """Everything the loader will silently drop or mangle in one block."""
+    entry = entry or {}
+    raw_pages = pages if isinstance(pages, list) else []
+    warnings: list[dict] = []
+    kept = 0
+    dropped_pages = 0
+    dropped_lines = 0
+    long_lines = 0
+    bad_chars = 0
+    for page in raw_pages:
+        pieces = text_page_pieces(page)
+        if not pieces:
+            continue
+        if kept >= TEXT_MAX_PAGES:
+            dropped_pages += 1
+            continue
+        kept += 1
+        if len(pieces) > TEXT_MAX_LINES:
+            dropped_lines += len(pieces) - TEXT_MAX_LINES
+        for line in page if isinstance(page, list) else []:
+            if isinstance(line, str) and len(line) >= TEXT_LINE_MAX:
+                long_lines += 1
+    for page in raw_pages:
+        for line in page if isinstance(page, list) else []:
+            if isinstance(line, str):
+                bad_chars += sum(1 for ch in line
+                                 if not (TEXT_FIRST <= ord(ch) <= TEXT_LAST))
+    if dropped_pages:
+        warnings.append(issue(
+            "warning", "text.pages.cap",
+            f"{len(raw_pages)} pages; the loader keeps {TEXT_MAX_PAGES} "
+            f"({dropped_pages} dropped)"))
+    if dropped_lines:
+        warnings.append(issue(
+            "warning", "text.lines.cap",
+            f"{dropped_lines} line(s) past the {TEXT_MAX_LINES}-line page cap "
+            "are truncated"))
+    if long_lines:
+        warnings.append(issue(
+            "warning", "text.line.long",
+            f"{long_lines} line(s) are {TEXT_LINE_MAX}+ characters; the loader "
+            f"cuts them to {TEXT_LINE_MAX - 1}"))
+    if bad_chars:
+        warnings.append(issue(
+            "warning", "text.chars.range",
+            f"{bad_chars} character(s) outside the 8x8 font "
+            f"(0x{TEXT_FIRST:02X}..0x{TEXT_LAST:02X})"))
+    if not text_simulate(raw_pages)["pages"]:
+        warnings.append(issue("error", "text.empty",
+                              "The game would load no pages from this block"))
+    if not entry.get("addr"):
+        warnings.append(issue("info", "text.addr.missing",
+                              "No ROM address recorded"))
+    return warnings
+
+
+def text_prose(entry: dict) -> bool:
+    """Heuristic: dialogue/description rather than font or tile data."""
+    chunks = [line for page in entry.get("pages") or [] if isinstance(page, list)
+              for line in page if isinstance(line, str)]
+    text = " ".join(chunks).strip()
+    if len(text) < 8 or " " not in text:
+        return False
+    readable = sum(1 for ch in text if ch.isalpha() or ch in " .,'!?-")
+    return readable / len(text) >= 0.8
 
 
 def clamp_room_music(room: dict) -> int | None:
@@ -342,6 +514,9 @@ class Workspace:
         self.campaign = self._load_optional(self.assets / "campaign.json", {})
         self._room_cache: dict[Path, tuple[float, int, dict]] = {}
         self._list_cache: tuple[float, dict] | None = None
+        self._coverage_cache: tuple[tuple, dict] | None = None
+        self.check_results: dict[str, dict] = {}
+        self.check_lock = threading.Lock()
         self.lock = threading.RLock()
         for directory in (self.rooms_dir, self.sprites_dir, self.backups_dir):
             directory.mkdir(parents=True, exist_ok=True)
@@ -446,10 +621,10 @@ class Workspace:
         entry = self.room_names.get(str(area)) or self.room_names.get(area)
         map_name = entry.get("map") if isinstance(entry, dict) else None
         if map_name:
-            return f"Area {area} Â· {humanize_slug(map_name)}"
+            return f"Area {area} · {humanize_slug(map_name)}"
         if self.room_paths(area)[1].is_file():
             return f"Area {area}"
-        return f"Area {area} Â· New room"
+        return f"Area {area} · New room"
 
     def room_brief(self, area: int, doc: dict, source: str) -> dict:
         objects = doc.get("objects") if isinstance(doc.get("objects"), list) else []
@@ -491,6 +666,618 @@ class Workspace:
             rooms.append(self.room_brief(area, loaded["room"], loaded["source"]))
         self._list_cache = (key, rooms)
         return rooms
+
+    # -- coverage ----------------------------------------------------------
+    def _coverage_signature(self) -> tuple:
+        parts = []
+        for area in self.all_room_areas():
+            for path in self.room_paths(area):
+                try:
+                    stat = path.stat()
+                except OSError:
+                    continue
+                parts.append((str(path), stat.st_mtime, stat.st_size))
+        for path in (self.species_generated, self.species_authored,
+                     self.enemies_authored):
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            parts.append((str(path), stat.st_mtime, stat.st_size))
+        return tuple(parts)
+
+    def coverage(self, refresh: bool = False) -> dict:
+        """Project-wide view of what is placed, what is ported and what is art.
+
+        This is the JSON behind the Coverage view: every object record in every
+        room, grouped by species, plus per-room validation.  It is computed
+        from the room files the game already loads, so it always agrees with
+        ``tools/report_coverage.py`` for the authored overlay.
+        """
+        signature = self._coverage_signature()
+        with self.lock:
+            if (not refresh and self._coverage_cache
+                    and self._coverage_cache[0] == signature):
+                return self._coverage_cache[1]
+
+        species_entries = self._species_entries()
+        definitions = self.enemy_definitions()
+        by_species: dict[int, dict] = {}
+        rooms: list[dict] = []
+        type_totals: dict[str, int] = {}
+        music_counts: dict[int, int] = {}
+        totals = {
+            "rooms": 0, "rooms_with_objects": 0, "objects": 0, "unknown": 0,
+            "handled": 0, "transitions": 0, "spawns": 0, "authored_rooms": 0,
+            "invalid_rooms": 0, "warnings": 0,
+        }
+
+        for area in self.all_room_areas():
+            loaded = self.load_room(area)
+            if loaded is None:
+                continue
+            room = loaded["room"]
+            objects = room.get("objects") if isinstance(room.get("objects"), list) \
+                else []
+            transitions = room.get("transitions") \
+                if isinstance(room.get("transitions"), list) else []
+            spawns = room.get("spawns") if isinstance(room.get("spawns"), list) \
+                else []
+            unknown = 0
+            for obj in objects:
+                if not isinstance(obj, dict):
+                    continue
+                kind = str(obj.get("type") or "unknown")
+                species_id = clamp_int(obj.get("species"), -1, -1, 65535)
+                type_totals[kind] = type_totals.get(kind, 0) + 1
+                if kind == "unknown":
+                    unknown += 1
+                row = by_species.get(species_id)
+                if row is None:
+                    row = {"species": species_id, "records": 0, "unknown": 0,
+                           "rooms": [], "types": {}}
+                    by_species[species_id] = row
+                row["records"] += 1
+                row["types"][kind] = row["types"].get(kind, 0) + 1
+                if kind == "unknown":
+                    row["unknown"] += 1
+                if area not in row["rooms"]:
+                    row["rooms"].append(area)
+
+            report = self.validate_room(room, area)
+            errors = report.get("errors") or []
+            warnings = report.get("warnings") or []
+            music = clamp_room_music(room)
+            effective = music if music is not None \
+                else default_music_for_area(area)
+            music_counts[effective] = music_counts.get(effective, 0) + 1
+            world = room.get("world") if isinstance(room.get("world"), dict) else {}
+            rooms.append({
+                "area": area,
+                "label": self.room_label(area),
+                "name": room.get("name") or f"area{area}",
+                "source": loaded["source"],
+                "authored": bool(loaded["authored"]),
+                "objects": len(objects),
+                "unknown": unknown,
+                "transitions": len(transitions),
+                "spawns": len(spawns),
+                "music": music,
+                "effective_music": effective,
+                "world": {"width": clamp_int(world.get("width"), 0, 0),
+                          "height": clamp_int(world.get("height"), 0, 0)},
+                "valid": bool(report.get("ok")),
+                "errors": len(errors),
+                "warnings": len(warnings),
+            })
+            totals["rooms"] += 1
+            totals["objects"] += len(objects)
+            totals["unknown"] += unknown
+            totals["transitions"] += len(transitions)
+            totals["spawns"] += len(spawns)
+            if objects:
+                totals["rooms_with_objects"] += 1
+            if loaded["authored"]:
+                totals["authored_rooms"] += 1
+            if not report.get("ok"):
+                totals["invalid_rooms"] += 1
+            totals["warnings"] += len(warnings)
+
+        totals["handled"] = totals["objects"] - totals["unknown"]
+
+        species_rows = []
+        for species_id, row in by_species.items():
+            row["species_hex"] = f"0x{species_id:02X}" if species_id >= 0 else "—"
+            row["name"] = SPECIES_NAMES.get(
+                species_id, f"Species {species_id:02X}") \
+                if species_id >= 0 else "No species id"
+            row["art_frames"] = 0
+            row["keys"] = []
+            row["canonical_key"] = None
+            row["authored"] = False
+            row["has_definition"] = False
+            row["hp"] = None
+            row["boss"] = (row["types"].get("boss", 0) > 0)
+            species_rows.append(row)
+        row_by_species = {row["species"]: row for row in species_rows}
+
+        best_frames: dict[int, int] = {}
+        for key, entry in species_entries.items():
+            species_id = clamp_int(entry.get("species"), -1, -1, 65535)
+            row = row_by_species.get(species_id)
+            if row is None:
+                row = {
+                    "species": species_id,
+                    "species_hex": f"0x{species_id:02X}",
+                    "name": SPECIES_NAMES.get(species_id,
+                                              f"Species {species_id:02X}"),
+                    "records": 0, "unknown": 0, "rooms": [], "types": {},
+                    "art_frames": 0, "keys": [], "canonical_key": key,
+                    "authored": False, "has_definition": False, "hp": None,
+                    "boss": False,
+                }
+                species_rows.append(row)
+                row_by_species[species_id] = row
+            raw_frames = entry.get("frames")
+            frames = raw_frames if isinstance(raw_frames, list) else []
+            row["keys"].append(key)
+            row["art_frames"] = max(row["art_frames"], len(frames))
+            if len(frames) > best_frames.get(species_id, -1):
+                best_frames[species_id] = len(frames)
+                row["canonical_key"] = key
+            if entry.get("_source") == "authored":
+                row["authored"] = True
+
+        for row in species_rows:
+            for key in row["keys"]:
+                definition = definitions.get(key)
+                if not isinstance(definition, dict):
+                    continue
+                row["has_definition"] = True
+                hp = (definition.get("status") or {}).get("hp")
+                if row["hp"] is None and hp is not None:
+                    row["hp"] = hp
+                if key == row["canonical_key"] and definition.get("name"):
+                    row["name"] = str(definition["name"])
+            row["has_art"] = row["art_frames"] > 0
+            row["rooms"].sort()
+            row["placeholder_only"] = (row["records"] > 0
+                                       and row["unknown"] == row["records"])
+        species_rows.sort(key=lambda r: (-r["records"], r["species"]))
+        rooms.sort(key=lambda r: r["area"])
+
+        placed_rows = [r for r in species_rows if r["records"] > 0]
+        totals.update({
+            "species_sheets": len(species_entries),
+            "species_with_records": len(placed_rows),
+            "species_handled": sum(1 for r in placed_rows
+                                   if r["unknown"] < r["records"]),
+            "species_fully_handled": sum(1 for r in placed_rows
+                                         if r["unknown"] == 0),
+            "species_with_art": sum(1 for r in placed_rows if r["has_art"]),
+            "species_placeholder_only": sum(1 for r in placed_rows
+                                            if r["placeholder_only"]),
+            "species_without_art": sum(1 for r in placed_rows
+                                       if not r["has_art"]),
+            "art_missing_records": sum(r["records"] for r in placed_rows
+                                       if not r["has_art"]),
+            "boss_records": type_totals.get("boss", 0),
+        })
+        payload = {
+            "totals": totals,
+            "species": species_rows,
+            "rooms": rooms,
+            "types": [{"type": key, "records": value}
+                      for key, value in sorted(type_totals.items(),
+                                               key=lambda kv: (-kv[1], kv[0]))],
+            "music": [{"id": index, "name": MUSIC_NAMES[index],
+                       "rooms": music_counts.get(index, 0)}
+                      for index in range(MUSIC_COUNT)
+                      if music_counts.get(index, 0)],
+        }
+        with self.lock:
+            self._coverage_cache = (signature, payload)
+        return payload
+
+    # -- text blocks -------------------------------------------------------
+    def _text_document(self) -> tuple[list, dict, dict]:
+        root = self._load_optional(self.assets / "text_strings.json", {})
+        strings = root.get("strings") if isinstance(root, dict) else None
+        if not isinstance(strings, list):
+            strings = []
+        overlay = self._load_optional(self.authored / "text_strings.json", {})
+        overrides = overlay.get("strings") if isinstance(overlay, dict) else None
+        if not isinstance(overrides, dict):
+            overrides = {}
+        return strings, overrides, root
+
+    @staticmethod
+    def _text_pages_for(index: int, entry: dict, overrides: dict) -> list:
+        pages = entry.get("pages")
+        if not isinstance(pages, list):
+            pages = []
+        override = overrides.get(str(index))
+        if isinstance(override, list):
+            return override
+        if isinstance(override, dict) and isinstance(override.get("pages"), list):
+            return override["pages"]
+        return pages
+
+    def text_usages(self, blocks: list[dict]) -> list[dict]:
+        """Resolve every ``text_find`` needle in dcpy/game.py to a block index.
+
+        The runtime looks text up by substring, so a typo or a block pushed out
+        of ``TEXT_MAX_STRINGS`` silently turns into "no dialogue".  This walks
+        the game's own source instead of duplicating its needle table.
+        """
+        game_path = self.root / "dcpy" / "game.py"
+        try:
+            tree = ast.parse(game_path.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError, UnicodeDecodeError):
+            return []
+        found: list[tuple[str, str, int, str]] = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or len(node.args) < 2:
+                continue
+            func = node.func
+            if isinstance(func, ast.Attribute):
+                func_name = func.attr
+            elif isinstance(func, ast.Name):
+                func_name = func.id
+            else:
+                continue
+            if func_name != "text_find":
+                continue
+            arg = node.args[1]
+            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                found.append((arg.value, f"game.py:{node.lineno}",
+                              node.lineno, "text_find"))
+        for node in tree.body:
+            if not isinstance(node, ast.Assign):
+                continue
+            names = [t.id for t in node.targets if isinstance(t, ast.Name)]
+            if "BOSS_INTRO_TEXT" not in names or not isinstance(node.value, ast.Dict):
+                continue
+            for key, value in zip(node.value.keys, node.value.values):
+                if (isinstance(key, ast.Constant)
+                        and isinstance(value, ast.Constant)
+                        and isinstance(value.value, str)):
+                    found.append((value.value,
+                                  f"BOSS_INTRO_TEXT[{key.value}]",
+                                  node.lineno, "boss_intro"))
+        entries = []
+        seen = set()
+        for needle, where, line, source in found:
+            if (needle, where) in seen:
+                continue
+            seen.add((needle, where))
+            norm = text_normalize(needle)
+            index = -1
+            if norm:
+                for block in blocks:
+                    hit = False
+                    for page in block["pages"]:
+                        if not isinstance(page, list):
+                            continue
+                        for text in page:
+                            if isinstance(text, str) and norm in text_normalize(text):
+                                hit = True
+                                break
+                        if hit:
+                            break
+                    if hit:
+                        index = block["index"]
+                        break
+            entries.append({
+                "needle": needle,
+                "where": where,
+                "line": line,
+                "source": source,
+                "index": index,
+                "found": index >= 0,
+                "block_addr": blocks[index]["addr"] if index >= 0 else "",
+                "block_preview": blocks[index]["preview"] if index >= 0 else "",
+            })
+        entries.sort(key=lambda entry: entry["line"])
+        return entries
+
+    def text_index(self) -> dict:
+        strings, overrides, _root = self._text_document()
+        blocks = []
+        truncated_lines = 0
+        for index, entry in enumerate(strings):
+            entry = entry if isinstance(entry, dict) else {}
+            pages = self._text_pages_for(index, entry, overrides)
+            loaded = text_simulate(pages)
+            preview = ""
+            for page in loaded["pages"]:
+                if page:
+                    preview = page[0]
+                    break
+            kept = 0
+            dropped = 0
+            for page in pages:
+                pieces = text_page_pieces(page)
+                if not pieces:
+                    continue
+                if kept >= TEXT_MAX_PAGES:
+                    break
+                kept += 1
+                dropped += max(0, len(pieces) - TEXT_MAX_LINES)
+            truncated_lines += dropped
+            blocks.append({
+                "index": index,
+                "addr": str(entry.get("addr") or ""),
+                "length": clamp_int(entry.get("length"), 0, 0),
+                "pages": pages,
+                "loaded": loaded["pages"],
+                "line_counts": loaded["line_counts"],
+                "warnings": text_block_warnings(pages, entry),
+                "prose": text_prose({"pages": pages}),
+                "authored": str(index) in overrides,
+                "preview": preview[:72],
+                "chars": sum(len(line) for page in pages
+                             if isinstance(page, list)
+                             for line in page if isinstance(line, str)),
+                "truncated_lines": dropped,
+                "used_by": [],
+            })
+        usages = self.text_usages(blocks)
+        for usage in usages:
+            index = usage["index"]
+            if 0 <= index < len(blocks) and usage["needle"] not in blocks[index]["used_by"]:
+                blocks[index]["used_by"].append(usage["needle"])
+        font = self._load_optional(self.assets / "font.json", {})
+        font = font if isinstance(font, dict) else {}
+        stats = {
+            "blocks": len(blocks),
+            "authored": sum(1 for block in blocks if block["authored"]),
+            "prose": sum(1 for block in blocks if block["prose"]),
+            "with_warnings": sum(1 for block in blocks if block["warnings"]),
+            "raw_pages": sum(len(block["pages"]) for block in blocks),
+            "shown_pages": sum(len(block["loaded"]) for block in blocks),
+            "blocks_over_pages": sum(1 for block in blocks
+                                     if len(block["pages"]) > TEXT_MAX_PAGES),
+            "blocks_over_lines": sum(
+                1 for block in blocks
+                if any(len(text_page_pieces(page)) > TEXT_MAX_LINES
+                       for page in block["pages"])),
+            "truncated_lines": truncated_lines,
+        }
+        return {
+            "blocks": blocks,
+            "stats": stats,
+            "caps": {
+                "strings": TEXT_MAX_STRINGS,
+                "pages": TEXT_MAX_PAGES,
+                "lines": TEXT_MAX_LINES,
+                "line_max": TEXT_LINE_MAX,
+                "glyph": TEXT_GLYPH_W,
+                "line_height": TEXT_LINE_H,
+            },
+            "font": {
+                "url": self.asset_url(self.find_generated("font.png")),
+                "cell": clamp_int(font.get("cell"), TEXT_GLYPH_W, 1, 64),
+                "columns": clamp_int(font.get("columns"), TEXT_COLUMNS, 1, 64),
+                "rows": clamp_int(font.get("rows"), 6, 1, 64),
+                "first": clamp_int(font.get("first"), TEXT_FIRST, 0, 0x7F),
+                "last": clamp_int(font.get("last"), TEXT_LAST, 0, 0x7F),
+                "filled": clamp_int(font.get("filled"), 0, 0, 1024),
+            },
+            "usages": usages,
+        }
+
+    def load_text(self, index: int) -> dict | None:
+        data = self.text_index()
+        for block in data["blocks"]:
+            if block["index"] == index:
+                return {"block": block, "caps": data["caps"],
+                        "font": data["font"], "stats": data["stats"]}
+        return None
+
+    def save_text(self, index: int, pages) -> dict:
+        strings, overrides, _root = self._text_document()
+        if index < 0 or index >= len(strings):
+            return {"ok": False, "error": f"no text block {index}"}
+        if not isinstance(pages, list):
+            return {"ok": False, "error": "pages must be a list of pages"}
+        errors = []
+        clean_pages = []
+        for page_no, page in enumerate(pages):
+            if not isinstance(page, list):
+                errors.append(issue("error", "text.page",
+                                    f"Page {page_no + 1} is not a list"))
+                continue
+            clean_lines = []
+            for line_no, line in enumerate(page):
+                if not isinstance(line, str):
+                    errors.append(issue(
+                        "error", "text.line",
+                        f"Page {page_no + 1} line {line_no + 1} is not text"))
+                    continue
+                line = line.replace("\r", "").replace("\t", "    ")
+                bad = [ch for ch in line
+                       if not (TEXT_FIRST <= ord(ch) <= TEXT_LAST)]
+                if bad:
+                    errors.append(issue(
+                        "error", "text.chars.ascii",
+                        f"Page {page_no + 1} line {line_no + 1} has "
+                        f"{len(bad)} character(s) the 8x8 font cannot draw"))
+                clean_lines.append(line)
+            clean_pages.append(clean_lines)
+        if errors:
+            return {"ok": False, "errors": errors}
+        overlay_path = self.authored / "text_strings.json"
+        overlay = self._load_optional(overlay_path, {})
+        if not isinstance(overlay, dict):
+            overlay = {}
+        entries = overlay.get("strings")
+        if not isinstance(entries, dict):
+            entries = {}
+        entries[str(index)] = {"pages": clean_pages}
+        overlay["source"] = "editor"
+        overlay["strings"] = entries
+        with self.lock:
+            backup = self.backup(overlay_path)
+            atomic_write_json(overlay_path, overlay)
+        return {
+            "ok": True,
+            "index": index,
+            "pages": clean_pages,
+            "warnings": text_block_warnings(
+                clean_pages, strings[index] if isinstance(strings[index], dict) else {}),
+            "backup": backup,
+            "path": str(overlay_path.relative_to(self.root)).replace("\\", "/"),
+        }
+
+    def delete_text(self, index: int) -> dict:
+        overlay_path = self.authored / "text_strings.json"
+        overlay = self._load_optional(overlay_path, {})
+        entries = overlay.get("strings") if isinstance(overlay, dict) else None
+        if not isinstance(entries, dict) or str(index) not in entries:
+            return {"ok": False, "error": "no authored override for this block"}
+        with self.lock:
+            backup = self.backup(overlay_path)
+            del entries[str(index)]
+            if entries:
+                atomic_write_json(overlay_path, overlay)
+            else:
+                try:
+                    overlay_path.unlink()
+                except OSError:
+                    pass
+        return {"ok": True, "backup": backup}
+
+    # -- checks ------------------------------------------------------------
+    def _project_python(self) -> str:
+        for rel in (".venv/bin/python", ".venv/Scripts/python.exe"):
+            path = self.root / rel
+            if path.is_file():
+                return str(path)
+        return sys.executable
+
+    def _display_info(self) -> dict:
+        env = os.environ.get("DISPLAY") or ""
+        xvfb = Path("/tmp/.X11-unix/X99").exists()
+        return {
+            "env": env,
+            "xvfb": xvfb,
+            "available": bool(env or xvfb),
+            "default": env or (":99" if xvfb else ""),
+            "xvfb_command": "Xvfb :99 -screen 0 1600x1200x24 -nolisten tcp &",
+        }
+
+    def list_checks(self) -> dict:
+        checks = []
+        tools = self.root / "tools"
+        paths = sorted(tools.glob("check_*.py"))
+        regression = tools / "run_regression.py"
+        if regression.is_file():
+            paths.append(regression)
+        for path in paths:
+            source = ""
+            try:
+                source = path.read_text(encoding="utf-8")
+            except OSError:
+                pass
+            description = ""
+            try:
+                description = (ast.get_docstring(ast.parse(source)) or "").strip()
+                description = description.split("\n")[0]
+            except SyntaxError:
+                pass
+            name = "regression" if path.name == "run_regression.py" else path.stem
+            checks.append({
+                "name": name,
+                "file": f"tools/{path.name}",
+                "label": name[6:].replace("_", " ") if name.startswith("check_")
+                else name.replace("_", " "),
+                "description": description or name,
+                "long": name == "regression",
+                "needs_display": "dcpy" in source or "raylib" in source,
+                "last": self.check_results.get(name),
+            })
+        return {
+            "checks": checks,
+            "display": self._display_info(),
+            "python": self._project_python(),
+        }
+
+    def run_check(self, name: str, timeout: int = 180) -> dict:
+        if not re.fullmatch(r"[A-Za-z0-9_]+", name or ""):
+            return {"ok": False, "error": "invalid check name"}
+        if not (name.startswith("check_") or name == "regression"):
+            return {"ok": False, "error": "only project checkers can be run"}
+        filename = "run_regression.py" if name == "regression" else f"{name}.py"
+        path = self.root / "tools" / filename
+        if not path.is_file():
+            return {"ok": False, "error": f"no check named {name}"}
+        timeout = clamp_int(timeout, 180, 10, 900)
+        if not self.check_lock.acquire(blocking=False):
+            return {"ok": False, "busy": True,
+                    "error": "another check is already running"}
+        try:
+            env = {key: value for key, value in os.environ.items()
+                   if not key.startswith("DC_")}
+            if not env.get("DISPLAY"):
+                display = self._display_info()
+                if display["default"]:
+                    env["DISPLAY"] = display["default"]
+            command = [self._project_python(), f"tools/{path.name}"]
+            started = time.time()
+            timed_out = False
+            try:
+                proc = subprocess.Popen(
+                    command, cwd=str(self.root), env=env,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    text=True, start_new_session=True)
+                try:
+                    stdout, stderr = proc.communicate(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    timed_out = True
+                    try:
+                        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                    except OSError:
+                        proc.kill()
+                    try:
+                        stdout, stderr = proc.communicate(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                        stdout, stderr = proc.communicate()
+                code = proc.returncode
+            except OSError as exc:
+                stdout, stderr, code = "", str(exc), -1
+            elapsed = int((time.time() - started) * 1000)
+            combined = f"{stdout}\n{stderr}"
+            if timed_out:
+                status = "timeout"
+            elif code == 0:
+                status = "pass" if "FAIL" not in combined else "warn"
+            else:
+                status = "fail"
+            summary = ""
+            for line in reversed(combined.splitlines()):
+                if "PASS" in line or "FAIL" in line or "EXIT" in line:
+                    summary = line.strip()[:200]
+                    break
+            result = {
+                "ok": True,
+                "name": name,
+                "status": status,
+                "exit_code": code,
+                "duration_ms": elapsed,
+                "timed_out": timed_out,
+                "command": " ".join(command),
+                "stdout": stdout[-120_000:],
+                "stderr": stderr[-60_000:],
+                "summary": summary,
+                "finished": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            }
+            with self.lock:
+                self.check_results[name] = result
+            return result
+        finally:
+            self.check_lock.release()
 
     def room_assets(self, area: int, room: dict) -> dict:
         atlas_area = clamp_int(room.get("bg_atlas_area"), area, 0, 999)
@@ -1185,7 +1972,9 @@ class Workspace:
                 root["species"] = entries
             backup = self.backup(path)
             entries[key] = strip_internal(entry)
-            atomic_write_json(path, root)
+            # Keep the authored sheet diff-friendly; the generated tree and the
+            # player sheets are pretty-printed too.
+            atomic_write_json(path, root, pretty=True)
             # Enemy definition sidecar.
             defs = self._load_optional(self.enemies_authored, {})
             if not isinstance(defs, dict):
@@ -1227,7 +2016,7 @@ class Workspace:
             backup = self.backup(self.species_authored)
             del entries[key]
             if entries:
-                atomic_write_json(self.species_authored, root)
+                atomic_write_json(self.species_authored, root, pretty=True)
             else:
                 try:
                     self.species_authored.unlink()

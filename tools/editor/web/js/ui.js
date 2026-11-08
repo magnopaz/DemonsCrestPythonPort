@@ -295,7 +295,8 @@ export function tabs(items) {
     bar.appendChild(btn);
   }
   if (items.length) select(active);
-  return { el: h("div", { class: "tabs-wrap" }, bar, body), select, body };
+  return { el: h("div", { class: "tabs-wrap" }, bar, body), select, body,
+    get active() { return active; } };
 }
 
 export function issueList(validation, { max = 40 } = {}) {

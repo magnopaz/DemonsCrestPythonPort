@@ -974,7 +974,13 @@ def build_area_room_doc(rom: Rom, area: int, bg2_layer: dict,
     # (the 256-tall world is shown through a 224-tall view, so the missing band
     # has to be filled): pad the top with a wall row and shift the layer.
     bg_pad_rows = {0: 3}.get(area, 0)
+    # Area 1's BG1 tilemap is authored 53 px above the world origin: every
+    # statue in the original map sits 53 px lower (measured against
+    # docs/FullMaps/images/demons-crest-murkland-cemetery-snes-map.webp).
+    # Keep scroll_y untouched (area 4 uses it as a camera offset) and expose
+    # the correction as offset_y, which the renderers apply for world BG1.
     bg_scroll_y = {0: -2}.get(area, 0)
+    bg_offset_y = {1: 53}.get(area, 0)
     if bg_pad_rows and map_w:
         filler = full_tiles[4 * map_w:5 * map_w]
         full_tiles = [x for _ in range(bg_pad_rows) for x in filler] + full_tiles
@@ -989,6 +995,7 @@ def build_area_room_doc(rom: Rom, area: int, bg2_layer: dict,
         # cam_y duplicated the camera offset and lifted the floor by ~31 px,
         # which cut the boss off at the bottom of the screen.
         "scroll_y": bg_scroll_y,
+        "offset_y": bg_offset_y,
         "tilemap": full_tiles,
     }
     bg2_copy = dict(bg2_layer)
@@ -1303,6 +1310,8 @@ def main() -> int:
             "map_height": map_h,
             "scroll_x": regs["hscroll"][0],
             "scroll_y": regs["vscroll"][0],
+            # Area 1's tilemap is authored 53 px above the world origin.
+            "offset_y": 53 if args.area == 1 else 0,
             "tilemap": full_tiles,
         }
     else:
@@ -1314,6 +1323,7 @@ def main() -> int:
             "map_height": bg1_h,
             "scroll_x": regs["hscroll"][0],
             "scroll_y": regs["vscroll"][0],
+            "offset_y": 53 if args.area == 1 else 0,
             "tilemap": bg1_tiles,
         }
     bg_layers.append(bg1)

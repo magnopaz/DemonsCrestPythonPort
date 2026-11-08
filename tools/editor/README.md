@@ -14,6 +14,15 @@ A local, browser-based editor suite for the Python port:
   (Normal, Ground, Aerial, Tidal, Legendary, Ultimate): frames, order, anchors,
   durations, loop flags and all 11 animation clips, with the 12x22 hitbox drawn
   on the stage.
+- **Dialogue** — browse the 518 ROM text blocks, see exactly what the loader
+  draws (8 pages × 8 lines, `j` breaks, 47-character lines), preview the real
+  8x8 font, edit pages into an authored overlay, and check every `text_find`
+  needle in `dcpy/game.py`.
+- **Coverage** — the project dashboard: every object record by species,
+  placeholders versus handled records, art-sheet and authored-HP status,
+  per-room validation, and click-through to the room or species editor.
+- **Checks** — run the project's own gates (`tools/check_*.py` and the full
+  regression) from the browser, with exit code, timing and full output.
 - **Asset Browser** — every PNG in `assets/generated` and `assets/authored`
   with dimensions, size and the rooms/species/player records that use it.
 
@@ -49,6 +58,7 @@ Saving never overwrites the ROM-derived tree by default:
 | Player base animation | `assets/authored/player_anim.json` |
 | Player forms | `assets/authored/player_forms.json` |
 | Enemy stats/attacks/sounds | `assets/authored/enemies.json` |
+| Dialogue pages | `assets/authored/text_strings.json` |
 | Imported images | `assets/authored/sprites/` |
 | Backups | `assets/authored/backups/` |
 
@@ -63,6 +73,9 @@ The game already prefers that overlay:
 - `dcpy/anim.py` merges `assets/authored/player_anim.json` clip-by-clip over the
   base player sheet, and `player_forms.json` form-by-form over the six
   generated crest forms.
+- `dcpy/text.py` applies `assets/authored/text_strings.json` over the generated
+  blocks: an entry `{"strings": {"<index>": {"pages": [...]}}}` replaces the
+  pages of that block and leaves every other block at the ROM text.
 
 For a checkout that keeps authored content elsewhere, set
 `DC_AUTHORED_ROOMS` (room overlay directory) and `DC_AUTHORED_DIR` (species,
@@ -221,6 +234,86 @@ clip overview and validation. Stats are read-only engine constants from
 deletes that authored entry and reloads the generated sheet. A timestamped
 backup lands in `assets/authored/backups/`.
 
+## Dialogue
+
+**Block list.** The left panel lists every block in
+`assets/generated/text_strings.json` (518 in the retail ROM), with its index,
+first line, page count and badges for edited (`edit`), loader warnings (`Nw`)
+and `text_find` use (`used`). `Dialogue only` hides the font/tile-data blocks
+with a readability heuristic; turn it off to see all 518. Search matches raw
+lines, addresses, indices and the needles that use the block.
+
+**What the game displays.** The centre pane simulates `dcpy.text` exactly:
+at most 8 pages, at most 8 lines per page, `j` splits a line, 47 characters
+per line, `[` → `'` and `\` → `.`. It draws the selected page with the real
+8x8 font (`font.png`), at an integer zoom so the glyphs stay crisp. If a raw
+page sits past the 8-page cap the preview says it is dropped instead of
+pretending the game would show it.
+
+**Warnings.** The inspector lists what the loader silently loses: pages past
+the cap, lines past the 8-line cap, over-long lines and characters outside
+the font. These are warnings, not save blockers — the ROM contains data blocks
+that are not prose at all.
+
+**Editing.** The textarea edits one raw page, one line per row. `Add page` and
+`Remove page` change the block; `Ctrl+S` (or `Save block`) validates and writes
+`assets/authored/text_strings.json`; `Revert` deletes that block's override and
+returns the generated text. Only printable ASCII 0x20–0x7E is accepted, because
+those are the glyphs the 8x8 font has; tabs are expanded, CR is dropped.
+A timestamped backup lands in `assets/authored/backups/`.
+
+**Usages.** The `Usages` tab walks `dcpy/game.py` with `ast`, finds every
+`text_find(game.script, "...")` and every `BOSS_INTRO_TEXT` entry, and resolves
+it against the blocks with the runtime's loose matcher. A red row means the
+game asks for a line that does not exist — the failure is otherwise silent in
+play. Click a found row to jump to the block. The tab found three real
+regressions in the town story (`BURNT THE DEMON REALM`, `ARROGANT FOOL`,
+`ESCAPED FROM THE COLOSSEUM`), whose needles crossed ROM line breaks; they are
+now single-line needles.
+
+**Font atlas.** `Font atlas` shows the 16×6 cell grid the game samples, at 4×,
+with the first/last character codes and the number of filled cells.
+
+## Coverage
+
+The dashboard is the browser view of `tools/report_coverage.py`, joined with
+the art sheets and enemy definitions:
+
+- **Stat cards** — objects in rooms (handled vs placeholder), placeholder
+  share, species fully handled, species with art and records still missing a
+  sheet, rooms (authored/invalid), boss records, doors and spawns. Click
+  `Placeholders` or `No art` to filter the species table.
+- **Species tab** — one row per species id: record count, rooms, art frames,
+  sheet key and a `boss` badge. Clicking a row opens that sheet in the Enemy
+  Editor; a species without a sheet opens its room list instead.
+- **Rooms tab** — every effective room with object/placeholder/doors counts,
+  size, track, generated/authored source and validation state. Clicking a row
+  opens the room in the Map Builder.
+- **Gaps tab** — the two work lists that matter for the port: placeholder
+  records by species, and records whose species has no art sheet.
+- **Copy report** — the same table as markdown, for a handoff or an issue.
+
+Counts include authored room overlays, so they describe what the game loads
+right now; `report_coverage.py` counts the ROM records instead. The two can
+differ by deliberate authored probe/exit records (today: 852 effective objects,
+853 ROM records).
+
+## Checks
+
+`tools/check_*.py` plus `tools/run_regression.py` are listed with their module
+docstring. Pick one and press `Run`; the server executes it in the project venv
+with the working directory at the repository root, clears inherited `DC_*`
+variables and returns stdout, stderr, exit code and elapsed time. The status
+pill is `PASS` for exit 0 with no `FAIL` text, `FAIL` for a non-zero exit,
+`TIMEOUT` when the timeout killed the process group, and `WARN` when a zero
+exit printed `FAIL` (some checks print findings without failing the gate).
+
+Checks that boot the game need a display: the server uses `$DISPLAY` when set,
+otherwise Xvfb `:99` if its socket exists. Without either, the panel shows the
+command to start Xvfb. Only one check runs at a time; the timeout defaults to
+180 s and is capped at 900 s. The panel is a convenience, not a replacement for
+`tools/run_regression.py` before a commit.
+
 ## Asset Browser
 
 Search by filename/path/usage, filter generated vs authored, sort by path,
@@ -254,6 +347,13 @@ The UI is a thin client over a small JSON API; useful for scripts:
 | `DELETE /api/player/<target>` | remove one authored player override |
 | `POST /api/player/validate` | validate `{target, entry}` |
 | `GET /api/assets` | image index with dimensions/usage |
+| `GET /api/coverage` | project coverage: totals, species, rooms, types, music |
+| `GET /api/text` | text blocks, loader simulation, warnings, font, usages |
+| `GET /api/text/<index>` | one block + caps + font |
+| `POST /api/text/<index>` | save `{pages}` to the authored overlay |
+| `DELETE /api/text/<index>` | remove one authored text override |
+| `GET /api/checks` | check list, last results, display/python info |
+| `POST /api/checks/run` | `{name, timeout}`; runs one check and returns its output |
 | `POST /api/assets/upload` | `{name, data(base64 PNG), overwrite}` |
 | `POST /api/validate/species` | validate an entry/definition |
 
@@ -265,6 +365,13 @@ Backend tests (temporary project tree, no real assets touched):
 python tools/editor/test_editor.py
 python tools/editor/test_boss_patterns.py   # headless game, authored boss volley
 ```
+
+`test_editor.py` covers the overlay, validation, resizing, species/definition
+saves, uploads, text simulation/usages/overlay round trips, the runtime reading
+the text overlay, coverage counts and caching, the check runner (including
+path rejection), the new HTTP routes and the no-cache policy for `/web/`. It
+also asserts that every `text_find` needle in `dcpy/game.py` resolves and that
+the editor's text caps still match `dcpy/text.py`.
 
 Browser self-test (loads the real editor in an iframe, drives painting,
 selection, saving, enemy editing and the API; writes
@@ -304,3 +411,12 @@ DC_AREA=48 DC_RUN_FRAMES=3 DC_TRACE_CSV=captures/player.csv \
 - The room schema is the game's own; unknown keys are preserved on save.
 - Saving a room/species into `assets/generated` is destructive by design and
   is only offered through the explicit Save options menu.
+- Dialogue edits replace the pages of an existing block; the block index and
+  its ROM address never change, so `text_find` and `BOSS_INTRO_TEXT` keep
+  working. Only the 0x20–0x7E glyphs the 8x8 font contains are accepted.
+- The Coverage view reads the effective rooms (authored overlays included), so
+  its object count can differ from `report_coverage.py`, which counts ROM
+  records.
+- The check runner shares the repository with your terminal: a check that
+  writes `captures/` or reads the ROM behaves exactly as it does from the shell.
+  It runs one check at a time and is not a replacement for the full regression.

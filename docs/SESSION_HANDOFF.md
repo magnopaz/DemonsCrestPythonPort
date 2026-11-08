@@ -508,3 +508,67 @@ diálogo de intro do Arma 2 está feito — ver `docs/BOSS_INTROS.md`.
 
 **Regressão:** `DISPLAY=:99 .venv/bin/python tools/run_regression.py` → PASS
 (EXIT=0), resumo com `boss hp/damage (boss_hp.txt)` e `arma2 intro flag`.
+
+## Editor: Coverage, Dialogue e Checks (2026-11-08)
+
+**Contexto:** sessão dedicada a `tools/editor/`, sem mudar o jogo — excepto a
+correcção de texto abaixo, que a própria ferramenta encontrou.
+
+**Vistas novas**
+
+- **Coverage** (`/api/coverage`): todos os registos de objecto agrupados por
+  espécie, com contagem de salas, arte, sheet, HP autorado e validação por
+  sala. Filtros `placeholders`/`sem arte`/`boss`/`editado`; clicar numa espécie
+  abre o Enemy Editor, numa sala abre o Map Builder; `Copy report` exporta
+  markdown. Lê as salas efectivas (overlay incluído), por isso dá **852**
+  objectos contra os **853** registos do ROM do `report_coverage.py`.
+- **Dialogue** (`/api/text`): os 518 blocos, a simulação exacta do loader
+  (8 páginas × 8 linhas, `j`, 47 chars, `[`→`'`, `\`→`.`), pré-visualização
+  com a fonte 8×8 real, avisos do que o loader descarta, e um separador
+  `Usages` que resolve com `ast` todas as needles `text_find` de
+  `dcpy/game.py` e `BOSS_INTRO_TEXT`. Edição de páginas grava
+  `assets/authored/text_strings.json` (só ASCII 0x20–0x7E); `dcpy/text.py`
+  aplica esse overlay bloco a bloco.
+- **Checks** (`/api/checks`, `/api/checks/run`): lista `tools/check_*.py` +
+  `run_regression.py`, corre um de cada vez no venv, devolve stdout/stderr,
+  código de saída e duração; usa `$DISPLAY` ou Xvfb `:99` se existir. Timeout
+  180 s por omissão (máx. 900).
+
+**Bug real encontrado e corrigido:** três needles do town story atravessavam
+quebras de linha do ROM e `text_find` devolvia -1 em silêncio:
+`"BURNT THE DEMON REALM"`, `"ARROGANT FOOL"` e
+`"ESCAPED FROM THE COLOSSEUM"`. Passaram a `"NEARLY BURNT"`,
+`"THANKS TO THAT ARROGANT"` e `"ESCAPED FROM THE"` (blocos 97/99/100). As 22
+needles do jogo resolvem agora; há um teste que falha se alguma voltar a não
+resolver.
+
+**Verificação:** `tools/editor/test_editor.py` → 26 testes verdes (inclui o
+overlay de texto lido por `dcpy.text`, recusa de caracteres fora da fonte,
+coverage e o check runner); self-test do browser → 25/25
+(`captures/editor_selftest.json`); regressão completa verde. O servidor deixou
+de cachear `/web/` (módulos edited in place).
+
+**Ficheiros:** `tools/editor/{editor_data,server}.py`, `README.md`,
+`web/js/{coverage,dialogue,checks}.js`, `web/test.html`, `dcpy/text.py`.
+
+## Cemitério: BG1 53 px e objectos restaurados (2026-11-08)
+
+- **BG1 da área 1 estava 53 px acima** do sítio: todas as estátuas do mapa
+  original aparecem 53 px mais abaixo. O renderizador ignorava `scroll_y` no
+  BG1 de propósito (a área 4 usa-o como offset de câmara), por isso a correção
+  passou a ser um campo separado **`offset_y: 53`** em `bg[1]`, aplicado em
+  `dcpy/render.py`, no `layerOrigin`/`tileOrigin` do Map Builder e no
+  `renderGameView`. `BgLayer` ganhou o slot e a leitura do campo — sem isso o
+  render rebentava com `AttributeError`.
+- A room authored tinha só **9 objectos**: faltavam os **13 decor `$72`**
+  (tochas) e o `$09` em (1920,168) estava como `exit`. Restaurada a lista de
+  **22 objectos** da generated (boss `$09` incluído), mantendo a colisão
+  authored editada.
+- **Verificação:** `check_flame` PASS (13/13 decor), `check_hippogriff` PASS
+  (spawn, 260 frames de pedra, gate para a área 2), `check_objects` PASS,
+  `test_editor` 27/27, self-test do browser 26/26. `check_boss_hp` passou a
+  falhar só a área 0 (`$33` flags 0x80), que é outro problema.
+- **Regressão completa continua vermelha** por falhas não relacionadas:
+  WAVs ausentes no manifest (`music_town`, `music_murkland`, ...), up doors
+  4→46/47/48, Somulo/MVP, `check_transition_fade` (`fade.csv` em falta no
+  scratch) e boss HP da área 0.

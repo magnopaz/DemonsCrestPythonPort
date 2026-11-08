@@ -24,7 +24,7 @@ class HdmaBand:
 
 class BgLayer:
     __slots__ = ("name", "map_w", "map_h", "scroll_x", "scroll_y",
-                 "hdma_bands", "tiles")
+                 "offset_y", "hdma_bands", "tiles")
 
     def __init__(self):
         self.name = ""
@@ -32,6 +32,7 @@ class BgLayer:
         self.map_h = 0
         self.scroll_x = 0
         self.scroll_y = 0
+        self.offset_y = 0
         self.hdma_bands: list[HdmaBand] = []
         self.tiles: list[int] = []
 
@@ -136,6 +137,7 @@ def _read_bg_layer(layer: BgLayer, obj: dict) -> bool:
     layer.map_h = as_int(obj.get("map_height"), -1)
     layer.scroll_x = as_int(obj.get("scroll_x"), 0)
     layer.scroll_y = as_int(obj.get("scroll_y"), 0)
+    layer.offset_y = as_int(obj.get("offset_y"), 0)
     if layer.map_w < 0 or layer.map_h < 0:
         return False
     for band in (obj.get("hdma_bands") or [])[:8]:

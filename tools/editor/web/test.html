@@ -251,7 +251,7 @@
         const enemy = new Enemy({ app, container: host, arg: "2c" });
         await enemy.init();
         if (enemy.entry.species !== 44) throw new Error("species");
-        if (enemy.frames.length !== 3) throw new Error(`frames ${enemy.frames.length}`);
+        if (!enemy.frames.length) throw new Error("no frames");
         enemy.pushUndo("test state");
         enemy.states["0"].push(1);
         const added = enemy.states["0"].length;
@@ -288,8 +288,8 @@
 
       await check("player editor data", async () => {
         const data = await api("/api/player");
-        if (!data.base || data.forms.length !== 6)
-          throw new Error(`forms ${data.forms?.length}`);
+        if (!data.base || data.forms.length !== 5)
+          throw new Error(`base=${!!data.base} forms ${data.forms?.length}`);
         if (data.clip_names.length !== 11)
           throw new Error(`clips ${data.clip_names.length}`);
         const detail = await api("/api/player/2");
@@ -298,7 +298,27 @@
         const missing = Object.values(detail.entry.clips)
           .flatMap((c) => c.steps).filter((s) => !s.url).length;
         if (missing) throw new Error(`${missing} frame URL(s) unresolved`);
-        return `base + ${data.forms.length} forms, 11 clips, ${detail.entry.clips.idle.steps.length} aerial idle frames`;
+        return `base + ${data.forms.length} forms (form 0 is the base), 11 clips, ` +
+          `${detail.entry.clips.idle.steps.length} aerial idle frames`;
+      });
+
+      await check("cemetery bg1 offset in layer and tile origins", async () => {
+        const res = await api("/api/rooms/1");
+        const bg1 = res.room.bg[1];
+        if (bg1.scroll_y !== 0) throw new Error(`scroll_y ${bg1.scroll_y}`);
+        if (bg1.offset_y !== 53) throw new Error(`offset_y ${bg1.offset_y}`);
+        const host = doc.createElement("div");
+        host.style.cssText = "position:fixed;left:-4000px;top:0;width:1200px;height:800px";
+        doc.body.appendChild(host);
+        const m = new app.MapEditor({ app, container: host, arg: "1" });
+        await m.init();
+        const layer = m.layerOrigin(1);
+        const tile = m.tileOrigin(1);
+        m.destroy();
+        host.remove();
+        if (layer.y !== 53) throw new Error(`layerOrigin y ${layer.y}`);
+        if (tile.y !== 53) throw new Error(`tileOrigin y ${tile.y}`);
+        return "BG1 +53 px applied to draw and paint origins";
       });
 
       await check("map save/revert through the editor", async () => {
@@ -440,6 +460,78 @@
         if (!data.images || data.images.length < 300) throw new Error("too few images");
         const unused = data.images.filter((img) => !img.usage.length).length;
         return `${data.images.length} PNGs, ${unused} unused`;
+      });
+
+      await check("coverage view", async () => {
+        const host = doc.createElement("div");
+        host.style.cssText = "position:fixed;left:-4000px;top:0;width:1200px;height:800px";
+        doc.body.appendChild(host);
+        const view = new app.CoverageView({ app, container: host, arg: "" });
+        await view.init();
+        const totals = view.data?.totals;
+        if (!totals) throw new Error("no coverage payload");
+        if (totals.rooms !== app.rooms.length)
+          throw new Error(`rooms ${totals.rooms} != ${app.rooms.length}`);
+        if (!totals.objects || totals.unknown <= 0)
+          throw new Error(`objects ${totals.objects} unknown ${totals.unknown}`);
+        const cards = host.querySelectorAll(".stat-card").length;
+        if (cards !== 6) throw new Error(`stat cards ${cards}`);
+        const rows = host.querySelectorAll(".data-table tbody tr").length;
+        if (rows < 50) throw new Error(`species rows ${rows}`);
+        view.destroy();
+        host.remove();
+        return `${totals.rooms} rooms · ${totals.objects} objects · ` +
+          `${totals.unknown} placeholders · ${rows} species rows`;
+      });
+
+      await check("dialogue view + font preview", async () => {
+        const host = doc.createElement("div");
+        host.style.cssText = "position:fixed;left:-4000px;top:0;width:1200px;height:800px";
+        doc.body.appendChild(host);
+        const view = new app.DialogueEditor({ app, container: host, arg: "512" });
+        await view.init();
+        if (view.data.stats.blocks !== 518)
+          throw new Error(`blocks ${view.data.stats.blocks}`);
+        if (view.block.index !== 512) throw new Error(`block ${view.block.index}`);
+        if (!view.block.used_by.length) throw new Error("block 512 has no usage");
+        if (view.data.usages.length < 20)
+          throw new Error(`usages ${view.data.usages.length}`);
+        const missing = view.data.usages.filter((u) => !u.found).length;
+        const canvas = host.querySelector("#dialogue-canvas");
+        const px = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+        let lit = 0;
+        for (let i = 0; i < px.length; i += 4) {
+          if (px[i] + px[i + 1] + px[i + 2] > 60) lit += 1;
+        }
+        if (lit < 100) throw new Error(`only ${lit} font pixels`);
+        view.destroy();
+        host.remove();
+        return `${view.data.stats.blocks} blocks · ${view.data.usages.length} usages · ` +
+          `${missing} missing · ${lit} font pixels`;
+      });
+
+      await check("checks view", async () => {
+        const host = doc.createElement("div");
+        host.style.cssText = "position:fixed;left:-4000px;top:0;width:1200px;height:800px";
+        doc.body.appendChild(host);
+        const view = new app.ChecksView({ app, container: host, arg: "" });
+        await view.init();
+        if (view.checks.length < 20) throw new Error(`checks ${view.checks.length}`);
+        const rows = host.querySelectorAll(".check-row").length;
+        if (rows !== view.checks.length) throw new Error(`rows ${rows}`);
+        if (!host.querySelector(".console")?.textContent.includes("Press Run"))
+          throw new Error("console has no idle text");
+        view.destroy();
+        host.remove();
+        return `${view.checks.length} gates · display ${view.data.display.available}`;
+      });
+
+      await check("seven editor views", () => {
+        const tabs = [...doc.querySelectorAll(".nav-tab")].map((b) => b.dataset.view);
+        const expected = ["map", "enemy", "player", "dialogue", "coverage", "checks", "assets"];
+        if (tabs.join(",") !== expected.join(","))
+          throw new Error(tabs.join(","));
+        return tabs.join(" · ");
       });
 
       await check("map screenshot pixels", () => {

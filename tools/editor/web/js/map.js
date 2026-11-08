@@ -1385,7 +1385,10 @@ export class MapEditor {
   }
 
   layerOrigin(index) {
-    if (index === 1) return { x: 0, y: 0 };
+    if (index === 1) {
+      const layer = this.room.bg[1];
+      return { x: 0, y: layer.offset_y || 0 };
+    }
     const layer = this.room.bg[0];
     return {
       x: (layer.scroll_x || 0) - (this.room.camera.x || 0),
@@ -2113,9 +2116,10 @@ export class MapEditor {
           0, 0, VIEW_W, VIEW_H, true, wrapY);
       }
     }
-    // BG1: world layer.
+    // BG1: world layer (offset_y carries a per-room vertical correction).
     if (room.bg[1] && this.show.bg1) {
-      this.drawLayerTiles(ctx, room.bg[1], this.assets?.bg1, camX, camY,
+      this.drawLayerTiles(ctx, room.bg[1], this.assets?.bg1, camX,
+        camY + (room.bg[1].offset_y || 0),
         0, 0, VIEW_W, VIEW_H, false, false);
     }
     // Objects.
@@ -2596,7 +2600,9 @@ export class MapEditor {
 
   /* ----------------------------------------------------------------- tiles */
   tileOrigin(layerIndex) {
-    if (layerIndex === 1) return { x: 0, y: 0 };
+    if (layerIndex === 1) {
+      return { x: 0, y: this.room.bg[1]?.offset_y || 0 };
+    }
     const layer = this.room.bg[0];
     return { x: (layer.scroll_x || 0) - (this.room.camera.x || 0),
       y: (layer.scroll_y || 0) - (this.room.camera.y || 0) };

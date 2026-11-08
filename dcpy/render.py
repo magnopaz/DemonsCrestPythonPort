@@ -133,7 +133,13 @@ def _draw_layer(assets, layer, level, camera, index: int) -> None:
     world_space = index == 1
     if world_space:
         offset_x = 0.0
-        offset_y = 0.0
+        # BG1 is world-space; `scroll_y` is the extracted camera offset and is
+        # deliberately ignored here (area 4 has a 512-tall layer whose
+        # scroll_y equals camera.y).  `offset_y` is a separate render
+        # correction: area 1's cemetery tilemap is authored 53 px above the
+        # world origin, which floated the backdrop over the collision and
+        # stacked the statues at the wrong heights.  Positive lowers.
+        offset_y = -float(layer.offset_y or 0)
     else:
         offset_x = float(layer.scroll_x) - float(level.camera_x)
         offset_y = float(layer.scroll_y) - float(level.camera_y)

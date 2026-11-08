@@ -8,11 +8,17 @@ import { MapEditor } from "./map.js";
 import { EnemyEditor } from "./enemy.js";
 import { PlayerEditor } from "./player.js";
 import { AssetBrowser } from "./assets.js";
+import { CoverageView } from "./coverage.js";
+import { DialogueEditor } from "./dialogue.js";
+import { ChecksView } from "./checks.js";
 
 const VIEWS = {
   map: { label: "Map Builder", module: MapEditor },
   enemy: { label: "Enemy Editor", module: EnemyEditor },
   player: { label: "Player Editor", module: PlayerEditor },
+  dialogue: { label: "Dialogue", module: DialogueEditor },
+  coverage: { label: "Coverage", module: CoverageView },
+  checks: { label: "Checks", module: ChecksView },
   assets: { label: "Asset Browser", module: AssetBrowser },
 };
 
@@ -29,6 +35,9 @@ export const app = {
   EnemyEditor,
   PlayerEditor,
   AssetBrowser,
+  CoverageView,
+  DialogueEditor,
+  ChecksView,
 
   setStatus(left, right = "") {
     $("#status-left").textContent = left;
@@ -195,7 +204,7 @@ async function boot() {
     $("#project-info").textContent =
       `${app.rooms.length} rooms · ${app.species.length} species`;
     app.setStatus("Ready. Pick a room to edit.",
-      "Map Editor · Enemy Editor · Player Editor · Asset Browser");
+      "Map · Enemy · Player · Dialogue · Coverage · Checks · Assets");
     const { name, arg } = parseHash();
     await mount(name, arg);
   } catch (error) {

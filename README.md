@@ -123,8 +123,9 @@ python3 tools/check_hippogriff.py      # whole suite: tools/run_regression.py
 
 ## Tooling
 
-- `tools/editor/` — visual Map Builder, Enemy Editor, Player Editor and Asset
-  Browser. Start it with `python tools/editor/server.py` (or `tools/editor/run.bat`)
+- `tools/editor/` — visual Map Builder, Enemy Editor, Player Editor, Dialogue,
+  Coverage, Checks and Asset Browser. Start it with
+  `python tools/editor/server.py` (or `tools/editor/run.bat`)
   and open the printed `http://127.0.0.1:8765/` URL. Edits go to
   `assets/authored/`, which the game loads over the generated tree. Workflow
   and API reference: [`tools/editor/README.md`](tools/editor/README.md).

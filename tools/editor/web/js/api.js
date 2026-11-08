@@ -68,6 +68,17 @@ export const api = {
     method: "DELETE",
   }),
   assets: () => request("/api/assets"),
+  coverage: () => request("/api/coverage"),
+  text: () => request("/api/text"),
+  textBlock: (index) => request(`/api/text/${index}`),
+  saveText: (index, pages) => request(`/api/text/${index}`, {
+    method: "POST", body: JSON.stringify({ pages }),
+  }),
+  deleteText: (index) => request(`/api/text/${index}`, { method: "DELETE" }),
+  checks: () => request("/api/checks"),
+  runCheck: (name, timeout = 180) => request("/api/checks/run", {
+    method: "POST", body: JSON.stringify({ name, timeout }),
+  }),
   upload: (name, data, overwrite = false) => request("/api/assets/upload", {
     method: "POST", body: JSON.stringify({ name, data, overwrite }),
   }),
