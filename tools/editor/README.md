@@ -110,7 +110,7 @@ background atlas (`bg_atlas_area` in the room JSON).
 Other keys: `Ctrl+S` save, `Ctrl+Z` / `Ctrl+Y` undo/redo, `Ctrl+C` / `Ctrl+V`
 copy/paste the selected object or door, `Ctrl+D` duplicate, `Del` delete,
 arrows nudge 1 px (Shift = 8 px), `0` fit, `+/-` zoom, `G` grid, `P` preview,
-`Esc` deselect. Wheel zooms at the cursor.
+`M` minimap, `?` shortcut sheet, `Esc` deselect. Wheel zooms at the cursor.
 
 **Collision.** Choose a shape (solid, wedges, ramps) and an environment flag
 (hazard, breakable, water, ramp). The value written is
@@ -134,7 +134,21 @@ list filters by name/species.
 **Doors and spawns.** A door is a transition trigger: `next_area`, `spawn_id`,
 `pad_mask`, `type` and the half-size rectangle. `spawn_id` indexes the
 destination room's `spawns` array. The primary spawn is `spawn`; extra spawns
-are stored in `spawns`.
+are stored in `spawns`. The transition inspector validates the target:
+`✓ Area N · spawn 0 of 1` when it resolves, `⚠ … spawn_id 99 is out of range`
+when the destination has fewer spawns, and `✗ Area N does not exist` for a
+broken target.
+
+**Minimap.** The bottom-right minimap shows the collision silhouette, the
+viewport rectangle and a heatmap of the room's objects: bosses (purple),
+enemies (red), urns (amber), talismans/crests/items (blue), NPCs (green),
+decor (orange) and door triggers (green squares). Click or drag to navigate;
+`M` toggles it.
+
+**Full map export and history.** **Full map PNG** renders every visible layer
+off-screen at the room's real size and downloads `area<N>_full.png`. Opening a
+door's target (or the transition inspector's **Open target**) pushes the
+previous room onto the history; **← Back** returns to it.
 
 **Bounds.** Yellow = play bounds, blue = camera limits, white = the initial
 camera viewport. Drag a corner/edge handle, or type exact values in the panel.

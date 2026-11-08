@@ -321,6 +321,50 @@
         return "BG1 +53 px applied to draw and paint origins";
       });
 
+      await check("keyboard shortcuts help", () => {
+        win.dispatchEvent(new win.KeyboardEvent("keydown", { key: "?", bubbles: true }));
+        const modal = doc.querySelector("#modal-root .modal");
+        if (!modal) throw new Error("no shortcuts modal");
+        if (!modal.textContent.includes("Keyboard shortcuts"))
+          throw new Error("wrong modal title");
+        const rows = modal.querySelectorAll(".shortcut-table tbody tr").length;
+        if (rows < 10) throw new Error(`only ${rows} shortcut rows`);
+        modal.querySelector(".modal-close").click();
+        if (doc.querySelector("#modal-root .modal"))
+          throw new Error("modal did not close");
+        return `${rows} shortcuts`;
+      });
+
+      await check("transition target validation", async () => {
+        const badge = doc.createElement("div");
+        doc.body.appendChild(badge);
+        await map.checkTransitionTarget({ next_area: 48, spawn_id: 0 }, badge);
+        if (!badge.textContent.includes("✓"))
+          throw new Error(badge.textContent);
+        await map.checkTransitionTarget({ next_area: 48, spawn_id: 99 }, badge);
+        if (!badge.textContent.includes("out of range"))
+          throw new Error(badge.textContent);
+        await map.checkTransitionTarget({ next_area: 999, spawn_id: 0 }, badge);
+        if (!badge.textContent.includes("does not exist"))
+          throw new Error(badge.textContent);
+        badge.remove();
+        return "valid · bad spawn · missing area";
+      });
+
+      await check("minimap heatmap", () => {
+        if (!map.minimapCanvas) throw new Error("no minimap canvas");
+        map.showMinimap = true;
+        map.drawMinimap();
+        const canvas = map.minimapCanvas;
+        const data = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+        let colored = 0;
+        for (let i = 0; i < data.length; i += 4 * 7) {
+          if (data[i] + data[i + 1] + data[i + 2] > 120) colored += 1;
+        }
+        if (colored < 20) throw new Error(`only ${colored} colored samples`);
+        return `${colored} colored minimap samples`;
+      });
+
       await check("map save/revert through the editor", async () => {
         let area = 0;
         for (let candidate = 990; candidate < 1010; candidate += 1) {

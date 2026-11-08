@@ -54,21 +54,27 @@ O editor já possui: Map Builder, Enemy Editor, Player Editor, Dialogue, Coverag
 - Rota `GET /api/campaign` devolve `{nodes, edges, stages, issues, stats}`.
 - **Verificação:** 113 rooms · 225 edges · 11 stages; `test_editor` 29/29; self-test 27/27.
 
+### 8. Help overlay de atalhos — concluído
+- **Arquivo:** `tools/editor/web/js/map.js`
+- `?` (ou o botão de info na toolbar) abre um modal com 15 atalhos: ferramentas, pan/zoom, grid, preview, minimap, save, undo/redo, copy/paste, delete, nudge e Alt+click.
+- O mapa ignora o teclado enquanto qualquer modal está aberto; Esc fecha.
+
+### 9. Heatmap de objetos no minimap — concluído
+- **Arquivo:** `tools/editor/web/js/map.js`
+- Pontos coloridos sobre a silhueta de colisão: bosses (roxo), inimigos (vermelho), urns (âmbar), talismãs/crests/itens (azul), NPCs (verde), decor (laranja) e portas (quadrado verde).
+- Objetos fora dos limites do mundo são ignorados.
+
+### 10. Validação inline de transições — concluído
+- **Arquivo:** `tools/editor/web/js/map.js`
+- O inspector de uma porta consulta `GET /api/rooms/<dest_area>` (com cache por área) e mostra badge:
+  - `✓ Area N · spawn 0 of 1` quando o destino e o spawn existem;
+  - `⚠ Area N has 1 spawn(s); spawn_id 99 is out of range`;
+  - `✗ Area N does not exist`.
+- O badge actualiza ao mudar `next_area` ou `spawn_id`.
+
 ---
 
 ## 🔲 Próximas funcionalidades planejadas (ainda não implementadas)
-
-### B. Keyboard shortcuts overlay (Help overlay)
-- Exibir painel com todos os atalhos de teclado ao pressionar `?`.
-- Já existe `bindKeys()` em map.js — apenas montar o HTML de ajuda contextual.
-
-### C. Heatmap de objetos no minimap
-- Sobrepor pontos coloridos no minimap representando posições de inimigos, itens e transições.
-- Extensão simples de `drawMinimap()`.
-
-### D. Validação visual inline de transições
-- No painel lateral de transição, mostrar badge verde/vermelho se `dest_area` existe e se `dest_spawn` é válido naquela área.
-- Chamar `GET /api/rooms/<dest_area>` em background.
 
 ### E. Busca global de objetos
 - Barra de busca que encontra qualquer objeto (por `type`, nome, área) em todos os rooms.
@@ -80,7 +86,7 @@ O editor já possui: Map Builder, Enemy Editor, Player Editor, Dialogue, Coverag
 
 | Arquivo | Descrição das mudanças |
 |---|---|
-| `tools/editor/web/js/map.js` | Minimap, exportação PNG, histórico/Back, transition inspector melhorado |
+| `tools/editor/web/js/map.js` | Minimap, exportação PNG, histórico/Back, transition inspector, help `?`, heatmap, validação de portas |
 | `tools/editor/web/js/coverage.js` | Aba Collectibles |
 | `tools/editor/web/js/api.js` | Endpoint `collectibles()` |
 | `tools/editor/web/js/app.js` | Rota de navegação `#map/<area>` |
@@ -100,6 +106,6 @@ O editor já possui: Map Builder, Enemy Editor, Player Editor, Dialogue, Coverag
 ## Verificação (2026-11-08)
 
 - `tools/editor/test_editor.py` → **29/29**.
-- Self-test do browser → **27/27**, incluindo `campaign graph view` e `eight editor views`.
+- Self-test do browser → **30/30**, incluindo `campaign graph view`, `keyboard shortcuts help`, `transition target validation` e `minimap heatmap`.
 - Payload real: **113 rooms · 225 edges · 11 stages**.
 - Nota operacional: a rota `/api/campaign` já estava em `server.py`; o servidor em execução é que era antigo. Reiniciar o editor após alterações ao backend.

@@ -588,3 +588,14 @@ de cachear `/web/` (módulos edited in place).
 - **Verificação:** payload 113 rooms · 225 edges · 11 stages; `test_editor`
   29/29; self-test do browser 27/27 (`campaign graph view`, `eight editor
   views`).
+
+## Editor polish: help, heatmap e validação de portas (2026-11-08)
+
+- `?` (ou o botão de info na toolbar) abre o **shortcut sheet** com 15
+  atalhos; qualquer modal bloqueia o teclado do mapa e Esc fecha.
+- O **minimap** ganhou heatmap de objectos (boss/inimigo/urn/item/NPC/decor)
+  e as portas aparecem como quadrados verdes.
+- O inspector de uma porta consulta a room de destino e mostra
+  `✓`/`⚠`/`✗` para `next_area` + `spawn_id`, com cache por área.
+- **Verificação:** self-test do browser **30/30** (`keyboard shortcuts help`,
+  `transition target validation`, `minimap heatmap`); `test_editor` 29/29.

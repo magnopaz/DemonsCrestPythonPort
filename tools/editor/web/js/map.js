@@ -74,6 +74,7 @@ export class MapEditor {
     };
     this.showMinimap = true;
     this.navHistory = [];
+    this._spawnCache = new Map();
     this.view = { x: 0, y: 0, zoom: 1 };
     this.preview = { on: false, x: 0, y: 0 };
     this.selection = null;
@@ -247,6 +248,11 @@ export class MapEditor {
       title: "Export full composite room map as PNG",
       onclick: () => this.exportFullRoomPng(),
     }, icon("download"), h("span", { text: "Full map PNG" }));
+    this.helpBtn = h("button", {
+      class: "btn icon", type: "button",
+      title: "Keyboard shortcuts (?)",
+      onclick: () => this.showShortcutsHelp(),
+    }, icon("info"));
 
     this.backBtn = h("button", {
       class: "btn small", type: "button", style: { display: "none" },
@@ -296,6 +302,7 @@ export class MapEditor {
       this.renderBtn,
       this.minimapBtn,
       this.exportMapBtn,
+      this.helpBtn,
       h("span", { class: "grow" }),
       this.validationBadge,
     );
@@ -2150,6 +2157,32 @@ export class MapEditor {
       }
     }
 
+    // Object heatmap: enemies, bosses, items, urns and decor.
+    const heat = (obj) => {
+      if (obj.type === "boss") return "#c084fc";
+      if (obj.type === "enemy") return "#f87171";
+      if (obj.type === "urn") return "#e0a13c";
+      if (obj.type === "talisman" || obj.type === "pickup_crest" ||
+          obj.type === "item" || obj.type === "crest") return "#38bdf8";
+      if (obj.type === "npc") return "#4ade80";
+      if (obj.type === "decor") return "#fb923c";
+      return "#e5e7eb";
+    };
+    for (const obj of this.room.objects || []) {
+      const x = Number(obj.x) || 0;
+      const y = Number(obj.y) || 0;
+      if (x < 0 || y < 0 || x > worldW || y > worldH) continue;
+      mctx.fillStyle = heat(obj);
+      mctx.fillRect(offsetX + x * scale - 1, offsetY + y * scale - 1, 2.5, 2.5);
+    }
+    for (const tr of this.room.transitions || []) {
+      const x = Number(tr.x) || 0;
+      const y = Number(tr.y) || 0;
+      mctx.strokeStyle = "#4ade80";
+      mctx.lineWidth = 1;
+      mctx.strokeRect(offsetX + x * scale - 1.5, offsetY + y * scale - 1.5, 3, 3);
+    }
+
     // Viewport box
     const vis = this.visibleWorldRect();
     const vx = offsetX + vis.x * scale;
@@ -3327,6 +3360,42 @@ export class MapEditor {
     );
   }
 
+  async checkTransitionTarget(tr, badge) {
+    if (!badge) return;
+    const area = Number(tr.next_area);
+    const known = this.app.rooms.some((r) => r.area === area);
+    if (!known) {
+      badge.className = "field-note transition-check bad";
+      badge.textContent = `✗ Area ${area} does not exist`;
+      return;
+    }
+    badge.className = "field-note transition-check";
+    badge.textContent = "Checking destination…";
+    try {
+      let info = this._spawnCache.get(area);
+      if (!info) {
+        const detail = await api.room(area);
+        const room = detail.room || {};
+        info = {
+          spawns: Array.isArray(room.spawns) ? room.spawns.length : 0,
+          hasPrimary: Boolean(room.spawn),
+        };
+        this._spawnCache.set(area, info);
+      }
+      if (!badge.isConnected) return;
+      const sid = Number(tr.spawn_id) || 0;
+      const valid = sid < info.spawns || (sid === 0 && info.hasPrimary);
+      badge.className = `field-note transition-check ${valid ? "ok" : "bad"}`;
+      badge.textContent = valid
+        ? `✓ Area ${area} · spawn ${sid}${info.spawns ? ` of ${info.spawns}` : " (primary)"}`
+        : `⚠ Area ${area} has ${info.spawns} spawn(s); spawn_id ${sid} is out of range`;
+    } catch (err) {
+      if (!badge.isConnected) return;
+      badge.className = "field-note transition-check bad";
+      badge.textContent = `⚠ Could not load Area ${area}: ${err.message}`;
+    }
+  }
+
   buildTransitionInspector(tr, index) {
     const areaOptions = [...new Set([...this.app.rooms.map((r) => r.area),
       tr.next_area ?? 0])].sort((a, b) => a - b);
@@ -3373,26 +3442,30 @@ export class MapEditor {
       },
     });
 
-    const targetRoomInfo = this.app.rooms.find((r) => r.area === Number(tr.next_area));
-    const targetSpawnsCount = targetRoomInfo?.spawns_count ?? targetRoomInfo?.spawns;
-    const spawnWarning = (targetSpawnsCount !== undefined && tr.spawn_id >= targetSpawnsCount)
-      ? h("div", { class: "field-note", style: { color: "#f87171", fontWeight: "bold" },
-          text: `⚠️ Target Area ${tr.next_area} only has ${targetSpawnsCount} spawn(s), but this door targets spawn_id=${tr.spawn_id}!` })
-      : null;
+    const targetBadge = h("div", { class: "field-note transition-check",
+      text: "Checking destination…" });
+    const spawnInput = h("input", {
+      type: "number", value: tr.spawn_id ?? 0,
+      oninput: () => {
+        tr.spawn_id = Number(spawnInput.value) || 0;
+        this.markDirty();
+        this.checkTransitionTarget(tr, targetBadge);
+      },
+    });
 
     this.inspectorBody.append(
       h("div", { class: "field" }, h("span", { text: "Next area" }), nextArea),
+      targetBadge,
       h("div", { class: "field-2" }, inp("x", "X"), inp("y", "Y")),
       h("div", { class: "field-2" }, inp("half_w", "Half W"), inp("half_h", "Half H")),
       h("div", { class: "field-2" },
-        inp("spawn_id", "Spawn ID"),
+        h("div", { class: "field" }, h("span", { text: "Spawn ID" }), spawnInput),
         h("div", { class: "field" }, h("span", { text: "Trigger pad" }), padSelect)
       ),
       h("div", { class: "field-2" },
         inp("type", "Type"),
         h("div", { class: "field" }, h("span", { text: "Pad mask" }), padInput)
       ),
-      spawnWarning,
       h("div", { class: "row wrap" },
         h("button", {
           class: "btn small", type: "button", text: "Open target",
@@ -3417,6 +3490,7 @@ export class MapEditor {
       h("div", { class: "field-note",
         text: "The transition rectangle is the trigger area. next_area points at room_area<N>.json; spawn_id selects the destination spawn." }),
     );
+    this.checkTransitionTarget(tr, targetBadge);
   }
 
   buildSpawnInspector(sp, index) {
@@ -3852,9 +3926,54 @@ export class MapEditor {
   }
 
   /* --------------------------------------------------------------- keyboard */
+  showShortcutsHelp() {
+    const rows = [
+      ["V / C / T / O / D / S / H", "Select · Collision · Tiles · Objects · Door · Spawn · Pan"],
+      ["Space-drag / middle-drag", "Pan the canvas"],
+      ["Wheel / + / -", "Zoom at cursor / in / out"],
+      ["0", "Fit the room"],
+      ["G", "Toggle the tile grid"],
+      ["P", "Toggle the 256×224 game preview"],
+      ["M", "Toggle the minimap"],
+      ["Ctrl+S", "Save the room"],
+      ["Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y", "Undo / redo"],
+      ["Ctrl+C / Ctrl+V / Ctrl+D", "Copy / paste / duplicate the selection"],
+      ["Delete / Backspace", "Delete the selection"],
+      ["Arrows / Shift+Arrows", "Nudge 1 px / 8 px"],
+      ["Alt+click", "Pick the collision cell under the cursor"],
+      ["Esc", "Deselect and return to Select"],
+      ["?", "Open this shortcut sheet"],
+    ];
+    const table = h("table", { class: "shortcut-table" },
+      h("thead", null,
+        h("tr", null,
+          h("th", { text: "Key" }),
+          h("th", { text: "Action" }),
+        ),
+      ),
+      h("tbody", null, ...rows.map(([keys, action]) => h("tr", null,
+        h("td", null, h("kbd", { text: keys })),
+        h("td", { text: action }),
+      ))),
+    );
+    showModal({
+      title: "Keyboard shortcuts",
+      body: h("div", { class: "shortcut-body" },
+        table,
+        h("p", { class: "muted", text:
+          "Doors: D places a transition, S sets the spawn. " +
+          "Collision: right-click erases, Alt-click picks. " +
+          "The canvas hint stays visible while the map is open." }),
+      ),
+      actions: [{ label: "Close", primary: true }],
+    });
+  }
+
   bindKeys() {
     this._onKeyDown = (event) => {
       if (this.destroyed) return;
+      // A modal owns the keyboard while it is open.
+      if (document.querySelector("#modal-root .modal-backdrop")) return;
       if (event.code === "Space") this.spaceDown = true;
       const target = event.target;
       const editing = target instanceof HTMLElement &&
@@ -3873,6 +3992,7 @@ export class MapEditor {
         event.preventDefault(); this.duplicateSelection(); return;
       }
       if (editing) return;
+      if (key === "?") { event.preventDefault(); this.showShortcutsHelp(); return; }
       if ((event.ctrlKey || event.metaKey) && key === "c") {
         event.preventDefault(); this.copySelection(); return;
       }
