@@ -161,6 +161,29 @@ shows the real 256×224 game frame with HUD. It takes a few seconds, does not
 save the room, and is the definitive check when the editor preview and the
 game disagree. The output PNGs land in `captures/editor_render/`.
 
+## Campaign
+
+The **Campaign** tab draws the whole room graph returned by
+`Workspace.campaign_graph()`: 113 rooms grouped in stage bands, door edges in
+green, boss gates in amber. Rooms with a broken transition, an invalid spawn
+or no exit get a red dot; `DEAD END` is printed when the zoom is readable.
+
+- **Navigation:** drag to pan, wheel to zoom, `Fit` for the whole campaign,
+  `Reset View` for 1:1. Double-click a room (or use **Open in Map Builder**)
+  to jump to `#map/<area>`.
+- **Filters:** search by area/name/stage, pick one stage (the view focuses on
+  the stage's first room), or **Issues only**.
+- **Views:** Visual Graph, Room Table (world size, unique exits/entrances,
+  gate, spawns, source) and Navigation Issues (broken transitions, invalid
+  destination spawns, dead ends). Issue cards link to the source and target
+  rooms.
+- **Detail panel:** outgoing/incoming links (duplicate doors collapsed),
+  spawn list, music/stage/source and the Open button.
+- The canvas uses a `ResizeObserver` and focuses the selected room on first
+  load; the overview hides door edges and card text below 0.42× so the stage
+  structure stays legible. Stage order follows the campaign, not the
+  alphabetical stage list.
+
 ## Enemy Editor
 
 **Species list.** Filter by enemies/bosses/NPCs/edited, or search by name, key
@@ -348,6 +371,8 @@ The UI is a thin client over a small JSON API; useful for scripts:
 | `POST /api/player/validate` | validate `{target, entry}` |
 | `GET /api/assets` | image index with dimensions/usage |
 | `GET /api/coverage` | project coverage: totals, species, rooms, types, music |
+| `GET /api/campaign` | campaign graph: nodes, edges, stages, issues, stats |
+| `GET /api/collectibles` | collectibles (crests, talismans, urns) by room |
 | `GET /api/text` | text blocks, loader simulation, warnings, font, usages |
 | `GET /api/text/<index>` | one block + caps + font |
 | `POST /api/text/<index>` | save `{pages}` to the authored overlay |

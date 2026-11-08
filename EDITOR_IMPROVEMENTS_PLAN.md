@@ -45,20 +45,18 @@ O editor já possui: Map Builder, Enemy Editor, Player Editor, Dialogue, Coverag
 - `Workspace.campaign_graph()`: grafo de conectividade de todos os rooms — nós com metadados de área, estágio, transições, spawns, gate; arestas de transições; detecção de issues (broken doors, dead ends, unreachable rooms).
 - `stage_name_for_area()`: heurística de classificação de estágio por número de área e música.
 
+### 7. Campaign Graph View (aba Campaign) — concluído
+- **Arquivos:** `tools/editor/web/js/campaign.js`, `index.html`, `app.js`, `api.js`, `icons.js`, `editor.css`
+- Canvas com 113 rooms em faixas de estágio (ordem de campanha, não alfabética), portas a verde e gates a âmbar; badge `AUTH`, `DEAD END` e ponto vermelho para broken doors/spawns inválidos.
+- Pan/zoom, **Fit** (campanha inteira), **Reset View**, foco no room selecionado no arranque, `ResizeObserver` e duplo-clique para `#map/<area>`.
+- Filtros de busca, estágio (foca o primeiro room) e **Issues only**; vistas Visual Graph, Room Table e Navigation Issues.
+- Painel lateral com saídas/entradas (portas duplicadas colapsadas), spawns, música/estágio e **Open in Map Builder**.
+- Rota `GET /api/campaign` devolve `{nodes, edges, stages, issues, stats}`.
+- **Verificação:** 113 rooms · 225 edges · 11 stages; `test_editor` 29/29; self-test 27/27.
+
 ---
 
 ## 🔲 Próximas funcionalidades planejadas (ainda não implementadas)
-
-### A. Campaign Graph / World Map View (alta prioridade)
-- **Objetivo:** aba ou painel dedicado no editor mostrando o grafo de conectividade entre rooms.
-- Usar `campaign_graph()` já implementado no backend.
-- Renderizar como SVG ou canvas com nós clicáveis (para abrir o room no Map Builder).
-- Destacar visualmente: dead ends, broken doors, rooms não alcançáveis.
-- Rota API: `GET /api/campaign` → retorna o grafo.
-- **Arquivos a criar/modificar:**
-  - `tools/editor/web/js/campaign.js` (novo)
-  - `tools/editor/server.py` (adicionar rota `/api/campaign`)
-  - `tools/editor/web/index.html` (adicionar aba)
 
 ### B. Keyboard shortcuts overlay (Help overlay)
 - Exibir painel com todos os atalhos de teclado ao pressionar `?`.
@@ -90,6 +88,18 @@ O editor já possui: Map Builder, Enemy Editor, Player Editor, Dialogue, Coverag
 | `tools/editor/web/css/editor.css` | Estilos do minimap e collectibles |
 | `tools/editor/web/index.html` | Integração dos novos elementos |
 | `tools/editor/editor_data.py` | `collectibles()`, `campaign_graph()`, `stage_name_for_area()` |
+| `tools/editor/web/js/campaign.js` | Campaign Graph View: stage bands, pan/zoom/fit, filtros, tabela, issues, duplo-clique |
+| `tools/editor/web/test.html` | Check da Campaign View; lista passa a oito vistas |
+| `tools/editor/test_editor.py` | Testes das rotas `/api/campaign` e `/api/collectibles`, cobertura do grafo |
 | `tools/editor/server.py` | Rotas `/api/collectibles`, `/api/campaign` |
 | `tools/editor/run.sh` | Script de início Linux |
 | `tools/dc_extract/fix_species_anchor.py` | Correção menor de âncora |
+
+---
+
+## Verificação (2026-11-08)
+
+- `tools/editor/test_editor.py` → **29/29**.
+- Self-test do browser → **27/27**, incluindo `campaign graph view` e `eight editor views`.
+- Payload real: **113 rooms · 225 edges · 11 stages**.
+- Nota operacional: a rota `/api/campaign` já estava em `server.py`; o servidor em execução é que era antigo. Reiniciar o editor após alterações ao backend.

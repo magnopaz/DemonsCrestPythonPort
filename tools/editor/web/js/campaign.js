@@ -21,6 +21,20 @@ const STAGE_COLORS = {
   "Special & Crypts": "#cbd5e1",
 };
 
+const STAGE_ORDER = [
+  "Stage 1 · Murkland",
+  "Stage 2 · Ruined City & Town",
+  "Stage 3 · Dark Forest",
+  "Stage 4 · Towers of Doom",
+  "Stage 5 · Poseidonia",
+  "Stage 6 · Mountains",
+  "Stage 7 · Phalanx's Fortress",
+  "Demon's Hideout",
+  "Town & Interiors",
+  "Overworld Map",
+  "Special & Crypts",
+];
+
 export class CampaignView {
   constructor({ app, container, arg }) {
     this.app = app;
@@ -40,6 +54,12 @@ export class CampaignView {
     this.isPanning = false;
     this.panStart = { x: 0, y: 0 };
     this.nodeLayouts = new Map(); // area -> { x, y, w, h }
+    this.stageBounds = []; // stage rectangles for the graph background
+    this.viewW = 0;
+    this.viewH = 0;
+    this.resizeObserver = null;
+    this.needsFit = true;
+    this.needsFocus = true;
   }
 
   async init() {
@@ -49,6 +69,8 @@ export class CampaignView {
   }
 
   destroy() {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     this.el?.remove();
   }
 
@@ -70,7 +92,14 @@ export class CampaignView {
       onchange: () => {
         this.stageFilter = this.stageSelect.value;
         this.layoutGraphNodes();
+        const stage = this.data?.stages?.find((s) => s.name === this.stageFilter);
+        if (stage && !stage.areas.includes(this.selectedArea)) {
+          this.selectedArea = stage.areas[0] ?? this.selectedArea;
+        }
+        this.needsFocus = true;
+        this.needsFit = false;
         this.renderCurrentView();
+        this.renderDetail();
       },
     }, h("option", { value: "all", text: "All stages" }));
 
@@ -131,6 +160,8 @@ export class CampaignView {
       this.syncStageOptions();
       this.renderStats();
       this.layoutGraphNodes();
+      this.needsFocus = true;
+      this.needsFit = false;
       this.renderCurrentView();
       this.renderDetail();
       const statusLbl = this.el.querySelector("#campaign-status-label");
@@ -145,13 +176,19 @@ export class CampaignView {
   syncStageOptions() {
     clear(this.stageSelect);
     this.stageSelect.appendChild(h("option", { value: "all", text: "All stages" }));
-    for (const stage of this.data?.stages || []) {
+    for (const stage of this.orderedStages()) {
       this.stageSelect.appendChild(h("option", {
         value: stage.name,
         text: `${stage.name} (${stage.areas.length})`,
         selected: this.stageFilter === stage.name,
       }));
     }
+  }
+
+  orderedStages() {
+    const order = new Map(STAGE_ORDER.map((name, i) => [name, i]));
+    return [...(this.data?.stages || [])].sort(
+      (a, b) => (order.get(a.name) ?? 99) - (order.get(b.name) ?? 99));
   }
 
   renderStats() {
@@ -190,7 +227,8 @@ export class CampaignView {
   layoutGraphNodes() {
     if (!this.data) return;
     this.nodeLayouts.clear();
-    const stages = this.data.stages || [];
+    this.stageBounds = [];
+    const stages = this.orderedStages();
     const nodeWidth = 140;
     const nodeHeight = 54;
     const colGap = 200;
@@ -201,19 +239,33 @@ export class CampaignView {
       if (this.stageFilter !== "all" && st.name !== this.stageFilter) continue;
       const areas = st.areas || [];
       const colsInStage = Math.max(1, Math.ceil(areas.length / 10));
+      const startCol = colIdx;
       for (let i = 0; i < areas.length; i++) {
         const area = areas[i];
         const subCol = i % colsInStage;
         const row = Math.floor(i / colsInStage);
-        const x = (colIdx + subCol) * colGap + 60;
+        const x = (startCol + subCol) * colGap + 60;
         const y = row * rowGap + 60;
         this.nodeLayouts.set(area, { x, y, w: nodeWidth, h: nodeHeight });
       }
+      const rows = Math.ceil(areas.length / colsInStage);
+      const x0 = startCol * colGap + 40;
+      const x1 = (startCol + colsInStage - 1) * colGap + 60 + nodeWidth + 20;
+      this.stageBounds.push({
+        name: st.name,
+        x: x0,
+        y: 16,
+        w: x1 - x0,
+        h: rows * rowGap + 58,
+        color: STAGE_COLORS[st.name] || "#94a3b8",
+      });
       colIdx += colsInStage + 0.5;
     }
   }
 
   renderCurrentView() {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     clear(this.mainArea);
     if (!this.data) return;
 
@@ -230,6 +282,10 @@ export class CampaignView {
     const canvasWrap = h("div", { class: "campaign-canvas-wrap" });
     const canvas = h("canvas", { class: "campaign-graph-canvas" });
     canvasWrap.appendChild(canvas);
+    canvasWrap.appendChild(h("div", {
+      class: "campaign-hint",
+      text: "Drag to pan · Wheel to zoom · Double-click a room to open",
+    }));
 
     const controls = h("div", { class: "graph-controls" },
       h("button", {
@@ -243,6 +299,10 @@ export class CampaignView {
       h("button", {
         class: "btn small", type: "button", text: "Reset View",
         onclick: () => { this.zoom = 1; this.camX = 0; this.camY = 0; draw(); }
+      }),
+      h("button", {
+        class: "btn small", type: "button", text: "Fit",
+        onclick: () => { this.needsFit = false; this.needsFocus = false; fitView(); }
       })
     );
     canvasWrap.appendChild(controls);
@@ -253,10 +313,23 @@ export class CampaignView {
 
     const resize = () => {
       const rect = canvasWrap.getBoundingClientRect();
-      canvas.width = rect.width * (window.devicePixelRatio || 1);
-      canvas.height = rect.height * (window.devicePixelRatio || 1);
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
+      const width = Math.floor(rect.width);
+      const height = Math.floor(rect.height);
+      if (width < 2 || height < 2) return;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      this.viewW = width;
+      this.viewH = height;
+      if (this.needsFocus) {
+        this.needsFocus = false;
+        if (!focusArea(this.selectedArea)) fitView(false);
+      } else if (this.needsFit) {
+        this.needsFit = false;
+        fitView(false);
+      }
       draw();
     };
 
@@ -275,9 +348,35 @@ export class CampaignView {
       ctx.save();
       ctx.translate(w / 2 + this.camX, h / 2 + this.camY);
       ctx.scale(this.zoom, this.zoom);
+      const overview = this.zoom < 0.42;
+
+      // Stage group bands.
+      for (const stage of this.stageBounds) {
+        ctx.save();
+        ctx.globalAlpha = 0.07;
+        ctx.fillStyle = stage.color;
+        ctx.beginPath();
+        ctx.roundRect(stage.x, stage.y, stage.w, stage.h, 8);
+        ctx.fill();
+        ctx.globalAlpha = 0.35;
+        ctx.strokeStyle = stage.color;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+        if (this.zoom >= 0.35) {
+          ctx.fillStyle = stage.color;
+          ctx.font = "bold 11px system-ui, sans-serif";
+          ctx.fillText(stage.name, stage.x + 10, stage.y + 16);
+        }
+      }
 
       // Draw Edges
+      const seenEdges = new Set();
       for (const edge of this.data.edges || []) {
+        const key = `${edge.from}:${edge.to}:${edge.kind}:${edge.spawn_id ?? ""}:${edge.x ?? ""}:${edge.y ?? ""}`;
+        if (seenEdges.has(key)) continue;
+        seenEdges.add(key);
+        if (overview && edge.kind === "door") continue;
         const fromLayout = this.nodeLayouts.get(edge.from);
         const toLayout = this.nodeLayouts.get(edge.to);
         if (!fromLayout || !toLayout) continue;
@@ -287,8 +386,8 @@ export class CampaignView {
 
         ctx.strokeStyle = isSelected
           ? (isDoor ? "#4ade80" : "#fbbf24")
-          : (isDoor ? "rgba(74, 222, 128, 0.25)" : "rgba(251, 191, 36, 0.2)");
-        ctx.lineWidth = isSelected ? 2.5 : 1.2;
+          : (isDoor ? "rgba(74, 222, 128, 0.13)" : "rgba(251, 191, 36, 0.10)");
+        ctx.lineWidth = isSelected ? 2.5 : 0.9;
 
         const startX = fromLayout.x + fromLayout.w;
         const startY = fromLayout.y + fromLayout.h / 2;
@@ -302,7 +401,8 @@ export class CampaignView {
         ctx.stroke();
 
         // Arrow head
-        const arrowSize = isSelected ? 6 : 4;
+        if (!isSelected) continue;
+        const arrowSize = 6;
         ctx.fillStyle = ctx.strokeStyle;
         ctx.beginPath();
         ctx.moveTo(endX, endY);
@@ -324,43 +424,58 @@ export class CampaignView {
         const stageColor = STAGE_COLORS[node.stage] || "#94a3b8";
 
         // Card background
-        ctx.fillStyle = isSelected ? "#222634" : "#181b24";
-        ctx.strokeStyle = isSelected ? "#e0a13c" : "#2a2e3d";
+        ctx.globalAlpha = overview ? 0.62 : 1;
+        ctx.fillStyle = overview ? stageColor : (isSelected ? "#222634" : "#181b24");
+        ctx.strokeStyle = isSelected ? "#e0a13c" : (overview ? stageColor : "#2a2e3d");
         ctx.lineWidth = isSelected ? 2.5 : 1;
 
         ctx.beginPath();
         ctx.roundRect(layout.x, layout.y, layout.w, layout.h, 6);
         ctx.fill();
         ctx.stroke();
+        ctx.globalAlpha = 1;
 
         // Stage color stripe
         ctx.fillStyle = stageColor;
         ctx.fillRect(layout.x, layout.y, 4, layout.h);
 
-        // Header: Area ID + badges
-        ctx.font = "bold 11px system-ui, sans-serif";
-        ctx.fillStyle = isSelected ? "#f3f4f6" : "#d1d5db";
-        ctx.fillText(`Area ${area}`, layout.x + 10, layout.y + 16);
-
-        if (node.authored) {
-          ctx.font = "9px system-ui, sans-serif";
-          ctx.fillStyle = "#38bdf8";
-          ctx.fillText("AUTH", layout.x + layout.w - 32, layout.y + 15);
+        // Header: Area ID + badges (only when readable).
+        if (this.zoom >= 0.28) {
+          ctx.font = "bold 11px system-ui, sans-serif";
+          ctx.fillStyle = isSelected ? "#f3f4f6" : "#d1d5db";
+          ctx.fillText(`Area ${area}`, layout.x + 10, layout.y + 16);
         }
 
-        // Subtitle: Label or transitions
-        ctx.font = "10px system-ui, sans-serif";
-        ctx.fillStyle = "#9ca3af";
-        const sub = `${node.transitions_count} exits · ${node.inbound.length} in`;
-        ctx.fillText(sub, layout.x + 10, layout.y + 32);
+        if (this.zoom >= 0.45) {
+          if (node.authored) {
+            ctx.font = "9px system-ui, sans-serif";
+            ctx.fillStyle = "#38bdf8";
+            ctx.fillText("AUTH", layout.x + layout.w - 32, layout.y + 15);
+          }
 
-        // Dead end indicator
-        if (node.transitions_count === 0 && (!node.gate_next_area || node.gate_next_area < 0)) {
-          ctx.fillStyle = "#f87171";
-          ctx.fillText("DEAD END", layout.x + 10, layout.y + 46);
-        } else if (node.gate_next_area >= 0) {
-          ctx.fillStyle = "#fbbf24";
-          ctx.fillText(`Gate → ${node.gate_next_area}`, layout.x + 10, layout.y + 46);
+          ctx.font = "10px system-ui, sans-serif";
+          ctx.fillStyle = "#9ca3af";
+          const exits = this.uniqueEdges(node.outbound).length;
+          const enters = this.uniqueEdges(node.inbound).length;
+          ctx.fillText(`${exits} out · ${enters} in`, layout.x + 10, layout.y + 32);
+
+          const noGate = node.gate_next_area === null
+            || node.gate_next_area === undefined
+            || node.gate_next_area < 0;
+          if (node.transitions_count === 0 && noGate) {
+            ctx.fillStyle = "#f87171";
+            ctx.fillText("DEAD END", layout.x + 10, layout.y + 46);
+          } else if (!noGate) {
+            ctx.fillStyle = "#fbbf24";
+            ctx.fillText(`Gate → ${node.gate_next_area}`, layout.x + 10, layout.y + 46);
+          }
+        }
+
+        if (this.nodeHasIssues(node)) {
+          ctx.fillStyle = "#ef4444";
+          ctx.beginPath();
+          ctx.arc(layout.x + layout.w - 8, layout.y + 8, 3, 0, Math.PI * 2);
+          ctx.fill();
         }
       }
 
@@ -368,8 +483,72 @@ export class CampaignView {
       ctx.restore();
     };
 
+    const fitView = (redraw = true) => {
+      if (!this.viewW || !this.viewH) return;
+      const visible = [];
+      for (const [area, layout] of this.nodeLayouts.entries()) {
+        const node = this.data.nodes[area];
+        if (!node) continue;
+        if (this.query && !this.nodeMatches(node, this.query)) continue;
+        if (this.onlyIssues && !this.nodeHasIssues(node)) continue;
+        visible.push(layout);
+      }
+      if (!visible.length) return;
+      const bounds = (!this.query && !this.onlyIssues && this.stageBounds.length)
+        ? this.stageBounds : visible;
+      const minX = Math.min(...bounds.map((l) => l.x)) - 20;
+      const minY = Math.min(...bounds.map((l) => l.y)) - 20;
+      const maxX = Math.max(...bounds.map((l) => l.x + l.w)) + 20;
+      const maxY = Math.max(...bounds.map((l) => l.y + l.h)) + 20;
+      const z = Math.min((this.viewW - 40) / Math.max(1, maxX - minX),
+                         (this.viewH - 40) / Math.max(1, maxY - minY), 1.2);
+      this.zoom = Math.max(0.12, Math.min(1.2, z));
+      this.camX = -((minX + maxX) / 2) * this.zoom;
+      this.camY = -((minY + maxY) / 2) * this.zoom;
+      if (redraw) draw();
+    };
+
+    const focusArea = (area) => {
+      const layout = this.nodeLayouts.get(area);
+      if (!layout) return false;
+      this.zoom = 0.85;
+      const halfW = this.viewW / (2 * this.zoom);
+      const halfH = this.viewH / (2 * this.zoom);
+      const bounds = this.stageBounds.length
+        ? this.stageBounds : [...this.nodeLayouts.values()];
+      const minX = Math.min(...bounds.map((b) => b.x)) - 10;
+      const minY = Math.min(...bounds.map((b) => b.y)) - 10;
+      const maxX = Math.max(...bounds.map((b) => b.x + b.w)) + 10;
+      const maxY = Math.max(...bounds.map((b) => b.y + b.h)) + 10;
+      let cx = layout.x + layout.w / 2;
+      let cy = layout.y + layout.h / 2;
+      cx = (maxX - minX <= halfW * 2)
+        ? (minX + maxX) / 2
+        : Math.max(minX + halfW, Math.min(maxX - halfW, cx));
+      cy = (maxY - minY <= halfH * 2)
+        ? (minY + maxY) / 2
+        : Math.max(minY + halfH, Math.min(maxY - halfH, cy));
+      this.camX = -cx * this.zoom;
+      this.camY = -cy * this.zoom;
+      return true;
+    };
+
+    const pickArea = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const worldX = (e.clientX - rect.left - (rect.width / 2 + this.camX)) / this.zoom;
+      const worldY = (e.clientY - rect.top - (rect.height / 2 + this.camY)) / this.zoom;
+      for (const [area, layout] of this.nodeLayouts.entries()) {
+        if (worldX >= layout.x && worldX <= layout.x + layout.w &&
+            worldY >= layout.y && worldY <= layout.y + layout.h) {
+          return area;
+        }
+      }
+      return null;
+    };
+
     // Canvas interactivity
     canvas.onpointerdown = (e) => {
+      if (e.button !== 0) return;
       this.isPanning = true;
       this.panStart = { x: e.clientX, y: e.clientY };
       canvas.setPointerCapture(e.pointerId);
@@ -386,36 +565,32 @@ export class CampaignView {
     canvas.onpointerup = (e) => {
       if (!this.isPanning) return;
       this.isPanning = false;
-      canvas.releasePointerCapture(e.pointerId);
+      try { canvas.releasePointerCapture(e.pointerId); } catch { /* released */ }
 
-      // Hit-test click
-      const rect = canvas.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
-
-      const worldX = (clickX - (rect.width / 2 + this.camX)) / this.zoom;
-      const worldY = (clickY - (rect.height / 2 + this.camY)) / this.zoom;
-
-      for (const [area, layout] of this.nodeLayouts.entries()) {
-        if (worldX >= layout.x && worldX <= layout.x + layout.w &&
-            worldY >= layout.y && worldY <= layout.y + layout.h) {
-          this.selectedArea = area;
-          this.renderDetail();
-          draw();
-          break;
-        }
+      const area = pickArea(e);
+      if (area !== null) {
+        this.selectedArea = area;
+        this.renderDetail();
+        draw();
       }
+    };
+
+    canvas.ondblclick = (e) => {
+      const area = pickArea(e);
+      if (area !== null) this.app.navigate(`#map/${area}`);
     };
 
     canvas.onwheel = (e) => {
       e.preventDefault();
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      this.zoom = Math.max(0.15, Math.min(3.5, this.zoom * delta));
+      this.zoom = Math.max(0.12, Math.min(3.5, this.zoom * delta));
       draw();
     };
 
-    requestAnimationFrame(resize);
-    window.addEventListener("resize", resize, { once: true });
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = new ResizeObserver(() => resize());
+    this.resizeObserver.observe(canvasWrap);
+    resize();
   }
 
   renderTableView() {
@@ -445,8 +620,11 @@ export class CampaignView {
       if (this.query && !this.nodeMatches(node, this.query)) continue;
       if (this.onlyIssues && !this.nodeHasIssues(node)) continue;
 
-      const isDeadEnd = node.transitions_count === 0 && (node.gate_next_area === null || node.gate_next_area < 0);
+      const isDeadEnd = node.transitions_count === 0 &&
+        (node.gate_next_area === null || node.gate_next_area === undefined || node.gate_next_area < 0);
       const isSelected = area === this.selectedArea;
+      const exits = this.uniqueEdges(node.outbound).length;
+      const enters = this.uniqueEdges(node.inbound).length;
 
       const tr = h("tr", {
         class: `${isSelected ? "selected-row" : ""} clickable`,
@@ -460,8 +638,8 @@ export class CampaignView {
         h("td", null, h("span", { class: "badge", style: { borderColor: STAGE_COLORS[node.stage] || "#64748b" }, text: node.stage })),
         h("td", null, h("strong", { text: node.label })),
         h("td", null, `${node.world_w}×${node.world_h}`),
-        h("td", null, String(node.transitions_count)),
-        h("td", null, String(node.inbound.length)),
+        h("td", null, String(exits)),
+        h("td", null, String(enters)),
         h("td", null, node.gate_next_area >= 0 ? `→ Area ${node.gate_next_area}` : "—"),
         h("td", null, String(node.spawns.length)),
         h("td", null,
@@ -602,12 +780,13 @@ export class CampaignView {
     });
 
     // Exits list
+    const exits = this.uniqueEdges(node.outbound);
     const exitsBox = h("div", { class: "detail-section" },
-      h("h4", { text: `Exits (${node.transitions_count})` })
+      h("h4", { text: `Exits (${exits.length})` })
     );
 
-    if (node.outbound?.length) {
-      for (const edge of node.outbound) {
+    if (exits.length) {
+      for (const edge of exits) {
         const isGate = edge.kind === "gate";
         const row = h("div", { class: "transition-chip" },
           h("div", null,
@@ -632,12 +811,13 @@ export class CampaignView {
     }
 
     // Entrances list
+    const entrances = this.uniqueEdges(node.inbound);
     const inBox = h("div", { class: "detail-section" },
-      h("h4", { text: `Entrances (${node.inbound?.length || 0})` })
+      h("h4", { text: `Entrances (${entrances.length})` })
     );
 
-    if (node.inbound?.length) {
-      for (const edge of node.inbound) {
+    if (entrances.length) {
+      for (const edge of entrances) {
         const isEntry = edge.from === -1;
         const row = h("div", { class: "transition-chip" },
           h("div", null,
@@ -688,8 +868,24 @@ export class CampaignView {
     return query.split(/\s+/).every((token) => str.includes(token));
   }
 
+  uniqueEdges(list) {
+    const seen = new Set();
+    const out = [];
+    for (const edge of list || []) {
+      const target = edge.target ?? edge.from;
+      const key = `${edge.kind}:${target}:${edge.spawn_id ?? ""}:${edge.pad_mask ?? ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(edge);
+    }
+    return out;
+  }
+
   nodeHasIssues(node) {
-    if (node.transitions_count === 0 && (!node.gate_next_area || node.gate_next_area < 0)) return true;
+    const noGate = node.gate_next_area === null
+      || node.gate_next_area === undefined
+      || node.gate_next_area < 0;
+    if (node.transitions_count === 0 && noGate) return true;
     for (const b of this.data.issues?.broken_doors || []) {
       if (b.from === node.area) return true;
     }

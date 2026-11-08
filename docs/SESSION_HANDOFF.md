@@ -572,3 +572,19 @@ de cachear `/web/` (módulos edited in place).
   WAVs ausentes no manifest (`music_town`, `music_murkland`, ...), up doors
   4→46/47/48, Somulo/MVP, `check_transition_fade` (`fade.csv` em falta no
   scratch) e boss HP da área 0.
+
+## Campaign Graph View (2026-11-08)
+
+- A aba **Campaign** (`campaign.js`) já estava no commit `845eade`; esta sessão
+  corrigiu o que faltava para ser usável: o canvas ficava em 300×150 porque
+  o `resize` só corria num `requestAnimationFrame`, não havia fit/foco e a
+  ordem dos estágios era alfabética.
+- Agora: `ResizeObserver`, fit à campanha, foco no room selecionado, faixas de
+  estágio na ordem de campanha, texto/arestas de porta escondidos no overview,
+  duplo-clique abre o Map Builder, portas duplicadas colapsadas e hint de
+  navegação.
+- `GET /api/campaign` já existia em `server.py`; o processo em execução é que
+  era antigo. Reiniciar o editor depois de mexer no backend.
+- **Verificação:** payload 113 rooms · 225 edges · 11 stages; `test_editor`
+  29/29; self-test do browser 27/27 (`campaign graph view`, `eight editor
+  views`).

@@ -515,6 +515,19 @@ class EditorApiV2Tests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(deleted["ok"])
 
+    def test_campaign_and_collectibles_routes(self):
+        status, camp = self.request("/api/campaign")
+        self.assertEqual(status, 200)
+        self.assertTrue(camp["ok"])
+        self.assertEqual(camp["stats"]["total_rooms"], len(camp["nodes"]))
+        self.assertIn("issues", camp)
+        self.assertIn("stages", camp)
+        status, col = self.request("/api/collectibles")
+        self.assertEqual(status, 200)
+        self.assertTrue(col["ok"])
+        self.assertIn("collectibles", col)
+        self.assertIn("summary", col)
+
     def test_check_routes(self):
         status, listing = self.request("/api/checks")
         self.assertEqual(status, 200)
@@ -562,6 +575,17 @@ class EditorProjectTextTests(unittest.TestCase):
         bg1 = room["bg"][1]
         self.assertEqual(bg1["scroll_y"], 0)
         self.assertEqual(bg1["offset_y"], 53)
+
+    def test_campaign_graph_covers_every_room(self):
+        ws = editor_data.Workspace(ROOT, self.assets,
+                                   ROOT / "assets" / "authored")
+        graph = ws.campaign_graph()
+        self.assertEqual(graph["stats"]["total_rooms"],
+                         len(ws.all_room_areas()))
+        self.assertEqual(len(graph["nodes"]), len(ws.all_room_areas()))
+        self.assertGreater(len(graph["edges"]), 100)
+        self.assertEqual(len(graph["stages"]), 11)
+        self.assertGreater(graph["stats"]["dead_ends"], 0)
 
     def test_dialogue_view_caps_are_respected(self):
         ws = editor_data.Workspace(ROOT, self.assets,

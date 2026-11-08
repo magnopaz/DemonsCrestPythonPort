@@ -526,9 +526,48 @@
         return `${view.checks.length} gates · display ${view.data.display.available}`;
       });
 
-      await check("seven editor views", () => {
+      await check("campaign graph view", async () => {
+        const host = doc.createElement("div");
+        host.style.cssText = "position:fixed;left:-4000px;top:0;width:1200px;height:800px";
+        doc.body.appendChild(host);
+        const view = new app.CampaignView({ app, container: host, arg: "0" });
+        await view.init();
+        const stats = view.data?.stats;
+        if (!stats) throw new Error("no campaign payload");
+        if (stats.total_rooms !== app.rooms.length)
+          throw new Error(`rooms ${stats.total_rooms} != ${app.rooms.length}`);
+        if (view.nodeLayouts.size !== stats.total_rooms)
+          throw new Error(`layouts ${view.nodeLayouts.size}`);
+        if (view.stageBounds.length !== view.data.stages.length)
+          throw new Error(`stages ${view.stageBounds.length}`);
+        const canvas = host.querySelector(".campaign-graph-canvas");
+        if (!canvas || canvas.width < 300)
+          throw new Error(`canvas ${canvas?.width}`);
+        const cards = host.querySelectorAll(".stat-card").length;
+        if (cards !== 5) throw new Error(`stat cards ${cards}`);
+        view.viewMode = "table";
+        view.modeSelect.value = "table";
+        view.renderCurrentView();
+        const rows = host.querySelectorAll(".campaign-table tbody tr").length;
+        if (rows !== stats.total_rooms) throw new Error(`table rows ${rows}`);
+        view.viewMode = "issues";
+        view.modeSelect.value = "issues";
+        view.renderCurrentView();
+        const issueCards = host.querySelectorAll(".issue-card").length;
+        const expectedIssues = view.data.issues.broken_doors.length +
+          view.data.issues.invalid_spawns.length + view.data.issues.dead_ends.length;
+        if (issueCards !== expectedIssues)
+          throw new Error(`issue cards ${issueCards} != ${expectedIssues}`);
+        const detail = `${stats.total_rooms} rooms · ${view.data.edges.length} edges · ` +
+          `${view.stageBounds.length} stages`;
+        view.destroy();
+        host.remove();
+        return detail;
+      });
+
+      await check("eight editor views", () => {
         const tabs = [...doc.querySelectorAll(".nav-tab")].map((b) => b.dataset.view);
-        const expected = ["map", "enemy", "player", "dialogue", "coverage", "checks", "assets"];
+        const expected = ["map", "campaign", "enemy", "player", "dialogue", "coverage", "checks", "assets"];
         if (tabs.join(",") !== expected.join(","))
           throw new Error(tabs.join(","));
         return tabs.join(" · ");
