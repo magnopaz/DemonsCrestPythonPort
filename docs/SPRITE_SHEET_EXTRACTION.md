@@ -153,7 +153,7 @@ not a quota.
 | `Phalanx.gif` | `$86` (+`$88`) | 8 (6) | idle/gesturing | First form body band |
 | `Ultimate Phalanx.gif` | `$8D` | 4 (3) | examples/full body | Second-form body; boss variant |
 | `Scula.gif` | `$7B`, `$7C` | 4 / 5 (3) | walk ($7B), hover ($7C) | Two objects at the same arena position; arm rows open |
-| `Somulo.gif` | `$33` (+`$35-$37`) | 4 | head/neck/jaw/fire | Prefer `somulo_native_reference.png`, `clean_somulo.py`; multi-part and hard |
+| `Somulo.gif` | `$33` (+`$35-$37`) | 21 | 16 walk / windup / fire / roar / defeated | `bake_somulo_frames.py`; sheet heads + reference walk body; see §5.2 |
 | `NPCs.png` | `$96`, `$97` | 1 | town NPC / guard | Static; not a boss |
 
 The authoritative species map and existing one-off bakers are listed in
@@ -172,7 +172,7 @@ The authoritative species map and existing one-off bakers are listed in
 - [x] Ovnunu `$16` eye (10 frames: 7-frame eye cycle + 3 eyeball examples); `$17`/`$18` parts open
 - [x] Phalanx `$86` / Ultimate Phalanx `$8D` (8 / 4 frames)
 - [x] Scula `$7B`/`$7C` (4 walk / 5 hover full bodies; arm rows open)
-- [ ] Somulo `$33` (use the native-reference part pipeline, not blind crops)
+- [x] Somulo `$33` (21 frames; 16 walk + head poses + defeated, `sprites/somulo/`)
 - [ ] Enemies 1 / Enemies 2 species
 - [x] Player forms 1-5 (`player_forms.json`; base form 0 stays the
   ROM-captured `player_anim.json`)
@@ -487,9 +487,17 @@ ported. Boss art is not one sprite:
   idle row is the teleport flame.
 - `Phalanx`: `$86` first form, `$8D` second form; `$88` is a part; don't mix
   the two forms into one state.
-- `Somulo`: use `somulo_native_reference.png` and the measured part pipeline,
-  not a blind sheet crop. The sheet has head/neck/jaw drawings and fire rows;
-  a single whole-body crop will include background/other parts.
+- `Somulo`: use `tools/dc_extract/bake_somulo_frames.py`. It takes the 16
+  full-body walk frames from `docs/reference/somulo_walk.gif` (the atlas is a
+  component sheet, not full-body frames), overlays the atlas windup/fire/roar
+  heads on a clean reference body, and adds the atlas collapsed body. The
+  authored entry is 21 frames; states 0/7 use an 8-frame sample of the 16-frame
+  walk because `DC_STATE_FRAMES` is 8. Do not use the old gameplay cuts with
+  gate bars/arena floor.
+
+  ```sh
+  python tools/dc_extract/bake_somulo_frames.py
+  ```
 - `Holothurion`, `Scula`, `Ovnunu`: the existing bakers use specific example
   rows; extend only after reading the sheet layout.
 
@@ -585,8 +593,8 @@ Acceptance checklist:
 ## 7. Work order
 
 1. **Multi-part bosses** — Holothurion ($6F), Ovnunu ($16 + $17/$18), Scula
-   ($7B/$7C, arm poses), Somulo ($33). These need per-part entries or
-   compositing; a whole-body crop is wrong. Crawler's `$83-$85` parts too.
+   ($7B/$7C, arm poses). These need per-part entries or compositing; a whole-body
+   crop is wrong. Crawler's `$83-$85` parts too.
 2. **Caption decoding** — the state names for the non-Arma bosses are row-order
    inferences. `sheet_captions.py` plus an image-capable reviewer can decode
    the real labels; rename in `SPECS` and re-bake.

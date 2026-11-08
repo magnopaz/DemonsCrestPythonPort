@@ -2039,6 +2039,236 @@
    "hurt": 0,
    "default": 0,
    "source": "Scula.gif hovering row (y=154) full bodies"
+  },
+  "33": {
+   "species": 51,
+   "frames": [
+    {
+     "texture": "sprites/somulo/somulo_walk_00.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_01.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_02.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_03.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_04.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_05.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_06.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_07.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_08.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_09.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_10.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_11.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 120,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_12.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_13.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_14.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_walk_15.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 7,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_windup.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 10,
+     "width": 142,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_fire.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 10,
+     "width": 143,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_roar.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 10,
+     "width": 147,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_neutral.png",
+     "anchor_x": 60,
+     "anchor_y": 90,
+     "duration": 10,
+     "width": 116,
+     "height": 90
+    },
+    {
+     "texture": "sprites/somulo/somulo_defeated.png",
+     "anchor_x": 30,
+     "anchor_y": 44,
+     "duration": 8,
+     "width": 60,
+     "height": 44
+    }
+   ],
+   "states": {
+    "0": [
+     0,
+     2,
+     4,
+     6,
+     8,
+     10,
+     12,
+     14
+    ],
+    "7": [
+     0,
+     2,
+     4,
+     6,
+     8,
+     10,
+     12,
+     14
+    ],
+    "1": [
+     16
+    ],
+    "2": [
+     17
+    ],
+    "3": [
+     19
+    ],
+    "4": [
+     16
+    ],
+    "5": [
+     18
+    ],
+    "6": [
+     20
+    ],
+    "8": [
+     20
+    ]
+   },
+   "state_names": {
+    "0": "walk",
+    "7": "blind walk",
+    "1": "windup",
+    "2": "fire",
+    "3": "recover",
+    "4": "stagger",
+    "5": "attack (high)",
+    "6": "defeated",
+    "8": "defeated"
+   },
+   "hurt": 16,
+   "default": 0,
+   "source": "Somulo.gif heads/defeated + docs/reference/somulo_walk.gif body walk; component atlas extraction"
   }
  }
 }
