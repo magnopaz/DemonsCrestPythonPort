@@ -72,6 +72,8 @@ export class MapEditor {
       bg0: true, bg1: true, collision: false, objects: true, bounds: true,
       grid: true, labels: true, transitions: true,
     };
+    this.showMinimap = true;
+    this.navHistory = [];
     this.view = { x: 0, y: 0, zoom: 1 };
     this.preview = { on: false, x: 0, y: 0 };
     this.selection = null;
@@ -95,6 +97,7 @@ export class MapEditor {
     this.buildDom();
     this.container.replaceChildren(this.el);
     this.bindCanvas();
+    this.bindMinimapEvents();
     this._resizeObserver = new ResizeObserver(() => {
       this.resizeCanvas();
       this.invalidate();
@@ -234,10 +237,32 @@ export class MapEditor {
       title: "Render this room with the actual game engine",
       onclick: () => this.renderInGame(),
     }, icon("play"), h("span", { text: "Render in game" }));
+    this.minimapBtn = h("button", {
+      class: `btn icon ${this.showMinimap ? "active" : ""}`, type: "button",
+      title: "Toggle Minimap (M)",
+      onclick: () => this.toggleMinimap(),
+    }, icon("minimap"));
+    this.exportMapBtn = h("button", {
+      class: "btn small", type: "button",
+      title: "Export full composite room map as PNG",
+      onclick: () => this.exportFullRoomPng(),
+    }, icon("download"), h("span", { text: "Full map PNG" }));
+
+    this.backBtn = h("button", {
+      class: "btn small", type: "button", style: { display: "none" },
+      title: "Go back to previous room",
+      onclick: () => {
+        if (this.navHistory && this.navHistory.length) {
+          const prev = this.navHistory.pop();
+          this.requestLoadArea(prev, false);
+        }
+      },
+    }, h("span", { id: "map-back-label", text: "← Back" }));
 
     const toolbar = h("div", { class: "toolbar" },
       h("span", { class: "toolbar-title", text: "Room" }),
       this.roomSelect,
+      this.backBtn,
       h("button", {
         class: "btn icon", type: "button", title: "New room…",
         onclick: () => this.showNewRoomDialog(),
@@ -269,13 +294,20 @@ export class MapEditor {
       h("div", { class: "sep" }),
       this.previewBtn,
       this.renderBtn,
+      this.minimapBtn,
+      this.exportMapBtn,
       h("span", { class: "grow" }),
       this.validationBadge,
     );
 
     this.canvas = h("canvas", { id: "map-canvas" });
+    this.minimapCanvas = h("canvas", { class: "minimap-canvas" });
+    this.minimapHost = h("div", { id: "map-minimap", title: "Click/drag to navigate room (M)" }, this.minimapCanvas);
+    if (!this.showMinimap) this.minimapHost.classList.add("hidden");
+
     this.canvasHost = h("div", { class: "canvas-host" },
       this.canvas,
+      this.minimapHost,
       h("div", { class: "canvas-vignette" }),
       h("div", { class: "canvas-hud" },
         h("div", { class: "chip", id: "map-hud-room", text: "—" }),
@@ -309,6 +341,10 @@ export class MapEditor {
           h("button", {
             class: "btn small", type: "button", text: "PNG",
             onclick: () => this.savePreviewPng(),
+          }),
+          h("button", {
+            class: "btn small", type: "button", text: "Full PNG",
+            onclick: () => this.exportFullRoomPng(),
           }),
         ),
       ),
@@ -842,6 +878,7 @@ export class MapEditor {
     $("#map-hud-room") && ($("#map-hud-room").innerHTML =
       `${label} · <b>${this.room.world.width}×${this.room.world.height}</b>`);
     if (!initial) toast(`Loaded ${label}`, "ok", 1600);
+    this.updateBackBtn();
     this.app.setStatus(`Room: ${label}`,
       `${this.room.world.width}×${this.room.world.height} · ${this.room.objects?.length || 0} objects`);
   }
@@ -1373,6 +1410,7 @@ export class MapEditor {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.drawLabels(ctx);
     this.drawHud(ctx);
+    this.drawMinimap();
   }
 
   visibleWorldRect() {
@@ -1512,15 +1550,15 @@ export class MapEditor {
     ctx.restore();
   }
 
-  drawCollision(ctx) {
+  drawCollision(ctx, clip = null) {
     const col = this.room.collision;
     const cell = col.cell || CELL;
-    const clip = this.visibleWorldRect();
-    const cx0 = Math.max(0, Math.floor(clip.x / cell));
-    const cy0 = Math.max(0, Math.floor(clip.y / cell));
-    const cx1 = Math.min(col.width - 1, Math.ceil((clip.x + clip.w) / cell));
-    const cy1 = Math.min(col.height - 1, Math.ceil((clip.y + clip.h) / cell));
-    const zoom = this.view.zoom;
+    const activeClip = clip || this.visibleWorldRect();
+    const cx0 = Math.max(0, Math.floor(activeClip.x / cell));
+    const cy0 = Math.max(0, Math.floor(activeClip.y / cell));
+    const cx1 = Math.min(col.width - 1, Math.ceil((activeClip.x + activeClip.w) / cell));
+    const cy1 = Math.min(col.height - 1, Math.ceil((activeClip.y + activeClip.h) / cell));
+    const zoom = clip ? 1 : this.view.zoom;
     ctx.save();
     ctx.lineWidth = 1 / zoom;
     for (let cy = cy0; cy <= cy1; cy += 1) {
@@ -1962,6 +2000,182 @@ export class MapEditor {
     ctx.imageSmoothingEnabled = false;
     this.renderGameView(ctx, this.preview.x, this.preview.y);
     downloadCanvas(`area${this.area}_preview.png`, out);
+  }
+
+  exportFullRoomPng() {
+    if (!this.room?.world) return;
+    const worldW = this.room.world.width || 256;
+    const worldH = this.room.world.height || 224;
+
+    const out = document.createElement("canvas");
+    out.width = worldW;
+    out.height = worldH;
+    const ctx = out.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+
+    // Background fill
+    ctx.fillStyle = "#06070a";
+    ctx.fillRect(0, 0, worldW, worldH);
+
+    // BG0
+    if (this.show.bg0 && this.room.bg?.[0]) {
+      const orig0 = this.layerOrigin(0);
+      this.drawLayerTiles(ctx, this.room.bg[0], this.assets?.bg0, orig0.x, orig0.y,
+        0, 0, worldW, worldH, false, false);
+    }
+    // BG1
+    if (this.show.bg1 && this.room.bg?.[1]) {
+      const orig1 = this.layerOrigin(1);
+      this.drawLayerTiles(ctx, this.room.bg[1], this.assets?.bg1, orig1.x, orig1.y,
+        0, 0, worldW, worldH, false, false);
+    }
+    // Collision
+    if (this.show.collision) {
+      this.drawCollision(ctx, { x: 0, y: 0, w: worldW, h: worldH });
+    }
+    // Objects
+    if (this.show.objects) {
+      this.drawObjects(ctx);
+    }
+    // Transitions and spawns
+    if (this.show.transitions) {
+      this.drawTransitions(ctx);
+    }
+    this.drawSpawns(ctx);
+
+    downloadCanvas(`area${this.area}_full.png`, out);
+    toast(`Exported full room image (${worldW}×${worldH})`, "ok");
+  }
+
+  toggleMinimap() {
+    this.showMinimap = !this.showMinimap;
+    if (this.minimapHost) {
+      this.minimapHost.classList.toggle("hidden", !this.showMinimap);
+    }
+    if (this.minimapBtn) {
+      this.minimapBtn.classList.toggle("active", this.showMinimap);
+    }
+    if (this.showMinimap) this.invalidate();
+  }
+
+  bindMinimapEvents() {
+    if (!this.minimapHost) return;
+    let isNavigating = false;
+
+    const navigateTo = (e) => {
+      if (!this.room?.world || !this.minimapCanvas) return;
+      const rect = this.minimapCanvas.getBoundingClientRect();
+      const worldW = this.room.world.width || 256;
+      const worldH = this.room.world.height || 224;
+      const scale = Math.min((rect.width - 8) / worldW, (rect.height - 8) / worldH);
+      const offsetX = (rect.width - worldW * scale) / 2;
+      const offsetY = (rect.height - worldH * scale) / 2;
+
+      const clickX = e.clientX - rect.left - offsetX;
+      const clickY = e.clientY - rect.top - offsetY;
+
+      const targetX = clickX / scale;
+      const targetY = clickY / scale;
+
+      const visW = this.cssW / this.view.zoom;
+      const visH = this.cssH / this.view.zoom;
+
+      this.view.x = targetX - visW / 2;
+      this.view.y = targetY - visH / 2;
+      this.invalidate();
+    };
+
+    this.minimapHost.onpointerdown = (e) => {
+      e.stopPropagation();
+      isNavigating = true;
+      try { this.minimapHost.setPointerCapture(e.pointerId); } catch {}
+      navigateTo(e);
+    };
+
+    this.minimapHost.onpointermove = (e) => {
+      if (!isNavigating) return;
+      e.stopPropagation();
+      navigateTo(e);
+    };
+
+    this.minimapHost.onpointerup = (e) => {
+      if (!isNavigating) return;
+      isNavigating = false;
+      try { this.minimapHost.releasePointerCapture(e.pointerId); } catch {}
+    };
+  }
+
+  drawMinimap() {
+    if (!this.minimapCanvas || !this.room?.world || !this.showMinimap) return;
+    const canvas = this.minimapCanvas;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== Math.floor(rect.width * dpr) || canvas.height !== Math.floor(rect.height * dpr)) {
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
+    }
+    const mctx = canvas.getContext("2d");
+    mctx.save();
+    mctx.scale(dpr, dpr);
+    mctx.clearRect(0, 0, rect.width, rect.height);
+
+    const worldW = this.room.world.width || 256;
+    const worldH = this.room.world.height || 224;
+    const scale = Math.min((rect.width - 8) / worldW, (rect.height - 8) / worldH);
+    const offsetX = (rect.width - worldW * scale) / 2;
+    const offsetY = (rect.height - worldH * scale) / 2;
+
+    // Room background box
+    mctx.fillStyle = "#14161f";
+    mctx.fillRect(offsetX, offsetY, worldW * scale, worldH * scale);
+    mctx.strokeStyle = "#2b3040";
+    mctx.lineWidth = 1;
+    mctx.strokeRect(offsetX, offsetY, worldW * scale, worldH * scale);
+
+    // Draw collision silhouette
+    const col = this.room.collision;
+    if (col && Array.isArray(col.attrs)) {
+      const cellW = 16 * scale;
+      const cellH = 16 * scale;
+      const gridW = col.width || Math.ceil(worldW / 16);
+      for (let i = 0; i < col.attrs.length; i++) {
+        const val = col.attrs[i];
+        if (!val) continue;
+        const cx = (i % gridW) * 16;
+        const cy = Math.floor(i / gridW) * 16;
+        const env = val & 0xE0;
+        mctx.fillStyle = env === 0x20 ? "#e06060" : env === 0x40 ? "#e0a13c" : env === 0x60 ? "#5a9ae0" : "#4fc98a";
+        mctx.fillRect(offsetX + cx * scale, offsetY + cy * scale, Math.max(1, cellW), Math.max(1, cellH));
+      }
+    }
+
+    // Viewport box
+    const vis = this.visibleWorldRect();
+    const vx = offsetX + vis.x * scale;
+    const vy = offsetY + vis.y * scale;
+    const vw = vis.w * scale;
+    const vh = vis.h * scale;
+
+    mctx.strokeStyle = "#e0a13c";
+    mctx.lineWidth = 1.5;
+    mctx.strokeRect(vx, vy, vw, vh);
+    mctx.fillStyle = "rgba(224, 161, 60, 0.15)";
+    mctx.fillRect(vx, vy, vw, vh);
+
+    mctx.restore();
+  }
+
+  updateBackBtn() {
+    if (!this.backBtn) return;
+    if (this.navHistory && this.navHistory.length > 0) {
+      this.backBtn.style.display = "";
+      const prev = this.navHistory[this.navHistory.length - 1];
+      const lbl = this.backBtn.querySelector("#map-back-label");
+      if (lbl) lbl.textContent = `← Area ${prev}`;
+    } else {
+      this.backBtn.style.display = "none";
+    }
   }
 
   async renderInGame(frames = 120) {
@@ -2862,7 +3076,7 @@ export class MapEditor {
     this.invalidate();
   }
 
-  async requestLoadArea(area) {
+  async requestLoadArea(area, trackHistory = true) {
     if (!Number.isFinite(Number(area))) return;
     if (this.dirty) {
       const ok = await confirmDialog("Discard unsaved changes?",
@@ -2870,7 +3084,12 @@ export class MapEditor {
         { okLabel: "Discard & open", danger: true });
       if (!ok) return;
     }
+    if (trackHistory && this.area !== undefined && Number(area) !== this.area) {
+      if (!this.navHistory) this.navHistory = [];
+      this.navHistory.push(this.area);
+    }
     await this.loadRoom(Number(area));
+    this.updateBackBtn();
   }
 
   snapSelectionToFloor() {
@@ -3112,7 +3331,11 @@ export class MapEditor {
     const areaOptions = [...new Set([...this.app.rooms.map((r) => r.area),
       tr.next_area ?? 0])].sort((a, b) => a - b);
     const nextArea = h("select", {
-      onchange: () => { tr.next_area = Number(nextArea.value); this.markDirty(); },
+      onchange: () => {
+        tr.next_area = Number(nextArea.value);
+        this.markDirty();
+        this.refreshInspector();
+      },
     }, areaOptions.map((area) => h("option", {
       value: area, selected: Number(tr.next_area) === area,
       text: this.app.rooms.find((r) => r.area === area)?.label || `Area ${area}`,
@@ -3124,19 +3347,66 @@ export class MapEditor {
       });
       return h("div", { class: "field" }, h("span", { text: label }), input);
     };
+
+    const padSelect = h("select", {
+      onchange: () => {
+        const val = Number(padSelect.value);
+        if (val >= 0) {
+          tr.pad_mask = val;
+          padInput.value = String(val);
+          this.markDirty();
+        }
+      },
+    },
+      h("option", { value: "255", text: "Touch / Any (255)", selected: tr.pad_mask === 255 || tr.pad_mask === undefined }),
+      h("option", { value: "8", text: "Up button (8)", selected: tr.pad_mask === 8 }),
+      h("option", { value: "4", text: "Down button (4)", selected: tr.pad_mask === 4 }),
+      h("option", { value: "-1", text: "Custom…", selected: ![255, 8, 4, undefined].includes(tr.pad_mask) })
+    );
+
+    const padInput = h("input", {
+      type: "number", value: tr.pad_mask ?? 255,
+      oninput: () => {
+        tr.pad_mask = Number(padInput.value);
+        this.markDirty();
+        padSelect.value = [255, 8, 4].includes(tr.pad_mask) ? String(tr.pad_mask) : "-1";
+      },
+    });
+
+    const targetRoomInfo = this.app.rooms.find((r) => r.area === Number(tr.next_area));
+    const targetSpawnsCount = targetRoomInfo?.spawns_count ?? targetRoomInfo?.spawns;
+    const spawnWarning = (targetSpawnsCount !== undefined && tr.spawn_id >= targetSpawnsCount)
+      ? h("div", { class: "field-note", style: { color: "#f87171", fontWeight: "bold" },
+          text: `⚠️ Target Area ${tr.next_area} only has ${targetSpawnsCount} spawn(s), but this door targets spawn_id=${tr.spawn_id}!` })
+      : null;
+
     this.inspectorBody.append(
       h("div", { class: "field" }, h("span", { text: "Next area" }), nextArea),
       h("div", { class: "field-2" }, inp("x", "X"), inp("y", "Y")),
       h("div", { class: "field-2" }, inp("half_w", "Half W"), inp("half_h", "Half H")),
-      h("div", { class: "field-2" }, inp("spawn_id", "Spawn id"),
-        inp("pad_mask", "Pad mask")),
-      inp("type", "Type"),
+      h("div", { class: "field-2" },
+        inp("spawn_id", "Spawn ID"),
+        h("div", { class: "field" }, h("span", { text: "Trigger pad" }), padSelect)
+      ),
+      h("div", { class: "field-2" },
+        inp("type", "Type"),
+        h("div", { class: "field" }, h("span", { text: "Pad mask" }), padInput)
+      ),
+      spawnWarning,
       h("div", { class: "row wrap" },
         h("button", {
           class: "btn small", type: "button", text: "Open target",
           disabled: !this.app.rooms.some((r) => r.area === Number(tr.next_area)),
           onclick: () => this.requestLoadArea(tr.next_area),
         }),
+        (this.navHistory && this.navHistory.length) ? h("button", {
+          class: "btn small", type: "button",
+          text: `Back to Area ${this.navHistory[this.navHistory.length - 1]}`,
+          onclick: () => {
+            const prev = this.navHistory.pop();
+            this.requestLoadArea(prev, false);
+          },
+        }) : null,
         h("button", { class: "btn small", type: "button", text: "Copy",
           onclick: () => this.copySelection() }),
         h("button", { class: "btn small", type: "button", text: "Duplicate",

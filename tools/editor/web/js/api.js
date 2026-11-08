@@ -69,6 +69,8 @@ export const api = {
   }),
   assets: () => request("/api/assets"),
   coverage: () => request("/api/coverage"),
+  campaign: () => request("/api/campaign"),
+  collectibles: () => request("/api/collectibles"),
   text: () => request("/api/text"),
   textBlock: (index) => request(`/api/text/${index}`),
   saveText: (index, pages) => request(`/api/text/${index}`, {

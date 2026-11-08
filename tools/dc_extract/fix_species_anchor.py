@@ -47,7 +47,10 @@ def main() -> int:
     doc = json.loads(path.read_text())
     entry = doc["species"].get(args.species.lower().removeprefix("0x"))
     if entry is None:
-        raise SystemExit(f"species {args.species} not in {path}")
+        # A from-scratch build without species captures has no sheet for this
+        # species yet; that is expected, not a reason to stop the asset build.
+        print(f"  species {args.species} not in {path}; skipped")
+        return 0
 
     if args.center:
         for frame in entry["frames"]:

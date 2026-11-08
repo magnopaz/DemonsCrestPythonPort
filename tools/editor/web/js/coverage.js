@@ -74,6 +74,7 @@ export class CoverageView {
     this.tabView = tabs([
       { id: "species", label: "Species", render: () => this.renderSpecies() },
       { id: "rooms", label: "Rooms", render: () => this.renderRooms() },
+      { id: "collectibles", label: "Collectibles", render: () => this.renderCollectibles() },
       { id: "gaps", label: "Gaps", render: () => this.renderGaps() },
     ]);
     this.el = h("div", { class: "assets-view coverage-view" },
@@ -339,6 +340,106 @@ export class CoverageView {
       )),
     );
     return body;
+  }
+
+  /* -------------------------------------------------------- collectibles */
+  renderCollectibles() {
+    const wrap = h("div", { class: "collectibles-panel" });
+    const listWrap = h("div");
+    wrap.appendChild(listWrap);
+
+    let currentFilter = "all";
+
+    const renderItems = (data) => {
+      clear(listWrap);
+      const items = (data.collectibles || []).filter((item) => {
+        if (currentFilter !== "all" && item.category !== currentFilter) return false;
+        if (this.query) {
+          const hay = `${item.area} ${item.room_label} ${item.name} ${item.description} ${item.type}`.toLowerCase();
+          if (!this.query.split(/\s+/).every((token) => hay.includes(token))) return false;
+        }
+        return true;
+      });
+
+      const summary = data.summary || {};
+      const bar = h("div", { class: "row wrap", style: { gap: "8px", marginBottom: "12px" } },
+        h("span", { class: "badge", text: `Total: ${summary.total || 0}` }),
+        h("button", {
+          class: `btn small ${currentFilter === "all" ? "primary" : ""}`,
+          type: "button", text: "All",
+          onclick: () => { currentFilter = "all"; renderItems(data); },
+        }),
+        h("button", {
+          class: `btn small ${currentFilter === "crest" ? "primary" : ""}`,
+          type: "button", text: `Crests (${summary.crest || 0})`,
+          onclick: () => { currentFilter = "crest"; renderItems(data); },
+        }),
+        h("button", {
+          class: `btn small ${currentFilter === "talisman" ? "primary" : ""}`,
+          type: "button", text: `Talismans (${summary.talisman || 0})`,
+          onclick: () => { currentFilter = "talisman"; renderItems(data); },
+        }),
+        h("button", {
+          class: `btn small ${currentFilter === "urn" ? "primary" : ""}`,
+          type: "button", text: `Urns (${summary.urn || 0})`,
+          onclick: () => { currentFilter = "urn"; renderItems(data); },
+        })
+      );
+
+      const table = h("table", { class: "coverage-table" },
+        h("thead", null,
+          h("tr", null,
+            h("th", { text: "Area" }),
+            h("th", { text: "Category" }),
+            h("th", { text: "Name" }),
+            h("th", { text: "Location (X, Y)" }),
+            h("th", { text: "Flags" }),
+            h("th", { text: "Description" }),
+            h("th", { text: "Action" })
+          )
+        )
+      );
+
+      const tbody = h("tbody");
+      for (const it of items) {
+        const catBadgeClass = it.category === "crest" ? "badge yellow"
+          : it.category === "talisman" ? "badge blue"
+          : it.category === "urn" ? "badge" : "badge green";
+
+        tbody.appendChild(h("tr", null,
+          h("td", null, h("span", { class: "mono", text: `Area ${it.area}` })),
+          h("td", null, h("span", { class: catBadgeClass, text: it.category })),
+          h("td", null, h("strong", { text: it.name })),
+          h("td", null, h("span", { class: "mono", text: `(${it.x}, ${it.y})` })),
+          h("td", null, h("span", { class: "mono", text: String(it.flags) })),
+          h("td", null, it.description),
+          h("td", null, h("button", {
+            class: "btn small",
+            type: "button",
+            text: "Edit room",
+            onclick: () => this.app.navigate(`#map/${it.area}`),
+          }))
+        ));
+      }
+      table.appendChild(tbody);
+      listWrap.append(bar, table);
+    };
+
+    if (this.collectiblesData) {
+      renderItems(this.collectiblesData);
+    } else {
+      listWrap.textContent = "Loading collectibles…";
+      api.collectibles()
+        .then((data) => {
+          this.collectiblesData = data;
+          renderItems(data);
+        })
+        .catch((err) => {
+          listWrap.textContent = `Error: ${err.message}`;
+        });
+    }
+
+    return wrap;
   }
 
   /* -------------------------------------------------------------- report */

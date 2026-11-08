@@ -211,6 +211,12 @@ class EditorHandler(BaseHTTPRequestHandler):
                 self.send_json(200, {"ok": True,
                                      **self.server.workspace.coverage()})
                 return
+            if path == "/api/campaign":
+                self.send_json(200, self.server.workspace.campaign_graph())
+                return
+            if path == "/api/collectibles":
+                self.send_json(200, self.server.workspace.collectibles())
+                return
             if path == "/api/text":
                 self.send_json(200, {"ok": True,
                                      **self.server.workspace.text_index()})

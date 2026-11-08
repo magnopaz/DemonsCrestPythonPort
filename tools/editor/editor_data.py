@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import ast
 import base64
+from collections import deque
 import copy
 import json
 import math
@@ -515,6 +516,8 @@ class Workspace:
         self._room_cache: dict[Path, tuple[float, int, dict]] = {}
         self._list_cache: tuple[float, dict] | None = None
         self._coverage_cache: tuple[tuple, dict] | None = None
+        self._campaign_cache: tuple[tuple, dict] | None = None
+        self._collectibles_cache: tuple[tuple, dict] | None = None
         self.check_results: dict[str, dict] = {}
         self.check_lock = threading.Lock()
         self.lock = threading.RLock()
@@ -877,6 +880,317 @@ class Workspace:
         }
         with self.lock:
             self._coverage_cache = (signature, payload)
+        return payload
+
+    @staticmethod
+    def stage_name_for_area(area: int, music: int) -> str:
+        """Heuristic stage classification for room grouping."""
+        if area in (0, 1, 2, 3, 4, 5, 6, 7, 34):
+            return "Stage 1 · Murkland"
+        if 8 <= area <= 19 or 45 <= area <= 49 or area in (55,):
+            return "Stage 2 · Ruined City & Town"
+        if 20 <= area <= 31 or 56 <= area <= 61:
+            return "Stage 3 · Dark Forest"
+        if 36 <= area <= 43:
+            return "Stage 4 · Towers of Doom"
+        if 48 <= area <= 54:
+            return "Stage 5 · Poseidonia"
+        if 58 <= area <= 73:
+            return "Stage 6 · Mountains"
+        if 74 <= area <= 87:
+            return "Stage 7 · Phalanx's Fortress"
+        if 88 <= area <= 93:
+            return "Demon's Hideout"
+        if music == 14:
+            return "Town & Interiors"
+        if music == 2:
+            return "Overworld Map"
+        return "Special & Crypts"
+
+    def campaign_graph(self, refresh: bool = False) -> dict:
+        """Campaign navigation graph: all rooms, transitions, boss gates and issues.
+
+        Builds the connectivity graph across all rooms (incorporating authored overlays),
+        validates transitions and spawns, and detects dead ends, broken targets and orphans.
+        """
+        signature = self._coverage_signature()
+        with self.lock:
+            if (not refresh and self._campaign_cache
+                    and self._campaign_cache[0] == signature):
+                return self._campaign_cache[1]
+
+        all_areas = sorted(self.all_room_areas())
+        nodes: dict[int, dict] = {}
+        edges: list[dict] = []
+        issues = {
+            "broken_doors": [],
+            "invalid_spawns": [],
+            "dead_ends": [],
+            "gate_only": [],
+            "unreachable": [],
+        }
+
+        campaign_path = self.assets / "campaign.json"
+        stage_entries = []
+        if campaign_path.is_file():
+            try:
+                camp = json.loads(campaign_path.read_text(encoding="utf-8"))
+                stage_entries = [clamp_int(a, 0) for a in camp.get("stage_entries", [])]
+            except Exception:
+                stage_entries = []
+
+        for area in all_areas:
+            loaded = self.load_room(area)
+            if loaded is None:
+                continue
+            room = loaded["room"]
+            world = room.get("world") if isinstance(room.get("world"), dict) else {}
+            transitions = room.get("transitions") if isinstance(room.get("transitions"), list) else []
+            spawns = room.get("spawns") if isinstance(room.get("spawns"), list) else []
+            objects = room.get("objects") if isinstance(room.get("objects"), list) else []
+            gate = clamp_int(room.get("gate_next_area", room.get("gate_next", -1)), -1)
+            music = clamp_room_music(room)
+            effective_music = music if music is not None else default_music_for_area(area)
+            stage_name = self.stage_name_for_area(area, effective_music)
+
+            nodes[area] = {
+                "area": area,
+                "label": self.room_label(area),
+                "name": str(room.get("name") or f"room_area{area}"),
+                "source": loaded["source"],
+                "authored": bool(loaded["authored"]),
+                "world_w": clamp_int(world.get("width"), 256, 0),
+                "world_h": clamp_int(world.get("height"), 224, 0),
+                "music": effective_music,
+                "music_name": MUSIC_NAMES[effective_music] if 0 <= effective_music < MUSIC_COUNT else "Unknown",
+                "stage": stage_name,
+                "gate_next_area": gate,
+                "spawns": [{"id": i, "x": s.get("x", 0), "y": s.get("y", 0)} for i, s in enumerate(spawns) if isinstance(s, dict)],
+                "spawn": room.get("spawn"),
+                "transitions_count": len(transitions),
+                "objects_count": len(objects),
+                "inbound": [],
+                "outbound": [],
+            }
+
+        for area, node in nodes.items():
+            loaded = self.load_room(area)
+            room = loaded["room"] if loaded else {}
+            transitions = room.get("transitions") if isinstance(room.get("transitions"), list) else []
+            gate = node["gate_next_area"]
+
+            for i, tr in enumerate(transitions):
+                if not isinstance(tr, dict):
+                    continue
+                nxt = tr.get("next_area")
+                if nxt is None or not isinstance(nxt, int) or nxt not in nodes or nxt < 0:
+                    issues["broken_doors"].append({
+                        "from": area,
+                        "from_label": node["label"],
+                        "door_index": i,
+                        "target_area": nxt,
+                        "x": tr.get("x", 0),
+                        "y": tr.get("y", 0),
+                    })
+                    continue
+
+                sp_id = clamp_int(tr.get("spawn_id"), 0, 0)
+                pad_mask = tr.get("pad_mask", 255)
+                edge = {
+                    "from": area,
+                    "to": nxt,
+                    "kind": "door",
+                    "spawn_id": sp_id,
+                    "pad_mask": pad_mask,
+                    "x": tr.get("x", 0),
+                    "y": tr.get("y", 0),
+                    "half_w": tr.get("half_w", 16),
+                    "half_h": tr.get("half_h", 16),
+                    "type": tr.get("type", 0),
+                }
+                edges.append(edge)
+                node["outbound"].append({"target": nxt, "kind": "door", "spawn_id": sp_id, "pad_mask": pad_mask})
+                nodes[nxt]["inbound"].append({"from": area, "kind": "door", "spawn_id": sp_id})
+
+                tgt_spawns = nodes[nxt]["spawns"]
+                if len(tgt_spawns) > 0 and sp_id >= len(tgt_spawns):
+                    issues["invalid_spawns"].append({
+                        "from": area,
+                        "from_label": node["label"],
+                        "to": nxt,
+                        "to_label": nodes[nxt]["label"],
+                        "spawn_id": sp_id,
+                        "target_spawn_count": len(tgt_spawns),
+                    })
+
+            if isinstance(gate, int) and gate in nodes and gate >= 0:
+                edge = {"from": area, "to": gate, "kind": "gate"}
+                edges.append(edge)
+                node["outbound"].append({"target": gate, "kind": "gate"})
+                nodes[gate]["inbound"].append({"from": area, "kind": "gate"})
+
+            if not transitions:
+                if not isinstance(gate, int) or gate not in nodes or gate < 0:
+                    issues["dead_ends"].append({
+                        "area": area,
+                        "label": node["label"],
+                        "stage": node["stage"],
+                    })
+                else:
+                    issues["gate_only"].append({
+                        "area": area,
+                        "label": node["label"],
+                        "gate_next_area": gate,
+                        "stage": node["stage"],
+                    })
+
+        for entry_area in stage_entries:
+            if entry_area in nodes:
+                edges.append({"from": -1, "to": entry_area, "kind": "stage_entry"})
+                nodes[entry_area]["inbound"].append({"from": -1, "kind": "stage_entry"})
+
+        starts = set(stage_entries)
+        if 0 in nodes:
+            starts.add(0)
+        seen = set()
+        queue = deque(starts)
+        while queue:
+            curr = queue.popleft()
+            if curr in seen or curr not in nodes:
+                continue
+            seen.add(curr)
+            for out in nodes[curr]["outbound"]:
+                tgt = out.get("target")
+                if tgt is not None and tgt not in seen and tgt in nodes:
+                    queue.append(tgt)
+
+        unreachable = sorted(set(nodes.keys()) - seen)
+        issues["unreachable"] = [{"area": a, "label": nodes[a]["label"], "stage": nodes[a]["stage"]} for a in unreachable]
+
+        stages: dict[str, list[int]] = {}
+        for a, n in nodes.items():
+            stages.setdefault(n["stage"], []).append(a)
+
+        payload = {
+            "ok": True,
+            "nodes": nodes,
+            "edges": edges,
+            "stage_entries": stage_entries,
+            "stages": [{"name": k, "areas": sorted(v)} for k, v in sorted(stages.items())],
+            "issues": issues,
+            "stats": {
+                "total_rooms": len(nodes),
+                "total_doors": sum(1 for e in edges if e["kind"] == "door"),
+                "total_gates": sum(1 for e in edges if e["kind"] == "gate"),
+                "stage_entries": len(stage_entries),
+                "reachable": len(seen),
+                "unreachable": len(unreachable),
+                "dead_ends": len(issues["dead_ends"]),
+                "gate_only": len(issues["gate_only"]),
+                "broken_doors": len(issues["broken_doors"]),
+                "invalid_spawns": len(issues["invalid_spawns"]),
+                "authored_rooms": sum(1 for n in nodes.values() if n["authored"]),
+            },
+        }
+        with self.lock:
+            self._campaign_cache = (signature, payload)
+        return payload
+
+    def collectibles(self, refresh: bool = False) -> dict:
+        """Catalog all placed collectibles, talismans, urns and crests across the campaign."""
+        signature = self._coverage_signature()
+        with self.lock:
+            if (not refresh and self._collectibles_cache
+                    and self._collectibles_cache[0] == signature):
+                return self._collectibles_cache[1]
+
+        TALISMAN_INFO = {
+            0: ("Crown", "Increases enemy coin drop rate"),
+            1: ("Skull", "Halves damage taken from enemy attacks"),
+            2: ("Armor", "Reduces all damage received to 1/4"),
+            3: ("Fang", "Boosts projectile and flame attack damage"),
+            4: ("Hand", "Reduces magic charging time"),
+        }
+        CREST_INFO = {
+            0: ("Fire Crest Piece", "Collect to restore the Crest of Fire"),
+            1: ("Crest of Earth (Ground)", "Grants Ground Gargoyle form - dash and push blocks"),
+            2: ("Crest of Air (Aerial)", "Grants Aerial Gargoyle form - true vertical flight"),
+            3: ("Crest of Water (Tidal)", "Grants Tidal Gargoyle form - swim and breathe underwater"),
+            4: ("Crest of Time (Legendary)", "Grants Legendary Gargoyle form - high defense and charged shots"),
+            5: ("Crest of Heaven (Ultimate)", "Grants Ultimate Gargoyle form - combine all crest powers"),
+        }
+        all_areas = sorted(self.all_room_areas())
+        items = []
+        counts = {"talisman": 0, "urn": 0, "crest": 0, "item": 0, "other": 0}
+
+        for area in all_areas:
+            loaded = self.load_room(area)
+            if loaded is None:
+                continue
+            room = loaded["room"]
+            room_lbl = self.room_label(area)
+            objects = room.get("objects") if isinstance(room.get("objects"), list) else []
+            for idx, obj in enumerate(objects):
+                if not isinstance(obj, dict):
+                    continue
+                k = str(obj.get("type") or "unknown")
+                sp = clamp_int(obj.get("species"), -1)
+                flags = clamp_int(obj.get("flags"), 0)
+                x = clamp_int(obj.get("x"), 0)
+                y = clamp_int(obj.get("y"), 0)
+
+                cat = None
+                name = ""
+                desc = ""
+
+                if k == "talisman":
+                    cat = "talisman"
+                    counts["talisman"] += 1
+                    tname, tdesc = TALISMAN_INFO.get(flags, (f"Talisman (Flag {flags})", "Special talisman item"))
+                    name = f"Talisman of the {tname}"
+                    desc = tdesc
+                elif k == "urn":
+                    cat = "urn"
+                    counts["urn"] += 1
+                    name = "Breakable Urn"
+                    desc = f"Urn container (flag {flags}); drops potions, coins or recovery hearts"
+                elif k in ("pickup_crest", "crest") or sp in (0x2D, 0x2E):
+                    cat = "crest"
+                    counts["crest"] += 1
+                    cname, cdesc = CREST_INFO.get(flags if flags in CREST_INFO else 0, (f"Crest Item (Flag {flags})", "Crest power or fragment"))
+                    name = cname
+                    desc = cdesc
+                elif k == "item":
+                    cat = "item"
+                    counts["item"] += 1
+                    name = f"Item (species 0x{sp:02X})" if sp >= 0 else "Item pickup"
+                    desc = f"Item pickup at ({x}, {y}) with flags {flags}"
+
+                if cat:
+                    items.append({
+                        "area": area,
+                        "room_label": room_lbl,
+                        "object_index": idx,
+                        "type": k,
+                        "category": cat,
+                        "species": sp,
+                        "flags": flags,
+                        "x": x,
+                        "y": y,
+                        "name": name,
+                        "description": desc,
+                    })
+
+        payload = {
+            "ok": True,
+            "collectibles": items,
+            "summary": {
+                "total": len(items),
+                **counts,
+            },
+        }
+        with self.lock:
+            self._collectibles_cache = (signature, payload)
         return payload
 
     # -- text blocks -------------------------------------------------------

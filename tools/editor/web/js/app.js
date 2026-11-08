@@ -11,9 +11,11 @@ import { AssetBrowser } from "./assets.js";
 import { CoverageView } from "./coverage.js";
 import { DialogueEditor } from "./dialogue.js";
 import { ChecksView } from "./checks.js";
+import { CampaignView } from "./campaign.js";
 
 const VIEWS = {
   map: { label: "Map Builder", module: MapEditor },
+  campaign: { label: "Campaign", module: CampaignView },
   enemy: { label: "Enemy Editor", module: EnemyEditor },
   player: { label: "Player Editor", module: PlayerEditor },
   dialogue: { label: "Dialogue", module: DialogueEditor },
@@ -32,6 +34,7 @@ export const app = {
   _hashGuard: false,
 
   MapEditor,
+  CampaignView,
   EnemyEditor,
   PlayerEditor,
   AssetBrowser,
