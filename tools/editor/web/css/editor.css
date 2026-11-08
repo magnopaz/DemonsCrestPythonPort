@@ -87,6 +87,16 @@ a { color: var(--accent-2); }
 .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .nav-icon svg { width: 15px; height: 15px; display: block; }
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.global-search { position: relative; width: 200px; }
+.global-search input[type="search"] { width: 100%; font-size: 11px; }
+.global-search-results { display: none; position: absolute; top: calc(100% + 7px); right: 0; width: 400px; max-height: 440px; overflow: auto; padding: 4px; background: #11141b; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.55); z-index: 90; }
+.global-search-results.open { display: block; }
+.search-hit { display: grid; grid-template-columns: 34px minmax(0, 1fr); grid-template-rows: auto auto; gap: 1px 8px; width: 100%; padding: 6px 8px; text-align: left; background: transparent; border: 0; border-bottom: 1px solid rgba(255,255,255,.045); cursor: pointer; }
+.search-hit:hover { background: rgba(255,255,255,.045); }
+.search-hit .hit-area { grid-row: 1 / 3; align-self: center; font: 10px var(--mono); color: var(--accent); }
+.search-hit .hit-main { font-size: 11px; color: var(--text); }
+.search-hit .hit-meta { font-size: 9.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-empty { padding: 10px; color: var(--muted); font-size: 11px; }
 .project-info { color: var(--muted); font-size: 11px; font-family: var(--mono); }
 .save-state {
   font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
@@ -713,6 +723,8 @@ textarea.dialogue-text:focus { border-color: var(--accent); background: #0e1118;
 }
 @media (max-width: 1320px) {
   .dialogue-editor .editor-body { grid-template-columns: 260px minmax(0,1fr) 330px; }
+  .project-info { display: none; }
+  .global-search { width: 170px; }
 }
 @media (max-width: 1180px) {
   .nav-tab span:last-child { display: none; }

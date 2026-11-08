@@ -365,6 +365,23 @@
         return `${colored} colored minimap samples`;
       });
 
+      await check("global object search", async () => {
+        const input = doc.querySelector("#global-search");
+        const box = doc.querySelector("#global-search-results");
+        if (!input || !box) throw new Error("no global search");
+        input.value = "urn";
+        input.dispatchEvent(new win.Event("input", { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        const hits = box.querySelectorAll(".search-hit").length;
+        if (!box.classList.contains("open")) throw new Error("results closed");
+        if (hits === 0) throw new Error("no urn hits");
+        input.dispatchEvent(new win.KeyboardEvent("keydown",
+          { key: "Escape", bubbles: true }));
+        if (box.classList.contains("open")) throw new Error("did not close");
+        input.value = "";
+        return `${hits} urn hits`;
+      });
+
       await check("map save/revert through the editor", async () => {
         let area = 0;
         for (let candidate = 990; candidate < 1010; candidate += 1) {

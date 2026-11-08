@@ -72,13 +72,17 @@ O editor já possui: Map Builder, Enemy Editor, Player Editor, Dialogue, Coverag
   - `✗ Area N does not exist`.
 - O badge actualiza ao mudar `next_area` ou `spawn_id`.
 
+### 11. Busca global de objectos — concluído
+- **Arquivos:** `editor_data.py` (`search_objects()`), `server.py` (`GET /api/search`), `app.js`, `api.js`, `index.html`, `editor.css`.
+- Procura em todos os 113 rooms por área, label/room name, type, species (decimal/hex), nome da espécie, flags e coordenadas; devolve `{area, index, type, species_name, x, y, …}`, com `total` e `truncated`.
+- Campo **Search objects…** no topo; debounce 180 ms, até 30 resultados, `Enter` abre o primeiro, `Esc` fecha.
+- Clicar num resultado abre `#map/<area>` e selecciona o objecto (via `app.pendingObject` + `MapEditor.init`), centrando a vista nele. Se a room já está aberta, selecciona directamente.
+
 ---
 
 ## 🔲 Próximas funcionalidades planejadas (ainda não implementadas)
 
-### E. Busca global de objetos
-- Barra de busca que encontra qualquer objeto (por `type`, nome, área) em todos os rooms.
-- Rota: `GET /api/search?q=...` no backend.
+(Nenhuma do plano original em aberto; próximas ideias: grafo com filtro por caminho, exportar o grafo em PNG e comparação de rooms lado a lado.)
 
 ---
 
@@ -93,7 +97,10 @@ O editor já possui: Map Builder, Enemy Editor, Player Editor, Dialogue, Coverag
 | `tools/editor/web/js/icons.js` | Ícone `minimap` |
 | `tools/editor/web/css/editor.css` | Estilos do minimap e collectibles |
 | `tools/editor/web/index.html` | Integração dos novos elementos |
-| `tools/editor/editor_data.py` | `collectibles()`, `campaign_graph()`, `stage_name_for_area()` |
+| `tools/editor/editor_data.py` | `collectibles()`, `campaign_graph()`, `stage_name_for_area()`, `search_objects()` |
+| `tools/editor/server.py` | Rotas `/api/collectibles`, `/api/campaign`, `/api/search` |
+| `tools/editor/web/js/app.js` | Shell, rota e widget de busca global |
+| `tools/editor/web/index.html` | Campo de busca global no topo |
 | `tools/editor/web/js/campaign.js` | Campaign Graph View: stage bands, pan/zoom/fit, filtros, tabela, issues, duplo-clique |
 | `tools/editor/web/test.html` | Check da Campaign View; lista passa a oito vistas |
 | `tools/editor/test_editor.py` | Testes das rotas `/api/campaign` e `/api/collectibles`, cobertura do grafo |
@@ -105,7 +112,7 @@ O editor já possui: Map Builder, Enemy Editor, Player Editor, Dialogue, Coverag
 
 ## Verificação (2026-11-08)
 
-- `tools/editor/test_editor.py` → **29/29**.
-- Self-test do browser → **30/30**, incluindo `campaign graph view`, `keyboard shortcuts help`, `transition target validation` e `minimap heatmap`.
+- `tools/editor/test_editor.py` → **30/30**.
+- Self-test do browser → **31/31**, incluindo `campaign graph view`, `keyboard shortcuts help`, `transition target validation`, `minimap heatmap` e `global object search`.
 - Payload real: **113 rooms · 225 edges · 11 stages**.
 - Nota operacional: a rota `/api/campaign` já estava em `server.py`; o servidor em execução é que era antigo. Reiniciar o editor após alterações ao backend.

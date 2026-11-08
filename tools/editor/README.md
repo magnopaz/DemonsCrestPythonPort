@@ -175,6 +175,15 @@ shows the real 256×224 game frame with HUD. It takes a few seconds, does not
 save the room, and is the definitive check when the editor preview and the
 game disagree. The output PNGs land in `captures/editor_render/`.
 
+## Global search
+
+The **Search objects…** field in the top bar queries every room. It matches
+area number, room label/name, object type, species (decimal and hex), species
+name, flags and coordinates. Clicking a hit opens `#map/<area>` and selects
+that object (the Map Builder centres on it); if the room is already open the
+selection happens in place. `Enter` opens the first hit, `Esc` closes the
+list. The API is `GET /api/search?q=…&limit=…`.
+
 ## Campaign
 
 The **Campaign** tab draws the whole room graph returned by
@@ -387,6 +396,7 @@ The UI is a thin client over a small JSON API; useful for scripts:
 | `GET /api/coverage` | project coverage: totals, species, rooms, types, music |
 | `GET /api/campaign` | campaign graph: nodes, edges, stages, issues, stats |
 | `GET /api/collectibles` | collectibles (crests, talismans, urns) by room |
+| `GET /api/search?q=&limit=` | objects across all rooms: area, type, species, coordinates |
 | `GET /api/text` | text blocks, loader simulation, warnings, font, usages |
 | `GET /api/text/<index>` | one block + caps + font |
 | `POST /api/text/<index>` | save `{pages}` to the authored overlay |

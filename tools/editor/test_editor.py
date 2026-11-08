@@ -528,6 +528,19 @@ class EditorApiV2Tests(unittest.TestCase):
         self.assertIn("collectibles", col)
         self.assertIn("summary", col)
 
+    def test_search_route(self):
+        status, data = self.request("/api/search?q=48")
+        self.assertEqual(status, 200)
+        self.assertTrue(data["ok"])
+        self.assertGreater(data["total"], 0)
+        self.assertEqual(data["results"][0]["area"], 48)
+        status, empty = self.request("/api/search?q=")
+        self.assertEqual(status, 200)
+        self.assertEqual(empty["total"], 0)
+        status, none = self.request("/api/search?q=zzzz")
+        self.assertEqual(status, 200)
+        self.assertEqual(none["results"], [])
+
     def test_check_routes(self):
         status, listing = self.request("/api/checks")
         self.assertEqual(status, 200)

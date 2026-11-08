@@ -1096,6 +1096,62 @@ class Workspace:
             self._campaign_cache = (signature, payload)
         return payload
 
+    def search_objects(self, query: str, limit: int = 100) -> dict:
+        """Find objects across every room by area, type, species or coordinates."""
+        q = str(query or "").strip()
+        if not q:
+            return {"ok": True, "query": "", "results": [], "total": 0,
+                    "truncated": False}
+        tokens = [t for t in q.lower().split() if t]
+        limit = max(1, min(clamp_int(limit, 100), 200))
+
+        names: dict[int, str] = {}
+        for entry in self.list_species():
+            species = clamp_int(entry.get("species"), -1)
+            if species >= 0 and entry.get("name"):
+                names.setdefault(species, str(entry["name"]))
+
+        results = []
+        total = 0
+        for area in sorted(self.all_room_areas()):
+            loaded = self.load_room(area)
+            if loaded is None:
+                continue
+            room = loaded["room"]
+            room_label = self.room_label(area)
+            room_name = str(room.get("name") or "")
+            for index, obj in enumerate(room.get("objects") or []):
+                if not isinstance(obj, dict):
+                    continue
+                kind = str(obj.get("type") or "unknown")
+                species = clamp_int(obj.get("species"), -1)
+                species_hex = f"0x{species:02x}" if species >= 0 else ""
+                species_name = names.get(species, "")
+                flags = clamp_int(obj.get("flags"), 0)
+                x = clamp_int(obj.get("x"), 0)
+                y = clamp_int(obj.get("y"), 0)
+                haystack = (f"{area} {room_label} {room_name} {kind} "
+                            f"{species} {species_hex} {species_name} "
+                            f"{flags} {x} {y}").lower()
+                if not all(token in haystack for token in tokens):
+                    continue
+                total += 1
+                if len(results) < limit:
+                    results.append({
+                        "area": area,
+                        "room_label": room_label,
+                        "index": index,
+                        "type": kind,
+                        "species": species,
+                        "species_hex": species_hex,
+                        "species_name": species_name,
+                        "flags": flags,
+                        "x": x,
+                        "y": y,
+                    })
+        return {"ok": True, "query": q, "results": results, "total": total,
+                "truncated": total > len(results)}
+
     def collectibles(self, refresh: bool = False) -> dict:
         """Catalog all placed collectibles, talismans, urns and crests across the campaign."""
         signature = self._coverage_signature()

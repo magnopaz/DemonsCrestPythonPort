@@ -599,3 +599,7 @@ de cachear `/web/` (módulos edited in place).
   `✓`/`⚠`/`✗` para `next_area` + `spawn_id`, com cache por área.
 - **Verificação:** self-test do browser **30/30** (`keyboard shortcuts help`,
   `transition target validation`, `minimap heatmap`); `test_editor` 29/29.
+- **Busca global:** campo no topo (`GET /api/search?q=`) filtra os 113 rooms
+  por área/type/species/flags/coordenadas; o clique abre `#map/<area>` e
+  selecciona o objecto via `app.pendingObject`. Verificação: 30/30 backend,
+  31/31 self-test.

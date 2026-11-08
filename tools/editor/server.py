@@ -217,6 +217,16 @@ class EditorHandler(BaseHTTPRequestHandler):
             if path == "/api/collectibles":
                 self.send_json(200, self.server.workspace.collectibles())
                 return
+            if path == "/api/search":
+                params = urllib.parse.parse_qs(parsed.query)
+                query = (params.get("q") or [""])[0]
+                try:
+                    limit = int((params.get("limit") or ["100"])[0])
+                except ValueError:
+                    limit = 100
+                self.send_json(200,
+                                self.server.workspace.search_objects(query, limit))
+                return
             if path == "/api/text":
                 self.send_json(200, {"ok": True,
                                      **self.server.workspace.text_index()})

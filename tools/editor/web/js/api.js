@@ -70,6 +70,8 @@ export const api = {
   assets: () => request("/api/assets"),
   coverage: () => request("/api/coverage"),
   campaign: () => request("/api/campaign"),
+  search: (q, limit = 100) => request(
+    `/api/search?q=${encodeURIComponent(q)}&limit=${limit}`),
   collectibles: () => request("/api/collectibles"),
   text: () => request("/api/text"),
   textBlock: (index) => request(`/api/text/${index}`),

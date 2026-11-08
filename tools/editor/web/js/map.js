@@ -106,6 +106,16 @@ export class MapEditor {
     this._resizeObserver.observe(this.canvasHost);
     this.bindKeys();
     await this.loadRoom(this.area, { initial: true });
+    if (this.app.pendingObject && this.app.pendingObject.area === this.area) {
+      const pending = this.app.pendingObject;
+      this.app.pendingObject = null;
+      const index = Number(pending.index);
+      const obj = this.room.objects?.[index];
+      if (obj) {
+        this.select({ kind: "object", index });
+        this.centerOn(obj.x, obj.y);
+      }
+    }
     if (this.initialPreview) this.togglePreview(true);
     if (this.initialCompare) {
       if (this.compareCheck) this.compareCheck.checked = true;

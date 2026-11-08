@@ -31,6 +31,7 @@ export const app = {
   species: [],
   current: null,
   currentName: null,
+  pendingObject: null,
   _hashGuard: false,
 
   MapEditor,
@@ -141,6 +142,93 @@ function parseHash() {
   return { name: VIEWS[name] ? name : "map", arg: rest.join("/") };
 }
 
+function initGlobalSearch() {
+  const input = $("#global-search");
+  const box = $("#global-search-results");
+  if (!input || !box) return;
+  let timer = 0;
+  let seq = 0;
+  const close = () => box.classList.remove("open");
+
+  const choose = (hit) => {
+    close();
+    input.value = "";
+    input.blur();
+    if (app.currentName === "map" && app.current?.area === hit.area) {
+      app.current.select({ kind: "object", index: hit.index });
+      app.current.centerOn(hit.x, hit.y);
+      app.setStatus(`Area ${hit.area} · object ${hit.index}`,
+        `${hit.type} at (${hit.x}, ${hit.y})`);
+    } else {
+      app.pendingObject = { area: hit.area, index: hit.index,
+        x: hit.x, y: hit.y };
+      app.navigate(`#map/${hit.area}`);
+    }
+  };
+
+  const render = (data) => {
+    clear(box);
+    if (!data.results?.length) {
+      box.appendChild(h("div", { class: "search-empty",
+        text: data.query ? "No objects found." : "Type at least two characters." }));
+      box.classList.add("open");
+      return;
+    }
+    for (const hit of data.results) {
+      const detail = hit.species_name ||
+        (hit.species_hex ? `species ${hit.species_hex}` : "");
+      box.appendChild(h("button", {
+        class: "search-hit", type: "button",
+        onclick: () => choose(hit),
+      },
+      h("span", { class: "hit-area", text: `A${hit.area}` }),
+      h("span", { class: "hit-main",
+        text: `${hit.type}${detail ? ` · ${detail}` : ""}` }),
+      h("span", { class: "hit-meta",
+        text: `${hit.room_label} · #${hit.index} · (${hit.x}, ${hit.y})` })));
+    }
+    if (data.total > data.results.length) {
+      box.appendChild(h("div", { class: "search-empty",
+        text: `… ${data.total - data.results.length} more. Refine the search.` }));
+    }
+    box.classList.add("open");
+  };
+
+  const run = async () => {
+    const q = input.value.trim();
+    if (q.length < 2) { close(); return; }
+    const mine = ++seq;
+    try {
+      const data = await api.search(q, 30);
+      if (mine !== seq) return;
+      render(data);
+    } catch (error) {
+      if (mine !== seq) return;
+      clear(box);
+      box.appendChild(h("div", { class: "search-empty",
+        text: `Search failed: ${error.message}` }));
+      box.classList.add("open");
+    }
+  };
+
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(run, 180);
+  });
+  input.addEventListener("focus", () => {
+    if (input.value.trim().length >= 2) run();
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") { close(); input.blur(); }
+    if (event.key === "Enter") {
+      box.querySelector(".search-hit")?.click();
+    }
+  });
+  document.addEventListener("mousedown", (event) => {
+    if (!event.target.closest?.(".global-search")) close();
+  });
+}
+
 async function mount(name, arg, { force = false } = {}) {
   const container = $("#view");
   if (!VIEWS[name]) name = "map";
@@ -208,6 +296,7 @@ async function boot() {
       `${app.rooms.length} rooms · ${app.species.length} species`;
     app.setStatus("Ready. Pick a room to edit.",
       "Map · Enemy · Player · Dialogue · Coverage · Checks · Assets");
+    initGlobalSearch();
     const { name, arg } = parseHash();
     await mount(name, arg);
   } catch (error) {
