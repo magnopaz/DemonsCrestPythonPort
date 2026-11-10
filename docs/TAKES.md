@@ -291,4 +291,26 @@ Demon's Crest instala o seu `draw_frame`, e `RtlDrawPpuFrame` faz `return` antes
 de `RtlWidescreenPresent`, que é a única chamadora do dump. O `screenshot` do
 debug server passa pelo caminho composto e funciona.
 
+### 7.1 O combate, lido dos quadros
+
+241 quadros em 3700–10 900, passo 30 (`shots_fight`). Depois de clarear a imagem
+(a sala é quase toda preta) vê-se:
+
+| frames | o que está no ecrã |
+|---|---|
+| 3730–3820 | preto (carga da sala) |
+| 3850–3910 | sala, jogador em (65,172) |
+| 3940–4000 | subscreen aberto (START em 3902) e fechado em 4000 |
+| **4390–4600** | **diálogo de intro**: caixa magenta, texto amarelo — `AH... YOU'VE ARRIVED / MUCH EARLIER THAN I / EXPECTED FIREBRAND.` (bloco 16–21 da tabela da ROM em `~0x1F3900`); o Phalanx é o vulto pálido grande em cima do monte de crânios à direita, o Firebrand está em baixo à esquerda |
+| 4630–8050 | combate (sala escura; sem boss visível no quadro 4120, antes do diálogo) |
+| 7761–8200 | morte (estado 16) e fade preto; RETRY põe o jogador em (65,172) |
+| 8230–10 780 | sala outra vez, jogador parado |
+| 10 840 | subscreen |
+
+Ou seja: **a intro do Phalanx toca ao entrar na câmara** e o corpo aparece em
+cima do monte de crânios à direita — o que bate com o registo do ROM `$86` em
+(256,136) na sala de 512 px com a câmara em x=0. O port não tem esta intro
+(`BOSS_INTRO_TEXT` só conhece a área 23) nem spawna o corpo.
+
+
 
