@@ -27,20 +27,26 @@ Depois de cada estado: `lda $3D / bne / jsl $80F83D / stz $3D` — o estado marc
 `$3D` quando não quer que o helper `$80F83D` corra. O que `$80F83D` faz ainda
 não está lido.
 
-### Tabelas (6 estados cada)
+### Tabelas
+
+As duas tabelas são indexadas **directamente por `$05`**, e `$05` só toma valores
+**pares** — `ldx $05 / jsr ($tabela,X)` lê um word por estado, por isso o stride
+é 2 e o índice é o valor do estado (0, 2, 4, 6, 8, 10, 12). Ler a tabela como
+"seis estados seguidos" (0..5) dá os endereços errados.
 
 | `$05` | flags != 2 (`$C692`) | flags == 2 (`$C6CC`) |
 |---|---|---|
 | 0 | `C82B` | `C6DB` |
-| 1 | `C8DA` | `C729` |
-| 2 | `C927` | `C76A` |
-| 3 | `C95F` | `C786` |
-| 4 | `C9CD` | `C7DB` |
-| 5 | `CAAD` | `CA8A` |
+| 2 | `C8C2` | `C729` |
+| 4 | `C8DA` | `C76A` |
+| 6 | `C927` | `C786` |
+| 8 | `C95F` | `C7DB` |
+| 10 | `C9CD` | `CA8A` |
+| 12 | `CAAD` | (a tabela repete `CA8A`) |
 
-O caminho da câmara é o **flags 0** (registos sem flag): `C82B`, `C8DA`,
-`C927`, `C95F`, `C9CD`, `CAAD`. A take cobre ~70 s de luta (e uma morte), por
-isso no máximo dois ou três destes estados chegam a correr.
+O caminho da câmara é o **flags 0** (registos sem flag): `C82B` → `C8C2` →
+`C8DA` → `C927` → `C95F` → `C9CD` → `CAAD`, e a take cobre ~70 s de luta (com
+uma morte), por isso só os primeiros devem correr.
 
 ## 2. O que a take mede
 
@@ -79,7 +85,7 @@ horizontais grandes (100–200 px entre amostras de 150 frames).
 Nascer 17 objetos em 20 frames e ficarem 7 vivos é o que a AI do port não tem:
 ele trata o `$86` como um corpo único com orbe.
 
-## 3. O que o estado 0 (`C82B`) já mostra
+## 3. A cadeia de estados, lida do desassemblado
 
 Lido do desassemblado (não portado):
 
@@ -106,15 +112,30 @@ Duas consequências para o port:
    ainda em x≈75: o `$86` existe desde a entrada, mas o estado 2 só arranca com
    o jogador do lado direito.
 2. O `$88` que nasce em 4940–4950 (depois do diálogo) é quase certamente o
-   objecto alocado aqui (`$82877B` com $8B bytes), não um projéctil. Falta
-   confirmar com o estado 2 (`C927`).
+   objecto alocado no estado 4 (ver abaixo), não um projéctil.
+
+### A cadeia completa, lida
+
+| `$05` | endereço | o que faz |
+|---|---|---|
+| 0 | `C82B` | espera `$09EA >= 4`; com o jogador em x ≥ 288 põe `$05 = 2` e aloca `$8B` bytes |
+| 2 | `C8C2` | se `$0EDB` (posto no estado 0 quando a área é ≥ `$80` ou `$7FE004 != 0`) → `$05 = 4`, anim `$08`, som `$6A` |
+| 4 | `C8DA` | **espera `$0E == 1` e `$0F == 4`** (é o que trava até o diálogo fechar), depois com `$00C0 < $0078` aloca `$8088` bytes, `$31 = $90`, `$3C = $50`, `$43 = 6` e `$05 = 6` |
+| 6 | `C927` | `$3C = $28` de contagem; incrementa `$00C4` até ficar negativo → `$05 = 8`, anim `$08`, som `$69`, chamada `$80D10A` com `$1A` |
+| 8 | `C95F` | incrementa `$00C0`; quando dá a volta → `$05 = 10`, `$09 = 2`, anim `$66`, `$20 = $0300` |
+| 10 | `C9CD` | por ler |
+| 12 | `CAAD` | por ler |
+
+A correlação com a take é directa: o gate no frame 4300 (jogador em 288,7), a
+caixa de diálogo de 4390 a ~4600, e o enxame de `$88` a nascer em 4940–4950 —
+o estado 4 só avança depois de `$0E/$0F` dizerem que o texto fechou.
 
 ## 4. O que falta
 
-1. Transcrever `C8DA` (estado 1) e `C927` (estado 2) — o 0 é o gate, o 2 é o que
-   arranca a luta e aloca o `$88` — e trazer o resultado para
-   `dcpy/object.py`.
-2. Ler `$80F83D` (o helper chamado no fim de cada estado).
+1. Ler `C9CD` e `CAAD` (estados 10 e 12): é o resto da cadeia — o primeiro
+   ataque e o regresso ao princípio.
+2. Ler os helpers chamados pelos estados: `$80F83D` (fim de cada estado),
+   `$80F81D` (animação), `$80F915` (som) e `$80D10A`.
 3. **A intro está no sítio errado no port**: `game_maybe_start_boss_intro`
    dispara ao entrar na sala; a take mostra a caixa em 4390, ou seja *depois*
    de o jogador cruzar x=288 — é o gate do estado 0 que a abre. Ligar isto ao
