@@ -21,6 +21,7 @@ TEXT_LINE_H = 10
 
 _APOSTROPHE = "["   # the ROM's in-band apostrophe
 _FULLSTOP = "\\"    # period/quote stand-in
+_ELLIPSIS = "]"     # the ROM's three-dot glyph ("AH]]]" -> "AH...")
 
 
 class TextScript:
@@ -37,6 +38,8 @@ def _copy_line(src: str) -> str:
         if ch == _APOSTROPHE:
             ch = "'"
         elif ch == _FULLSTOP:
+            ch = "."
+        elif ch == _ELLIPSIS:
             ch = "."
         out.append(ch)
     return "".join(out)

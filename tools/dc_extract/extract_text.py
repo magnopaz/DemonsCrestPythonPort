@@ -67,14 +67,20 @@ def decode_run(raw: bytes) -> list[list[str]] | None:
     pages = [p for p in pages if p]
     if not saw_control or not pages:
         return None
-    # Strip the `]` page terminator the original writes at the end of a page.
+    # `]` is not only a terminator: inside a line it is the ellipsis glyph --
+    # the take reads Phalanx's box as "AH... YOU'VE ARRIVED" and the ROM line
+    # is "`AH]]] YOU'VE ARRIVED" (docs/TAKES.md §7.1).  Only a trailing run at
+    # the end of a page is the terminator.  A leading 0x60 is a control code the
+    # game does not draw.
     cleaned = []
     for page in pages:
         page = [l for l in page if l.strip(" ]")]
         if page:
-            for i, l in enumerate(page):
-                page[i] = l.replace("]", "").rstrip()
-            cleaned.append(page)
+            page = [l[1:] if l.startswith("`") else l for l in page]
+            page[-1] = page[-1].rstrip("]").rstrip()
+            page = [l for l in page if l]
+            if page:
+                cleaned.append(page)
     return cleaned or None
 
 
