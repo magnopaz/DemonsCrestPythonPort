@@ -637,6 +637,12 @@ Medida em `docs/TAKES.md` §7: `$008D = 84` → **área 42**
   cadeia `$86` (25 tiros de Fire) → `$8D` (127 HP) → `boss_defeated`, e três
   corridas no binário: intro abre, `$8D` morto entra em `GAME_ENDING`, e um boss
   noutra área continua a fazer *area clear*.
+- **Medição da AI** (`tools/oracle/measure_phalanx.py` + `docs/PHALANX_AI.md`):
+  o corpo `$86` está em (256,136) no frame 3820, salta para (480,136) e fica
+  ~1200 frames, depois patrulha a y≈172 com varrimentos de 100–200 px; o `$88`
+  é um enxame de **17 slots** que nascem em 4940–4950 (7 ficam até ao fim). O
+  handler é `BE:C6A0`, com duas tabelas de 6 estados (flags != 2 → `$C692`,
+  flags == 2 → `$C6CC`). A AI do port continua a inventada.
 
 **Verificação:** `check_bad_ending` → PASS; `check_bosses --runtime` → PASS
 (12 salas, 13 corridas); `check_boss_hp` → só o erro antigo da área 0
