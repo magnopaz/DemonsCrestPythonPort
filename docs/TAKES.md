@@ -254,3 +254,41 @@ desde o Passo B: `GAME_CONTINUE` corre 90 frames de animação de morte e abre
 cheio, SELECT A STAGE abre o mapa e END mostra o `PASS WORD` 4×4. O `GAME_OVER`
 antigo ficou só como estado de debug (`DC_STATE=gameover`).
 
+## 7. A take do bad ending (2026-11-10)
+
+`../DemonsCrestSNESRecomp/build-trace/captures/rec_bad_ending/rec_20261110_080831`
+— 40 054 frames, só `input_log.jsonl` (sem `frames/`).
+
+| frames | onde | nota |
+|---|---|---|
+| 1–521 | boot / título | |
+| 821–3161 | password | |
+| 3181–3721 | mapa | |
+| **3721–40 000** | **área 42** | `$008D = 84`; a take nunca sai da sala |
+| 7761–8200 | morte + RETRY | estado 16 (sub 2/6), spawn 0 em (65,172) |
+| 10 805–34 180 | **subscreen aberto** | frames idênticos pixel a pixel (~4 min de pausa) |
+| 34 300–34 700 | jogo outra vez | abre/fecha o subscreen |
+| 34 960–39 820 | subscreen outra vez | |
+
+**A take não tem o ending**: acaba com o menu aberto. O que ela prova é a sala da
+batalha. `$008D = 84` → **área 42**, e o `room_names.json` diz
+`phalanxs-fortress-phalanxs-chamber`; `room_area42.json` tem dois registos do
+**ROM**: `$86` em (256,136) e `$88` em (384,200). A ficha `area 84 = Phalanx` do
+`check_bosses.py` e o boss que o `apply_boss_table.py` injectou na 84 são a
+duplicação `42×2` que o `docs/FullMaps/room_names.md` ainda tem — a 84 desenha
+"BOSS STAGE 04" e não tem registo nenhum no ROM. O identificador `$008D/2` volta
+a bater: **42**, não 84.
+
+No port, `DC_AREA=42` não spawna boss (o trace só tem o cabeçalho) e desenha um
+placeholder magenta em (256,136): o extractor não tipa `$86` em
+`SPECIES_KIND_MAP`, por isso os registos de 42 (e de 75, a outra sala com o mesmo
+par `$86`/`$88`) ficam `"unknown"`.
+
+**Ferramenta:** `tools/oracle/replay_frames.py` — replay + `screenshot` a cada N
+frames dentro de uma janela (`--from`, `--to`, `--every`, `--png`). O dump do
+próprio emulador (`SNESRECOMP_FRAME_BMP_DIR`) **não funciona neste título**: o
+Demon's Crest instala o seu `draw_frame`, e `RtlDrawPpuFrame` faz `return` antes
+de `RtlWidescreenPresent`, que é a única chamadora do dump. O `screenshot` do
+debug server passa pelo caminho composto e funciona.
+
+
