@@ -650,3 +650,9 @@ cenografia real do ending (não há capturas); o `$88` da câmara continua
 `unknown`. A área 75 tem o outro par `$86`/`$88` e o `$86` ficou tipado boss
 (registo do ROM, 256,136), mas nenhuma take a visitou — não se sabe se é a
 segunda luta do Phalanx ou outra coisa. Ver `docs/ENDINGS.md`.
+
+**Correcção de texto (`e277904`):** o extractor apagava **todos** os `]`; na
+take o `]` é o reticências dentro da linha ("`AH]]] YOU'VE ARRIVED" lê-se
+"AH... YOU'VE ARRIVED"). Passa a manter os interiores, remover só a cauda no
+fim da página e o 0x60 inicial; `dcpy/text.py` mapeia `]` → ".". 65 dos 518
+blocos mudam; `check_arma2_intro` e `test_editor` (30/30) verdes.
