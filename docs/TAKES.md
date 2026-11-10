@@ -291,6 +291,27 @@ Demon's Crest instala o seu `draw_frame`, e `RtlDrawPpuFrame` faz `return` antes
 de `RtlWidescreenPresent`, que é a única chamadora do dump. O `screenshot` do
 debug server passa pelo caminho composto e funciona.
 
+### 7.0 A take não tem o ending — verificado ao nível do PPU
+
+Houve a hipótese de o ending estar numa camada por baixo do menu. Não está.
+`replay_capture.py --frames 27040,34840` dá o estado do PPU e a VRAM; os dois
+frames são iguais em tudo o que importa:
+
+```
+bgmode 1 ; screenEnabled = [0x15, 0x00]   -> TM = BG1|BG3|OBJ, TS = 0 (sem subscreen)
+BG1 (mapa $4800): painéis/slots (códigos de tile, sem texto)
+BG2 (mapa $4000): desligada (bit 1 fora de $15), uma linha de tiles velhos
+BG3 (mapa $5800): as únicas letras do ecrã -> "AERIAL" / "GARGOYLE"
+BG4: desligada
+```
+
+A SNES desenha tilemaps, não VRAM solta: um ending carregado fora dos mapas
+activos não apareceria a ninguém. Por baixo do menu está a BG1 dos painéis.
+
+E no **último** frame (40050) o pool ainda tem o corpo do Phalanx (`$86`, flags
+0) em (480,136) e os 7 `$88`, tudo congelado desde 39500 (menu aberto outra vez).
+A gravação acaba a meio da luta — o ending ficou fora dela.
+
 ### 7.1 O combate, lido dos quadros
 
 241 quadros em 3700–10 900, passo 30 (`shots_fight`). Depois de clarear a imagem
