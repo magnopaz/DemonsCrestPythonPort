@@ -99,6 +99,10 @@ class ObjectPool:
         self.boss_alive = False
         self.boss_defeated = False
         self.boss_present = False  # an OBJECT_BOSS was spawned in this room
+        # Species of the last boss whose death ran the generic hit path; the
+        # ending trigger needs to tell Phalanx's second body ($8D) from the
+        # first one ($86), which only changes phase.
+        self.boss_killed_species = -1
         self.boss_phase = 0  # 1 until a two-form boss transforms
         self.pit_fight = False  # area 8: $69 raised $1DEA (the fight started)
         self.pit_rng = 0  # $009C/$009D: the fight's 16-bit LCG seed
@@ -532,6 +536,7 @@ def objects_init(pool: ObjectPool, level) -> None:
     pool.last_talisman = 0
     pool.sfx_queue = []
     pool.boss_phase = 1
+    pool.boss_killed_species = -1
     # $96 is the script/NPC actor: the shopkeepers and the library old man in
     # 46..49/55, the avenue's townsperson in area 4, and the arena controller
     # in the boss rooms (52/53/54, where it shares the boss's position). The
@@ -2954,6 +2959,7 @@ def objects_check_projectiles(pool: ObjectPool, projectiles, player=None) -> Non
                             _spawn_pickup(pool, ox, oy + 8.0)
                             break
                         o.active = False
+                        pool.boss_killed_species = o.species
                         if o.species == 0x09:
                             # The take shows him breaking apart on the floor:
                             # hold the rubble pose for 1.5 s before freeing the

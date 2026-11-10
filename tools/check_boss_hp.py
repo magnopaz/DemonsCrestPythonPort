@@ -286,7 +286,7 @@ def check_runtime(binary: Path, assets: Path, records: dict[int, list],
         for area, expected in sorted(records.items()):
             run_case(area, expected, "")
         # Second Phalanx form: the $86 record is retyped to $8D by the hook.
-        run_case(84, [(0x8D, 0x00)], "_phase2", {"DC_BOSS_PHASE": "2"})
+        run_case(42, [(0x8D, 0x00)], "_phase2", {"DC_BOSS_PHASE": "2"})
 
 
 def main() -> int:

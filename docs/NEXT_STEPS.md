@@ -230,6 +230,12 @@ escuras.
 (`$86`/`$8D` — segunda forma), Holothurion, Ovnunu, Grewon, Dark Demon, Flame
 Lord, `$16`, `$58`, `$6F`, `$82`, `$BC`.
 
+**Phalanx (2026-11-10):** a câmara é a **área 42** (não a 84) e o `$86` vem do
+registo do ROM; o `$8D` nasce com 127 HP quando a primeira forma cai, a intro
+toca na entrada e a morte do `$8D` arranca o ending (`docs/ENDINGS.md`).
+`tools/check_bad_ending.py` cobre-o. Falta a AI real do `$86` — a do port é
+aproximada (drift + orbe) — e a cenografia do ending.
+
 Para cada um: mesma receita do Arma; o que muda é a tabela de despacho e as
 constantes. `docs/ARMA_AI.md` serve de molde de documentação (handler, tabela,
 estados, constantes, ciclo medido, o que ficou por fazer).
@@ -238,6 +244,10 @@ estados, constantes, ciclo medido, o que ficou por fazer).
 
 - Intro/coliseu, os quatro endings, créditos e o subscreen retail com o motor de
   texto que já existe (`game_text`/`script`), hoje a funcionar só em parte.
+- **Endings (2026-11-10):** a regra é Time Crest + talismãs (bad/normal/good) e
+  o gatilho é a morte do `$8D` na área 42/75; o `true` continua a ser do Dark
+  Demon. Falta a cenografia real (páginas, tempos, arte) — não há captura de
+  nenhum ending. Ver `docs/ENDINGS.md`.
 - NPCs de cidade com diálogo completo (`$96` está colocado numa sala só).
 - Password retail: algoritmo por descobrir. Codec nativo funciona; o vector
   `QFFF KNRR DDLR XGTQ` é o alvo para o inverter.

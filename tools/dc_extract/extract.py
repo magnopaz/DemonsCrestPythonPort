@@ -818,6 +818,11 @@ SPECIES_KIND_MAP = {
     # boss here made boss_alive true and skipped every transition in the room.
     0x96: "boss",
     0x09: "boss",   # Hippogriff: a real boss object (statue phase included)
+    # $86 is Phalanx. The ROM lists it in the fortress chamber (area 42, at
+    # 256,136) and in area 75; the take rec_bad_ending boots area 42 with
+    # $008D = 84 and fights him there, so the record is the boss, not a
+    # placeholder (docs/TAKES.md §7).
+    0x86: "boss",
     # $72 is the torch flame in the cemetery: a 16x16 five-frame flicker with no
     # collision or damage in its handler ($85:D4CF).  Drawn as decor, never
     # spawned into the object pool.

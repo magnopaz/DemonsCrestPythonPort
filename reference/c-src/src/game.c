@@ -2180,13 +2180,14 @@ static int Game_CompletionPercent(const Game *game) {
     return total > 0 ? have * 100 / total : 0;
 }
 
-/* Bad under 50% completion, normal up to 99%, good at 100% (the true ending
- * also needs the Dark Demon, which is not implemented yet). */
+/* Time Crest + all talismans -> good, Time alone -> normal, otherwise bad.
+ * The true ending also needs the Dark Demon, which is not implemented yet. */
 static int Game_EndingVariant(const Game *game) {
-    int pct = Game_CompletionPercent(game);
-    if (pct >= 100)
+    bool has_time = (game->player.crests_mask & (1u << CREST_TIME)) != 0;
+    bool all_talismans = (game->player.talisman_mask & 0x1F) == 0x1F;
+    if (has_time && all_talismans)
         return 2;
-    if (pct >= 50)
+    if (has_time)
         return 1;
     return 0;
 }

@@ -515,6 +515,17 @@ def main() -> int:
               "arma2 intro: story-flag dialogue check failed\n"
               + arma2_proc.stdout[-800:])
 
+        # ---- Phalanx's chamber and the bad ending (area 42) ----
+        ending_proc = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_bad_ending.py"),
+             "--binary", str(binary), "--assets", str(assets),
+             "--tmp", str(out)],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=600)
+        check(ending_proc.returncode == 0,
+              "bad ending: chamber/ending check failed\n"
+              + ending_proc.stdout[-800:])
+
         # ---- End-to-end campaign playthrough ----
         play = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "check_playthrough.py"),

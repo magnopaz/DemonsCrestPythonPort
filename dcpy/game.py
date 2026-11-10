@@ -109,6 +109,12 @@ class Game:
         self.continue_cursor = 0
         self.password_grid = ""
         self.kill_at = env_int("DC_KILL_AT") or 0
+        # Test hook: frames at which every live boss takes one projectile hit
+        # (tools/check_bad_ending.py).  Aiming 127 hits inside a dark arena is
+        # not something a demo script can do.
+        self.boss_kill_at = {int(part) for part in
+                             env("DC_BOSS_KILL_AT").replace(",", " ").split()
+                             if part.isdigit()}
         self.transition_phase = 0
         self.transition_timer = 0
         self.transition_area = 0
@@ -729,7 +735,16 @@ def game_narrative_enabled() -> bool:
 # substring that finds the text block in text_strings.json.
 BOSS_INTRO_TEXT = {
     23: "I AM ARMA",   # stage IV, Arma's second fight
+    # Phalanx, in his chamber (area 42): the take rec_bad_ending shows the box
+    # ("AH... YOU'VE ARRIVED / MUCH EARLIER THAN I / EXPECTED FIREBRAND.") the
+    # moment the player walks in, before any hit lands (docs/TAKES.md §7.1).
+    42: "MUCH EARLIER THAN I",
 }
+
+# Rooms where Phalanx's second body is the end of the road: his fortress
+# chamber (42) and the room that carries the same $86/$88 records (75).  The
+# ending rolls there instead of returning to the map (docs/ENDINGS.md).
+PHALANX_BOSS_AREAS = (42, 75)
 
 
 def game_maybe_start_boss_intro(game: Game) -> bool:
@@ -1650,11 +1665,28 @@ def game_update(game: Game) -> None:
     audio_update()
 
 
+def _game_force_boss_kill(game: Game) -> None:
+    """Give every live boss one projectile hit through the real death path."""
+    for o in game.objects.slots:
+        if not (o.active and o.type == C.OBJECT_BOSS):
+            continue
+        o.hp = 1
+        pool = ProjectilePool()          # a throwaway pool: one shot per boss
+        shot = pool.slots[0]
+        shot.active = True
+        shot.x_fx = o.x_fx
+        shot.y_fx = o.y_fx
+        shot.damage = 1
+        objects_check_projectiles(game.objects, pool, game.player)
+
+
 def _game_playing_step(game: Game) -> None:
     if game_maybe_start_boss_intro(game):
         return
     if game.kill_at and game.frame == game.kill_at and game.player.hp > 0:
         game.player.hp = 0
+    if game.boss_kill_at and game.frame in game.boss_kill_at:
+        _game_force_boss_kill(game)
     if game.death_timer > 0 or game.restart_timer > 0:
         # Death animation / retry fade: the scene keeps running, but the
         # player has no control and no door may fire.
@@ -1676,6 +1708,15 @@ def _game_playing_step(game: Game) -> None:
             return
         if game.objects.boss_defeated and game.level.area_id == area_before:
             game.objects.boss_defeated = False
+            if (area_before in PHALANX_BOSS_AREAS and
+                    game.objects.boss_killed_species == 0x8D and
+                    "DC_NO_ENDING" not in os.environ):
+                # Phalanx's second body was the last fight of this path: the
+                # game rolls the ending here instead of returning to the map.
+                # No +1 max HP either -- that reward is the area-clear code.
+                game.objects.boss_alive = False
+                game_start_ending(game)
+                return
             game.player.max_hp = game.player.max_hp + 1 \
                 if game.player.max_hp < 10 else game.player.max_hp
             game.player.hp = game.player.max_hp
@@ -1979,6 +2020,12 @@ def _draw_overworld(game: Game) -> None:
 
 
 def game_completion_percent(game: Game) -> int:
+    """Items collected, 0..100.
+
+    Not the ending gate: which of the four endings Phalanx's death rolls is
+    decided by the Time Crest and the talismans (docs/ENDINGS.md).  This is the
+    number the retail 100% counter would show.
+    """
     have = 0
     total = 0
     for i in range(5):
@@ -2002,10 +2049,21 @@ def game_completion_percent(game: Game) -> int:
 
 
 def game_ending_variant(game: Game) -> int:
-    pct = game_completion_percent(game)
-    if pct >= 100:
+    """Which of the four endings Phalanx's death rolls (docs/ENDINGS.md).
+
+    Retail rule, from the ending guide and the user's description: with the
+    Time Crest and every talisman Phalanx is beaten for good (good, 2); with
+    the Time Crest alone he seals himself into the Crest of Heaven (normal, 1);
+    without it the realm just falls apart (bad, 0).  The true ending (3) is the
+    Dark Demon's, not this fight's -- completion percentage alone never picks
+    it.  ``DC_ENDING`` still forces a variant for demos.
+    """
+    p = game.player
+    has_time = bool(p.crests_mask & (1 << C.CREST_TIME))
+    all_talismans = (p.talisman_mask & 0x1F) == 0x1F
+    if has_time and all_talismans:
         return 2
-    if pct >= 50:
+    if has_time:
         return 1
     return 0
 

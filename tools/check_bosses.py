@@ -46,7 +46,12 @@ BOSSES = {
     54: [("Ovnunu", 0x16, None, 216, 183)],
     67: [("Arma", 0xA5, 4, 272, 140)],
     68: [("Crawler", 0x82, 0, 1808, 160)],
-    84: [("Phalanx first form", 0x86, 0, 198, 173)],
+    # Phalanx's first form is in his chamber (area 42), from the ROM object
+    # record at (256,136) -- the rec_bad_ending take boots that room with
+    # $008D = 84 and fights him there.  Area 84 is "BOSS STAGE 04" and has no
+    # Phalanx record in the ROM; the old 84 entry was the 42 x 2 doubling that
+    # docs/FullMaps/room_names.md still carries (docs/TAKES.md §7).
+    42: [("Phalanx first form", 0x86, 0, 256, 136)],
     86: [("Flame Lord", 0x58, 0, 128, 120)],
     90: [("Dark Demon", 0xBC, 0, 128, 120)],
 }
@@ -265,7 +270,7 @@ def check_runtime(binary: Path, assets: Path, tmp: Path | None,
             run_case(area, "", BOSSES[area])
         # Second Phalanx form: test hook bypasses the first-form death only for
         # this smoke run; the normal $86 path is covered above.
-        run_case(84, "_phase2",
+        run_case(42, "_phase2",
                  [("Phalanx second form", 0x8D, 0, 198, 173)],
                  {"DC_BOSS_PHASE": "2"})
 

@@ -78,6 +78,19 @@ def main() -> int:
                     replaced = True
                     break
             if not replaced:
+                # A ROM record of the expected species that the extractor did
+                # not type as boss (before $86 was in SPECIES_KIND_MAP) is the
+                # boss itself: retype it in place so a run does not leave a
+                # duplicate placeholder next to the boss.
+                for i, obj in enumerate(objects):
+                    if obj.get("species") == species and obj.get("type") != "boss":
+                        entry["x"] = obj.get("x", x)
+                        entry["y"] = obj.get("y", y)
+                        entry["source"] = obj.get("source", "rom")
+                        objects[i] = entry
+                        replaced = True
+                        break
+            if not replaced:
                 objects.append(entry)
             print(f"area {area} ({name}): species {species:#04x} at {x},{y} "
                   f"flags={entry['flags']} ({'replaced' if replaced else 'added'})")

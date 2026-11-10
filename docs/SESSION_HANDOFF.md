@@ -603,3 +603,50 @@ de cachear `/web/` (módulos edited in place).
   por área/type/species/flags/coordenadas; o clique abre `#map/<area>` e
   selecciona o objecto via `app.pendingObject`. Verificação: 30/30 backend,
   31/31 self-test.
+
+## Bad ending: a câmara do Phalanx e o gatilho (2026-11-10)
+
+**Take nova:** `rec_bad_ending/rec_20261110_080831` (40 054 frames, só input).
+Medida em `docs/TAKES.md` §7: `$008D = 84` → **área 42**
+(`phalanxs-fortress-phalanxs-chamber`), do frame 3721 ao fim; morte + RETRY em
+7761–8200; **a take não tem o ending** — o subscreen está aberto de 10 805 a
+39 820 e a gravação acaba lá. O que ela prova é a sala, a intro e o corpo.
+
+| commit | conteúdo |
+|---|---|
+| `9e82d00` | `tools/oracle/replay_frames.py` (replay + `screenshot` por janela; o dump `SNESRECOMP_FRAME_BMP_DIR` não dispara neste título) e `docs/TAKES.md` §7 |
+| `7395771` | §7.1: a intro do Phalanx toca ao entrar na câmara (`AH... YOU'VE ARRIVED...`), corpo em cima do monte de crânios à direita |
+
+**Feito nesta sessão:**
+
+- `tools/dc_extract/extract.py`: `0x86: "boss"` no `SPECIES_KIND_MAP` — os
+  registos do ROM das áreas 42 e 75 deixam de ser placeholders.
+- `tools/dc_extract/apply_boss_table.py`: um registo da espécie esperada que
+  ainda não está tipado boss é **retypado no lugar** (posição e `source` do ROM),
+  em vez de ficar um duplicado ao lado.
+- `tools/check_bosses.py`: `BOSSES[84]` → **`BOSSES[42]`** em (256,136) e o caso
+  runtime `_phase2` mudou para 42. A 84 é "BOSS STAGE 04" e não tem registo de
+  Phalanx no ROM — era a duplicação `42×2`. A sala 84 ficou com o `$86`
+  retypado `unknown` (assets locais).
+- `dcpy/object.py`: `pool.boss_killed_species` (a morte genérica de boss grava a
+  espécie; o gatilho precisa de distinguir `$8D` de `$86`, que só muda de fase).
+- `dcpy/game.py`: regra de ending por **Crest of Time + talismãs** (ver
+  `docs/ENDINGS.md`), gatilho `PHALANX_BOSS_AREAS = (42, 75)` na morte do `$8D`,
+  intro da área 42 (`"MUCH EARLIER THAN I"`) e o hook `DC_BOSS_KILL_AT=<frames>`.
+- `tools/check_bad_ending.py` (na regressão): regras das cinco combinações,
+  cadeia `$86` (25 tiros de Fire) → `$8D` (127 HP) → `boss_defeated`, e três
+  corridas no binário: intro abre, `$8D` morto entra em `GAME_ENDING`, e um boss
+  noutra área continua a fazer *area clear*.
+
+**Verificação:** `check_bad_ending` → PASS; `check_bosses --runtime` → PASS
+(12 salas, 13 corridas); `check_boss_hp` → só o erro antigo da área 0
+(`$33` flags 0x80). `DC_AREA=42` desenha o Phalanx em (255,136) — screenshot
+clareado mostra o corpo no monte de crânios, sem placeholder magenta — e com
+`DC_BOSS_KILL_AT=30,70` o ecrã vai a `BAD ENDING` / `TAKEN BY SURPRISE, THE
+MIGHTY` / `PHALANX WAS` / `PRESS ENTER`.
+
+**Falta:** encenar as três falas de morte (`~0x1F3900`) antes do ending e a
+cenografia real do ending (não há capturas); o `$88` da câmara continua
+`unknown`. A área 75 tem o outro par `$86`/`$88` e o `$86` ficou tipado boss
+(registo do ROM, 256,136), mas nenhuma take a visitou — não se sabe se é a
+segunda luta do Phalanx ou outra coisa. Ver `docs/ENDINGS.md`.
