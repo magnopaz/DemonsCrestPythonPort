@@ -72,6 +72,15 @@ else
 fi
 "$PY" tools/dc_extract/build_endings.py --out "$OUT"
 
+# Ending backdrops + page timing: the bad-ending recording carries the whole
+# presentation (docs/ENDINGS.md §4). Only available on a machine with the take.
+ENDING_TAKE="$RECOMP/build-trace/captures/badend"
+if [ -d "$ENDING_TAKE/frames" ]; then
+  "$PY" tools/dc_extract/bake_ending_capture.py --capture "$ENDING_TAKE" --out "$OUT"
+else
+  echo "   no bad-ending capture; run tools/dc_extract/bake_ending_capture.py by hand"
+fi
+
 # Mode 7 overworld: bake from a capture of the map screen. `build_world_map.py`
 # wants the frame number, so take it from the capture's own filename.
 if [ -d "$ROOT/captures/map11" ]; then

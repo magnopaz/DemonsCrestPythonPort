@@ -143,6 +143,7 @@ class Game:
         self.ending_variant = 0
         self.ending_phase = 0
         self.ending_page = 0
+        self.ending_timer = 0
         self.dialogue_text = -1
         self.dialogue_page = 0
         self.dialogue_return = C.GAME_TITLE
@@ -745,6 +746,13 @@ BOSS_INTRO_TEXT = {
 # chamber (42) and the room that carries the same $86/$88 records (75).  The
 # ending rolls there instead of returning to the map (docs/ENDINGS.md).
 PHALANX_BOSS_AREAS = (42, 75)
+
+# Ending pacing, measured on captures/badend (docs/ENDINGS.md): each narration
+# page is held for its own window, then the screen is text-free for a moment
+# before the next; the epilogue block plays over a fixed span of frames.
+ENDING_PAGE_GAP = 120
+ENDING_PAGE_FRAMES = 600
+ENDING_EPILOGUE_FRAMES = 5660
 
 
 def game_maybe_start_boss_intro(game: Game) -> bool:
@@ -1788,28 +1796,58 @@ def _game_dialogue_step(game: Game, up_pressed: bool,
 
 
 def _game_ending_step(game: Game) -> None:
+    """Run the ending on its own clock (measured on captures/badend).
+
+    The console does not wait for a button: each narration page is held for its
+    measured window, then fades out for a moment before the next.  After the
+    narration the epilogue block ($81:8DF2) plays over Firebrand's portrait,
+    split evenly across the frames the capture shows it on screen.
+    """
     ed = game.assets.endings
     variant = game.ending_variant
-    lines = len(ed["lines"][variant]) if ed["loaded"] else 0
-    narr_pages = (lines + 1) // 2
-    if not game.input.start_pressed:
+    game.ending_timer += 1
+    if not ed["loaded"]:
+        game.state = C.GAME_TITLE
         return
     if game.ending_phase == 0:
-        if game.ending_page + 1 < narr_pages:
-            game.ending_page += 1
-        else:
+        pages = ed["pages"][variant] or [[]]
+        frames = ed["page_frames"][variant]
+        if game.ending_page >= len(pages):
             game.ending_phase = 1
             game.ending_page = 0
-    else:
-        epi = ed["epilogue"][variant] if ed["loaded"] else -1
-        epi_pages = game.script.page_count[epi] \
-            if (epi >= 0 and game.script_ready and epi < game.script.count) else 0
-        if game.ending_page + 1 < epi_pages:
+            game.ending_timer = 0
+            return
+        hold = frames[game.ending_page] if game.ending_page < len(frames) \
+            else ENDING_PAGE_FRAMES
+        if game.ending_timer >= hold + ENDING_PAGE_GAP:
             game.ending_page += 1
-        else:
-            game.ending_page = 0
-            game.ending_phase = 0
-            game.state = C.GAME_TITLE
+            game.ending_timer = 0
+        return
+    epi = ed["epilogue"][variant]
+    count = game.script.page_count[epi] \
+        if (epi >= 0 and game.script_ready and epi < game.script.count) else 0
+    if count <= 0 or game.ending_page >= count:
+        game.ending_page = 0
+        game.ending_timer = 0
+        game.state = C.GAME_TITLE
+        return
+    per = max(60, ENDING_EPILOGUE_FRAMES // count)
+    if game.ending_timer >= per:
+        game.ending_page += 1
+        game.ending_timer = 0
+
+
+def ending_page_visible(game: Game) -> bool:
+    """True while a narration page is on screen (not in the fade gap)."""
+    ed = game.assets.endings
+    if game.ending_phase != 0 or not ed["loaded"]:
+        return False
+    if game.ending_page >= len(ed["pages"][game.ending_variant]):
+        return False
+    frames = ed["page_frames"][game.ending_variant]
+    hold = frames[game.ending_page] if game.ending_page < len(frames) \
+        else ENDING_PAGE_FRAMES
+    return game.ending_timer < hold
 
 
 # --- rendering -------------------------------------------------------------
@@ -2075,6 +2113,7 @@ def game_start_ending(game: Game) -> None:
         game.ending_variant = ("bad", "normal", "good", "true").index(value)
     game.ending_page = 0
     game.ending_phase = 0
+    game.ending_timer = 0
     game.state = C.GAME_ENDING
     game.state_timer = 0
 
@@ -2289,35 +2328,52 @@ def _draw_overlay(game: Game) -> None:
         if (game.state_timer // 30) % 2 == 0:
             _draw_centered("PRESS ENTER", 196, 10, rl.rgb(200, 200, 200))
     elif game.state == C.GAME_ENDING:
-        if rl.IsTextureValid(game.assets.world_map):
-            src = rl.Rectangle(0, 0, 1024.0, 1024.0)
-            dst = rl.Rectangle(0, 0, 256.0, 224.0)
-            rl.DrawTexturePro(game.assets.world_map, src, dst,
-                              rl.Vector2(0, 0), 0.0, rl.rgb(110, 110, 150))
-        rl.DrawRectangle(0, 0, 256, 224, rl.rgb(4, 6, 12, 205))
-        ed = game.assets.endings
-        variant = game.ending_variant
-        if not ed["loaded"]:
-            _draw_centered("THE DEMON'S CREST", 96, 16, rl.rgb(240, 220, 150))
-        elif game.ending_phase == 0:
-            first = game.ending_page * 2
-            _draw_centered(ed["title"][variant], 24, 14, rl.rgb(240, 220, 150))
-            for i in range(2):
-                idx = first + i
-                if idx >= len(ed["lines"][variant]):
-                    break
-                text_draw_string(game.assets, ed["lines"][variant][idx], 12,
-                                 84 + i * 22, rl.rgb(240, 236, 220))
-        else:
-            epi = ed["epilogue"][variant]
-            if epi >= 0 and game.script_ready:
-                text_draw_page(game.assets, game.script, epi,
-                               game.ending_page, 16, 56, 224,
-                               rl.rgb(240, 236, 220))
+        _draw_ending(game)
+
+
+def _draw_full_texture(tex) -> bool:
+    if not rl.IsTextureValid(tex):
+        return False
+    src = rl.Rectangle(0, 0, float(tex.width), float(tex.height))
+    dst = rl.Rectangle(0, 0, 256.0, 224.0)
+    rl.DrawTexturePro(tex, src, dst, rl.Vector2(0, 0), 0.0,
+                      rl.rgb(255, 255, 255))
+    return True
+
+
+def _draw_ending(game: Game) -> None:
+    """The ending as the capture shows it: scene, then pages, then portrait."""
+    ed = game.assets.endings
+    variant = game.ending_variant
+    if not ed["loaded"]:
+        rl.DrawRectangle(0, 0, 256, 224, rl.rgb(4, 6, 12, 255))
+        _draw_centered("THE DEMON'S CREST", 96, 16, rl.rgb(240, 220, 150))
+        return
+    if game.ending_phase == 0:
+        if not _draw_full_texture(game.assets.ending_flight[variant]):
+            if rl.IsTextureValid(game.assets.world_map):
+                src = rl.Rectangle(0, 0, 1024.0, 1024.0)
+                rl.DrawTexturePro(game.assets.world_map, src,
+                                  rl.Rectangle(0, 0, 256.0, 224.0),
+                                  rl.Vector2(0, 0), 0.0, rl.rgb(150, 150, 190))
             else:
-                _draw_centered("THE END", 96, 20, rl.rgb(240, 220, 150))
-        if (game.state_timer // 30) % 2 == 0:
-            _draw_centered("PRESS ENTER", 206, 10, rl.rgb(200, 200, 200))
+                rl.DrawRectangle(0, 0, 256, 224, rl.rgb(4, 6, 12, 255))
+        if ending_page_visible(game):
+            lines = ed["pages"][variant][game.ending_page]
+            for i, line in enumerate(lines):
+                x = max(0, (256 - len(line) * 8) // 2)
+                # Measured on the capture: the two lines sit at y=158 and 170.
+                text_draw_string(game.assets, line, x, 158 + i * 12,
+                                 rl.rgb(240, 236, 220))
+        return
+    if not _draw_full_texture(game.assets.ending_portrait[variant]):
+        rl.DrawRectangle(0, 0, 256, 224, rl.rgb(0, 0, 0, 255))
+    epi = ed["epilogue"][variant]
+    if epi >= 0 and game.script_ready and epi < game.script.count:
+        text_draw_page(game.assets, game.script, epi, game.ending_page,
+                       124, 36, 128, rl.rgb(240, 236, 220))
+    else:
+        _draw_centered("THE END", 96, 20, rl.rgb(240, 220, 150))
 
 
 def game_render(game: Game) -> None:

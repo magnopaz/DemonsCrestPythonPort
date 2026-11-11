@@ -52,6 +52,7 @@ GAME_PLAYING = 1
 GAME_CLEAR = 3
 GAME_ENDING = 10
 GAME_DIALOGUE = 11
+GAME_TITLE = 0
 
 # DC_TRACE_CSV row: frame,x,y,vx,vy,state,camx,camy,hp,maxhp,area,form,gold,
 # element,state (no header).
@@ -164,7 +165,7 @@ def check_chain(errors: list[str]) -> None:
 
 
 def run(binary: Path, assets: Path, trace: Path, extra: dict[str, str],
-        area: int = AREA) -> list[list[str]] | None:
+        area: int = AREA, timeout: float = 120.0) -> list[list[str]] | None:
     env = dict(os.environ,
                DC_AREA=str(area),
                DC_RUN_FRAMES=str(FRAMES),
@@ -181,7 +182,8 @@ def run(binary: Path, assets: Path, trace: Path, extra: dict[str, str],
     try:
         proc = subprocess.run([str(binary), "--assets", str(assets)],
                               cwd=ROOT, env=env, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, text=True, timeout=120)
+                              stderr=subprocess.STDOUT, text=True,
+                              timeout=timeout)
     except subprocess.TimeoutExpired:
         print("bad ending: timeout")
         return None
@@ -202,6 +204,31 @@ def states(rows: list[list[str]]) -> list[int]:
         except (IndexError, ValueError):
             out.append(-1)
     return out
+
+
+def check_ending_assets(assets: Path, errors: list[str]) -> None:
+    """The bad ending's pages and timing, as measured on captures/badend."""
+    path = assets / "endings.json"
+    try:
+        root = json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        errors.append(f"endings.json unreadable: {exc}")
+        return
+    bad = (root.get("endings") or {}).get("bad") or {}
+    want = [["TAKEN BY SURPRISE,", "THE MIGHTY PHALANX WAS"],
+            ["DESTROYED BY FIREBRAND", "BEFORE HE COULD SUMMON"],
+            ["THE POWER OF INFINITY."],
+            ["HIS REVENGE COMPLETE,", "FIREBRAND LEFT FOR"],
+            ["THE DEMON REALM TO REST", "HIS WOUNDED WINGS."]]
+    if bad.get("pages") != want:
+        errors.append(f"bad ending pages are {bad.get('pages')!r}, expected "
+                      f"the five measured pages")
+    if bad.get("page_frames") != [610, 430, 450, 600, 490]:
+        errors.append(f"bad ending page_frames {bad.get('page_frames')!r}, "
+                      f"expected [610, 430, 450, 600, 490]")
+    for name in ("ending_bad_flight.png", "ending_bad_portrait.png"):
+        if not (assets / name).is_file():
+            errors.append(f"{name} is missing (bake_ending_capture.py)")
 
 
 def check_runtime(binary: Path, assets: Path, tmp: Path,
@@ -230,6 +257,23 @@ def check_runtime(binary: Path, assets: Path, tmp: Path,
             errors.append(f"the ending did not stay up (state {st[-1]})")
         if GAME_CLEAR in st:
             errors.append("area 42 also ran the area-clear path")
+
+    # 4. The ending runs on its own clock and reaches the title without input
+    #    (the capture shows no button prompt anywhere in the sequence).
+    rows = run(binary, assets, tmp / "duration.csv",
+               {"DC_STATE": "ending", "DC_RUN_FRAMES": "9000"}, area=AREA,
+               timeout=420)
+    if rows is None:
+        errors.append("runtime: ending duration run failed")
+    else:
+        st = states(rows)
+        if GAME_ENDING not in st:
+            errors.append("DC_STATE=ending did not enter GAME_ENDING")
+        elif st[-1] == GAME_ENDING:
+            errors.append("the ending did not finish on its own within 9000 frames")
+        if st.count(GAME_ENDING) < 8000:
+            errors.append(f"the ending lasted {st.count(GAME_ENDING)} frames, "
+                          f"expected the measured ~8840")
 
     # 3. A boss in any other area keeps the normal clear path.
     rows = run(binary, assets, tmp / "other.csv",
@@ -261,6 +305,7 @@ def main() -> int:
     errors: list[str] = []
     check_rules(errors)
     check_chain(errors)
+    check_ending_assets(assets, errors)
     with tempfile.TemporaryDirectory(prefix="dc-bad-ending-",
                                      dir=str(opts.tmp) if opts.tmp else None) as td:
         check_runtime(binary, assets, Path(td), errors)

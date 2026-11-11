@@ -66,9 +66,57 @@ FINALLY. THE ULTIMATE POWER! BEHOLD! THE CREST OF INFINITY!
 O port ainda não as encena antes do ending (a take não mostra em que momento
 cada bloco entra), por isso não estão ligadas.
 
-## 4. Cenografia (por medir)
+## 4. Cenografia — agora medida (`captures/badend`)
 
-O `_game_ending_step` atual avança com START, duas linhas por página, sobre o
-mapa do mundo escurecido, e volta ao título no fim. É uma aproximação: a take
-não tem nenhum frame do ending, e o `docs/PLAN_FULL_PLAYABLE.md` (B4) já dizia
-que faltava uma captura por ending. Continua a faltar.
+A take de 2026-11-10 (`build-trace/captures/badend`, 9 570 BMPs desde a morte do
+Phalanx) mostra a apresentação toda. O que ela diz:
+
+| frames | o que está no ecrã |
+|---|---|
+| 0–1 900 | a câmara (o Phalanx a cair / o escuro), depois preto |
+| 2 400–4 400 | **voo** sobre o reino demoníaco: Firebrand sobre o mapa, o castelo ao centro, sem texto |
+| 4 430–5 040 | página 1 |
+| 5 180–5 610 | página 2 |
+| 5 750–6 200 | página 3 |
+| 6 300–6 900 | página 4 |
+| 6 930–7 420 | página 5 |
+| 8 240–13 900 | **epílogo**: Firebrand em silhueta sobre uma faixa de chamas, texto à direita |
+
+As cinco páginas, com as quebras de linha do jogo (não as do nosso wrap):
+
+```
+TAKEN BY SURPRISE,
+THE MIGHTY PHALANX WAS
+
+DESTROYED BY FIREBRAND
+BEFORE HE COULD SUMMON
+
+THE POWER OF INFINITY.
+
+HIS REVENGE COMPLETE,
+FIREBRAND LEFT FOR
+
+THE DEMON REALM TO REST
+HIS WOUNDED WINGS.
+```
+
+Detalhes que a take fixa: **não há prompt de botão** (as páginas avançam sozinhas),
+o texto fica em duas linhas a y=158 e y=170, e o epílogo usa o bloco da ROM
+`$81:8DF2` (3 páginas: "I NEVER / EXPECTED THAT / PHALANX WOULD / BE DEFEATED",
+"IT IS WRITTEN / THAT THE ONE / WHO DEFEATS / THE KING / SHALL RULE",
+"THE NEXT TIME / IT WILL BE MY / TURN").
+
+**Implementado em 2026-11-10:** `dcpy/game.py::_game_ending_step` corre por
+relógio (janelas de 610/430/450/600/490 frames + 120 de fade entre páginas,
+5 660 para o epílogo), `_draw_ending` desenha os dois fundos e as páginas, e
+`tools/dc_extract/bake_ending_capture.py` coze `ending_bad_flight.png` (frame
+3 000) e `ending_bad_portrait.png` (frame 8 202).
+
+**Ainda por fazer:**
+
+- A take mostra **mais texto depois do bloco `$81:8DF2`** — em 12 000 lê-se
+  "MANY NOW ASK IF LIVING / UNDER THE RULE OF PHALANX" e em 12 600 um fragmento
+  ("...INED TO..."). Não está na tabela extraída; transcrever da própria take.
+- O port desenha o epílogo com a caixa do diálogo; no original o texto assenta
+  directo sobre o fundo, sem caixa.
+- O voo é um frame fixo; no original há movimento (o mapa Mode 7 anima).

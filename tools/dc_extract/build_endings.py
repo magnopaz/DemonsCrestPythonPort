@@ -91,6 +91,20 @@ def wrap_lines(lines: list[str], width: int = 30) -> list[str]:
     return out
 
 
+# The bad ending's pages, transcribed from the `captures/badend` recording
+# (2026-11-10), which shows the text on screen one page at a time: the console
+# does NOT use the port's 30-char wrap, and the page breaks fall on sentence
+# boundaries.  `page_frames` are the measured windows (docs/ENDINGS.md).
+BAD_PAGES = [
+    ["TAKEN BY SURPRISE,", "THE MIGHTY PHALANX WAS"],
+    ["DESTROYED BY FIREBRAND", "BEFORE HE COULD SUMMON"],
+    ["THE POWER OF INFINITY."],
+    ["HIS REVENGE COMPLETE,", "FIREBRAND LEFT FOR"],
+    ["THE DEMON REALM TO REST", "HIS WOUNDED WINGS."],
+]
+BAD_PAGE_FRAMES = [610, 430, 450, 600, 490]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", type=Path, default=ROOT / "assets" / "generated")
@@ -98,9 +112,16 @@ def main() -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     for spec in ENDINGS.values():
         spec["lines"] = wrap_lines(spec["lines"])
+        # Two wrapped lines per page, except the bad ending, whose pages were
+        # read off the capture (line breaks and sentence breaks are the game's).
+        spec["pages"] = [spec["lines"][i:i + 2]
+                         for i in range(0, len(spec["lines"]), 2)]
+    ENDINGS["bad"]["pages"] = BAD_PAGES
+    ENDINGS["bad"]["page_frames"] = BAD_PAGE_FRAMES
     doc = {
         "source": "ending narration transcribed from vgmuseum reference "
-                  "screenshots; epilogue = ROM text $81:8DF2",
+                  "screenshots; bad-ending pages from captures/badend; "
+                  "epilogue = ROM text $81:8DF2",
         "order": ["bad", "normal", "good", "true"],
         "endings": ENDINGS,
     }

@@ -647,15 +647,22 @@ Medida em `docs/TAKES.md` §7: `$008D = 84` → **área 42**
 **Verificação:** `check_bad_ending` → PASS; `check_bosses --runtime` → PASS
 (12 salas, 13 corridas); `check_boss_hp` → só o erro antigo da área 0
 (`$33` flags 0x80). `DC_AREA=42` desenha o Phalanx em (255,136) — screenshot
-clareado mostra o corpo no monte de crânios, sem placeholder magenta — e com
-`DC_BOSS_KILL_AT=30,70` o ecrã vai a `BAD ENDING` / `TAKEN BY SURPRISE, THE
-MIGHTY` / `PHALANX WAS` / `PRESS ENTER`.
+clareado mostra o corpo no monte de crânios, sem placeholder magenta.
 
-**Falta:** encenar as três falas de morte (`~0x1F3900`) antes do ending e a
-cenografia real do ending (não há capturas); o `$88` da câmara continua
-`unknown`. A área 75 tem o outro par `$86`/`$88` e o `$86` ficou tipado boss
-(registo do ROM, 256,136), mas nenhuma take a visitou — não se sabe se é a
-segunda luta do Phalanx ou outra coisa. Ver `docs/ENDINGS.md`.
+**Cenografia do ending (take `captures/badend`, mesma sessão):** a gravação
+nova traz os frames e mostra a apresentação toda — 5 páginas de narração
+(4 430–7 420) sobre o voo no reino demoníaco, depois o epílogo sobre o retrato
+do Firebrand nas chamas com o bloco `$81:8DF2` (8 240–13 900). Implementado:
+`bake_ending_capture.py` coze `ending_bad_flight.png` / `ending_bad_portrait.png`
++ `endings_timing.json`; `endings.json` passa a ter `pages` e `page_frames` com as
+quebras de linha do jogo (610/430/450/600/490 + 120 de fade); `_game_ending_step`
+corre por relógio (sem prompt de botão, como a take mostra) e `_draw_ending`
+desenha os dois fundos e as páginas. Ver `docs/ENDINGS.md` §4.
+
+**Falta:** as três falas de morte do Phalanx (`~0x1F3900`) antes do ending; o
+texto que a take mostra **depois** do bloco `$81:8DF2` ("MANY NOW ASK IF LIVING
+/ UNDER THE RULE OF PHALANX") não está na tabela extraída; o `$88` da câmara
+continua `unknown` e a área 75 (o outro par `$86`/`$88`) não foi visitada.
 
 **Correcção de texto (`e277904`):** o extractor apagava **todos** os `]`; na
 take o `]` é o reticências dentro da linha ("`AH]]] YOU'VE ARRIVED" lê-se

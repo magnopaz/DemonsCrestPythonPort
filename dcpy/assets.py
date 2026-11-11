@@ -110,8 +110,13 @@ class Assets:
         self.boss_sheet_count = 0
         self.endings = {"title": [""] * DC_ENDING_VARIANTS,
                         "lines": [[] for _ in range(DC_ENDING_VARIANTS)],
+                        "pages": [[] for _ in range(DC_ENDING_VARIANTS)],
+                        "page_frames": [[] for _ in range(DC_ENDING_VARIANTS)],
                         "epilogue": [-1] * DC_ENDING_VARIANTS,
                         "loaded": False}
+        self.ending_flight = [rl.Texture2D() for _ in range(DC_ENDING_VARIANTS)]
+        self.ending_portrait = [rl.Texture2D()
+                                for _ in range(DC_ENDING_VARIANTS)]
         self.room_kind = [0] * DC_CAMPAIGN_AREAS
         self.stage_entries: list[int] = []
         self.hud_bar = rl.Texture2D()
@@ -377,6 +382,15 @@ def _load_endings(assets: Assets, directory: str) -> None:
             if isinstance(line, str) and len(lines) < DC_ENDING_MAX_LINES:
                 lines.append(line)
         assets.endings["lines"][i] = lines
+        pages = []
+        for page in entry.get("pages") or []:
+            if isinstance(page, list):
+                pages.append([l for l in page if isinstance(l, str)])
+        assets.endings["pages"][i] = pages or [lines[j:j + 2]
+                                               for j in range(0, len(lines), 2)]
+        frames = [int(f) for f in entry.get("page_frames") or []
+                  if isinstance(f, (int, float))]
+        assets.endings["page_frames"][i] = frames
         epi = entry.get("epilogue")
         assets.endings["epilogue"][i] = int(epi) if isinstance(epi, (int, float)) else -1
     assets.endings["loaded"] = True
@@ -506,6 +520,16 @@ def assets_load(assets: Assets, directory: str) -> bool:
 
     _load_room_names(assets, directory)
     _load_map_markers(assets, directory)
+
+    for i, key in enumerate(("bad", "normal", "good", "true")):
+        for suffix, slots in (("flight", assets.ending_flight),
+                              ("portrait", assets.ending_portrait)):
+            path = os.path.join(directory, f"ending_{key}_{suffix}.png")
+            if not file_exists(path):
+                continue
+            tex = rl.LoadTexture(os.fsencode(path))
+            if rl.IsTextureValid(tex):
+                slots[i] = tex
 
     world_map_path = os.path.join(directory, "world_map.png")
     if file_exists(world_map_path):
