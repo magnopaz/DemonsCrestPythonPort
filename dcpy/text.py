@@ -205,16 +205,18 @@ def text_draw_string(assets, text: str, x: int, y: int, tint) -> None:
 
 
 def text_draw_page(assets, script: TextScript, index: int, page: int, x: int,
-                   y: int, width: int, tint) -> int:
+                   y: int, width: int, tint, box: bool = True) -> int:
     if index < 0 or index >= script.count:
         return 0
     if page < 0 or page >= script.page_count[index]:
         return 0
     lines = script.pages[index][page]
     height = len(lines) * TEXT_LINE_H
-    rl.DrawRectangle(x - 4, y - 4, width + 8, height + 8, rl.rgb(8, 8, 16, 210))
-    rl.draw_rect_lines(x - 4, y - 4, width + 8, height + 8,
-                          rl.rgb(200, 180, 120, 180))
+    if box:
+        rl.DrawRectangle(x - 4, y - 4, width + 8, height + 8,
+                         rl.rgb(8, 8, 16, 210))
+        rl.draw_rect_lines(x - 4, y - 4, width + 8, height + 8,
+                           rl.rgb(200, 180, 120, 180))
     for i, line in enumerate(lines):
         text_draw_string(assets, line, x, y + i * TEXT_LINE_H, tint)
     return height

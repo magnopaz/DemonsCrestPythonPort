@@ -117,6 +117,4 @@ relógio (janelas de 610/430/450/600/490 frames + 120 de fade entre páginas,
 - A take mostra **mais texto depois do bloco `$81:8DF2`** — em 12 000 lê-se
   "MANY NOW ASK IF LIVING / UNDER THE RULE OF PHALANX" e em 12 600 um fragmento
   ("...INED TO..."). Não está na tabela extraída; transcrever da própria take.
-- O port desenha o epílogo com a caixa do diálogo; no original o texto assenta
-  directo sobre o fundo, sem caixa.
 - O voo é um frame fixo; no original há movimento (o mapa Mode 7 anima).

@@ -2371,7 +2371,7 @@ def _draw_ending(game: Game) -> None:
     epi = ed["epilogue"][variant]
     if epi >= 0 and game.script_ready and epi < game.script.count:
         text_draw_page(game.assets, game.script, epi, game.ending_page,
-                       124, 36, 128, rl.rgb(240, 236, 220))
+                       124, 36, 128, rl.rgb(240, 236, 220), box=False)
     else:
         _draw_centered("THE END", 96, 20, rl.rgb(240, 220, 150))
 
