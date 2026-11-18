@@ -706,3 +706,23 @@ take não tem kill) — o port arranca a saída no décimo olho morto; quem arma
 
 **Próximo:** `sub 4` exacto, a arte do poço e o lock da arena; depois Belth
 `$68`.
+
+
+## Somulo: diagnóstico da regressão vermelha + plano (2026-11-17)
+
+A batalha em si está correcta (com rooms gerados: hp 6→0, faint, 3 hp de
+volta, colapso, gate → 34). A causa dos falhanços é o **overlay de rooms
+autorais** (`assets/authored/rooms/`, commit `8ec5e85`): o
+`room_area0.json` autoral põe o Somulo em (138,124) — em cima do spawn — com
+flags 0, apaga a porta pós-boss do door_table e duplica 4× uma porta
+"notes_repointed"; o `room_area4.json` repõe o boss fantasma e parte as
+up-doors. Prova: `DC_AUTHORED_ROOMS` vazio → up doors PASS e o demo 14 dá
+hp [6..0] + área 34. `check_mvp_somulo.py` não apanha porque nunca dispara
+um tiro.
+
+**Plano em `docs/SOMULO_ROOM_FIX.md`:** 1) rebase dos rooms autorais 0/4
+sobre o gerado (ou apagá-los); 2) `check_authored_rooms.py` que compara
+autoral vs gerado nos campos críticos do motor, na regressão; 3) o
+`check_mvp_somulo.py` ganha um passe que mata o boss e atravessa a porta;
+4) áudio à parte (cozer os WAVs por nível com `make_music_asset.py`, exige
+oracle). O áudio é a única peça que não é do Somulo.
