@@ -1,23 +1,26 @@
 # Próximos passos para terminar o jogo
 
 *Escrito a 2026-11-03, no fim da sessão que fechou o Arma → Earth Crest →
-área 94 e o mapa em Mode 7. Números re-medidos depois do Passo 1 (cobertura de
-objectos) com `python3 tools/report_coverage.py` — voltar a correr esse comando
-antes de planear, porque é ele que diz quanto falta de verdade.*
+área 94 e o mapa em Mode 7. **Re-auditado a 2026-11-18** (Somulo/poço/HP
+fechados, overlay de rooms guardado; números re-medidos e itens velhos
+corrigidos nesse dia). O comando que diz quanto falta continua a ser
+`python3 tools/report_coverage.py` — corrê-lo antes de planear. O HEAD
+actual está sempre em `docs/SESSION_HANDOFF.md`, não aqui.*
 
 ---
 
 ## 0. Antes de tocar em código
 
-- **Ler `docs/SESSION_HANDOFF.md`** — estado, commits, comandos e armadilhas da
-  sessão anterior (2026-11-03). A árvore está limpa em `942e978` e a regressão
-  passa.
-- **O Passo 1 está feito e commitado.** A árvore está limpa e
-  `python3 tools/run_regression.py` passa com o `check_objects.py` novo ligado.
-  Se aparecer trabalho por commitar, é da sessão corrente: rever e commitar
-  antes de mexer no extractor.
-- Verde de referência: `DISPLAY=:99 python3 tools/run_regression.py` (Xvfb em
-  `:99`; sem ele os demos falham com "X11: Failed to open display").
+- **Ler `docs/SESSION_HANDOFF.md`** — estado, commits, comandos e armadilhas
+  da sessão anterior. O HEAD e o estado da árvore estão lá; não fixar hashes
+  neste doc.
+- **O Passo 1 está feito e commitado.** Se aparecer trabalho por commitar, é
+  da sessão corrente: rever e commitar antes de mexer no extractor.
+- Verde de referência: `DISPLAY=:99 .venv/bin/python tools/run_regression.py`
+  — **`.venv/bin/python`**, o `python3` do sistema não tem raylib; Xvfb em
+  `:99`, sem ele os demos falham com "X11: Failed to open display".
+  Estado (2026-11-18): **verde excepto o áudio** (Passo 6) — a única falha
+  conhecida, não bloqueia os outros passos.
 - Checkers do milestone: `tools/check_arma.py`, `tools/check_map_mode7.py`,
   `tools/check_bosses.py`, `tools/check_campaign.py`,
   `tools/check_objects.py`.
@@ -31,14 +34,14 @@ objects placed / ROM ....... 853/853  (100.0%)
 objects dropped ............ 0  (0 species)
 objects in room JSON ....... 862  (82 species: boss_table 8, npc_table 1, rom 853)
 objects listed in the ROM .. 853  (80 species, 90 areas)
-species with a handler ..... 17/80  (591 records drawn as placeholders)
+species with a handler ..... 20/80  (552 records drawn as placeholders)
 rooms with a BG2 tilemap ... 65/113
-species sprite sheets ...... 28
+species sprite sheets ...... 31
 music tracks ............... 1
 ```
 
 A leitura mudou: **já não se perdem objectos**. Todos os 853 registos chegam ao
-port; 593 são espécies sem handler e aparecem como marcadores magenta até
+port; 552 são espécies sem handler e aparecem como marcadores magenta até
 haver AI/arte. O trabalho que resta é substituir marcadores por handlers, não
 recuperar dados perdidos. O contrato está em `docs/OBJECT_COVERAGE.md`.
 
@@ -228,8 +231,9 @@ escuras.
 
 12 salas com boss na tabela. Feitos: Hippogriff (`$09`), Somulo (`$33`), Arma
 (`$A5`, com 16/18/20/22 em falta). Faltam: Scula (`$7B`/`$7C`), Phalanx
-(`$86`/`$8D` — segunda forma), Holothurion, Ovnunu, Grewon, Dark Demon, Flame
-Lord, `$16`, `$58`, `$6F`, `$82`, `$BC`.
+(`$86`/`$8D` — segunda forma), Holothurion, **Ovnunu do poço — só o sub 4,
+a arte e o lock (§1c; o fecho e a saída estão feitos)**, Grewon, Dark Demon,
+Flame Lord, `$16`, `$58`, `$6F`, `$82`, `$BC`.
 
 **Phalanx (2026-11-10):** a câmara é a **área 42** (não a 84) e o `$86` vem do
 registo do ROM; o `$8D` nasce com 127 HP quando a primeira forma cai, a intro
@@ -259,10 +263,38 @@ estados, constantes, ciclo medido, o que ficou por fazer).
 - 1 faixa (`music_boss.wav`). A rota "correr o driver SPC700 in-process" está
   **fechada por medição** (`docs/AUDIO_PLAN.md`): sem um 65C816 em lockstep, o
   handshake IPL não se reproduz. Não repetir a experiência.
+- **Estado (2026-11-18): é a única falha da regressão.** Faltam as faixas
+  por nível — `tools/audio/make_music_asset.py`, manifest em
+  `assets/generated/audio/music_manifest.json`: `music_murkland`,
+  `music_ruined_city`, `music_dark_forest`, `music_towers_of_doom`,
+  `music_poseidonia`, `music_mountains`, `music_phalanx`,
+  `music_demon_hideout`, `music_town`, `music_overworld` (pedidas pelas áreas
+  88–96 e pelos fallbacks 0–VIII). Exige corridas do oracle com saves por
+  nível; nada disto se cozinha localmente sem captura.
 - Caminho realista: (a) extrair BRR/SFX individualmente e tocar samples, ou
   (b) banda sonora de substituição, uma faixa por área/boss/menu.
 - **Aceitação**: todas as salas com música, sem cortes no loop, volume
   coerente; `check_audio.py` cobre duração/seam como hoje.
+
+### Passo 6b — Infra: regressão sem render (meia sessão)
+
+Medido a 2026-11-18 (600 frames, demo 7, Xvfb, cProfile): `EndDrawing` **49%**
+do tempo (present de GL em software), `game_render` **44%** (o BG desenhado
+tile-a-tile, 1 902 `DrawTexturePro`/frame), **a simulação inteira 1.3%**
+(0.5 ms/frame — ~25 fps headless). A regressão passa 20 minutos a desenhar
+framebuffers que nenhum checker lê: os checkers comparam **traces CSV**.
+
+- `DC_NO_RENDER=1` em `dcpy/main.py`: em modo determinístico (`DC_RUN_FRAMES`),
+  saltar `game_render` + `BeginDrawing/EndDrawing` quando não há
+  `DC_SCREENSHOT*` no ambiente. Esperado: 600 frames de ~24 s → ~2 s; a
+  regressão completa de ~20 min → ~2–3 min. É a mudança de maior alavancagem
+  do projecto e não toca no framework (ver `docs/GAME_GUIDE.md` §1).
+- **Aceitação**: checker de paridade — o mesmo demo com e sem render produz
+  **traces idênticos** (o render não pode influenciar a simulação); os PNGs de
+  `DC_SCREENSHOT*` continuam a sair quando pedidos.
+- Depois, se o fps na janela importar: cachear as bandas do BG em
+  `RenderTexture2D` (redesenho só em scroll) — o loop Python das bandas é
+  ~14 ms/frame e é o teto de fps mesmo com GPU.
 
 ### Passo 7 — Release
 
@@ -281,17 +313,10 @@ estados, constantes, ciclo medido, o que ficou por fazer).
 
 Nada disto bloqueia; está aqui para não se perder.
 
-- **Morte: menu de continue, não game over** (medido em `docs/TAKES.md` §6.3).
-  Depois da animação de morte aparece `RETRY / SELECT A STAGE / END`; RETRY
-  recarrega a **mesma sala no spawn 0** (área 9: (48,412); área 8: (32,668))
-  com a vida cheia; `SELECT A STAGE` vai para o mapa Mode 7; `END` mostra o
-  ecrã `PASS WORD` (4×4, `PUSH START BUTTON`) e o password leva sempre ao mapa.
-  Hoje `Game_HandleDeath` (C e Python) só reinicia a área 0 e manda o resto
-  para um `GAME_OVER` inventado. Falta: desenhar o menu com o motor de texto,
-  implementar as três opções nos dois lados e cobrir com um checker que force a
-  morte (hook `DC_KILL_AT`) e afirme mesma área + posição = spawn 0 + HP cheio
-  no RETRY. O `END` só fica fiel quando o codec retail estiver invertido; até
-  lá o ecrã serve para colher pares estado → password.
+- ~~**Morte: menu de continue, não game over**~~ — **feito no Passo B**
+  (2026-11-04; retirado daqui na auditoria de 2026-11-18 porque o item tinha
+  ficado duplicado e desactualizado: `GAME_CONTINUE`/`game_update_continue`
+  + `check_death_menu.py` já cobrem RETRY/SELECT/END).
 - **Arma**: estados 16/18/20/22, o chooser `$809D8E` (`BE:ED13`), os spawns
   `$A6`/`$A7`/`$A8` e o drop visual do crest. A cadeia medida e a pergunta em
   aberto do `$1DCE` estão em `docs/ARMA_AI.md`.
@@ -329,3 +354,11 @@ Nada disto bloqueia; está aqui para não se perder.
    ser corrigidos junto com o código.
 4. **Verificar visualmente o que o checker não vê** (`DC_SCREENSHOT_RT` +
    `vision_analyze`), mas sem confiar no olho para o que um número pode provar.
+5. **Rooms autorais passam pela guarda**: depois de gravar no editor,
+   `tools/check_authored_rooms.py` tem de continuar verde — mexer em
+   bosses/portas/spawn/gate num room autoral sem entrada justificada na
+   whitelist é erro (foi assim que um overlay velho partiu o combate do
+   Somulo; `docs/SOMULO_ROOM_FIX.md`).
+6. **Conferir a branch antes de commitar** (`git branch --show-current`): o
+   `git bisect` deixa o HEAD detached — uma cadeia inteira já ficou órfã por
+   se commitar sem verificar (recuperada a 2026-11-18 com fast-forward).

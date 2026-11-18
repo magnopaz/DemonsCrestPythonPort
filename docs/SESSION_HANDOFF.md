@@ -764,3 +764,18 @@ de função foram conferidos contra o código antes de escrever (constantes do
 player, fases da intro 150/70/280/110, hitboxes 40×46/20×24/8×8, manifest
 em `assets/generated/audio/`, `game_update_continue`, condições dos
 endings por `docs/ENDINGS.md`).
+
+
+## Auditoria do NEXT_STEPS (2026-11-18)
+
+Re-auditado com medição (`report_coverage.py` re-corrido). Corrigido no
+`docs/NEXT_STEPS.md`: comando da regressão apontava `python3` (sem raylib —
+armadilha conhecida) e dizia "a regressão passa" quando o estado real é
+verde-excepto-áudio; números de cobertura desactualizados (handlers 17/80 →
+20/80, placeholders 591 → 552, sheets 28 → 31); item da morte duplicado e
+desactualizado na secção 3 (feito desde o Passo B); hash de HEAD fixo no texto.
+Acrescentado: **Passo 6b — regressão sem render** (medição cProfile:
+EndDrawing 49%, game_render 44%, simulação 1.3%; `DC_NO_RENDER` + checker de
+paridade de traces; regressão ~20 min → ~2–3 min), estado concreto do áudio
+(faixas por nível + pipeline `tools/audio/make_music_asset.py`) e duas regras
+de trabalho (guarda dos rooms autorais; conferir branch antes de commitar).
