@@ -750,3 +750,17 @@ overlay passar está fechado.
 falha esperada da regressão completa depois disto.
 
 Ver docs/SOMULO_ROOM_FIX.md (diagnóstico + plano + execução).
+
+
+## Guia de desenvolvimento (2026-11-17)
+
+**`docs/GAME_GUIDE.md`** — o guia geral pedido pelo utilizador: ambiente e
+armadilhas (.venv, Xvfb, pyc), env vars, o jogador e as seis formas, como
+adicionar espécie (registo → arte → atributos → comportamento → checker),
+onde vivem HP/dano, física (8.8 + API do level.py), rooms e o overlay autoral
+com a guarda, cenas scriptadas (diálogo, story_flags, hub de morte,
+endings, demos), áudio e a cultura de verificação. Todos os números e nomes
+de função foram conferidos contra o código antes de escrever (constantes do
+player, fases da intro 150/70/280/110, hitboxes 40×46/20×24/8×8, manifest
+em `assets/generated/audio/`, `game_update_continue`, condições dos
+endings por `docs/ENDINGS.md`).
