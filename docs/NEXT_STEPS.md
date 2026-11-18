@@ -128,9 +128,10 @@ de 4 px da take (`tools/oracle/measure_pit_eyes.py` mede, `_PIT_EYE_TRACK`
 guarda). Também se removeu a porta `8→10` que expulsava o jogador no frame 1.
 As tabelas dos olhos estão resolvidas (banco `$81`, `$81:E2DF` com stride 12,
 `docs/PIT_BOSS.md` §7.6). **Falta:** fechar a regra de `sub 4` com a tabela
-(hoje ~25 px de erro; o medido dá 2 px), a animação de morte do corpo (lida em
-`docs/PIT_BOSS.md` §7.13; falta a rotina de dano partilhada que arma
-`$26`/`$1E05`), a arte e o lock da arena.
+(hoje ~25 px de erro; o medido dá 2 px), a arte e o lock da arena. O fim de
+luta e a saída do corpo estão feitos (§7.14, 2026-11-17): o corpo não leva
+dano, a luta fecha com os dez satélites mortos e o corpo sai a piscar 12×3
+frames.
 
 **HP (2026-11-07):** a tabela área→HP existe — `dcpy/bosses.py` lê
 `docs/boss_hp.txt` (Arma 16/32/72, Hippogriff 16/24/64, Scula 24/10,

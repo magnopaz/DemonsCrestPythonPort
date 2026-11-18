@@ -560,28 +560,30 @@ cada transformação do Firebrand. Para Ovununu: **3 HP por olho, 10 no corpo
 principal**; Fire/Buster/Claw/Tidal 1, Demon Fire 3, Earth (chão) 2, Earth (ar)
 1, Aerial 2, Legendary/Ultimate 5.
 
-O port passou a usar isso:
+O port passou a usar isso (a leitura completa do fim de luta está em §7.14;
+o corpo acabou por não ser um alvo de dano):
 
-- `_spawn_unknown` dá `PIT_BODY_HP` (10) ao `$6B` e `PIT_EYE_HP` (3) a cada
-  `$6C` (antes eram inertes, `hp = 1`).
-- `objects_check_projectiles` tem um ramo para as duas espécies: caixa 24×30
-  (corpo) e 8×8 (olho), `hit_flash = 8`, dano por `_pit_damage(player)` (hoje
-  Ultimate 5, resto 1 — as outras formas ainda não estão modeladas no port).
+- `_spawn_unknown` dá `PIT_EYE_HP` (3) a cada `$6C` satélite (antes eram
+  inertes, `hp = 1`).
+- `objects_check_projectiles` tem um ramo para os satélites `$6C`: caixa 8×8,
+  `hit_flash = 8`, dano por `_pit_damage(player)` (a coluna do Ovununu). O
+  corpo e o olho central não estão no ramo (§7.14).
 - Quando um olho morre, `pool.pit_dead++` (é o `$1DF8` que o controlador lê em
-  `$BA4E`); quando o corpo morre, a luta fecha como o ROM faz com `$1DEB=2`:
-  `pit_fight = False`, `pit_opened = 2`, `boss_defeated = True` e o evento
+  `$BA4E`); com os dez mortos a luta fecha pela sequência de saída do §7.14:
+  o corpo pisca 12 passos de 3 frames e no fim `pit_fight = False`,
+  `pit_opened = 2` (`$1DEB=2`), `boss_defeated = True` e o evento
   `OBJECT_EVENT_BOSS_DEFEATED`. O gatilho do `$69` não volta a armar a luta
   (`pit_opened`), e o corpo deixa de ser reposto em y=700.
-- `tools/check_pit_damage.py` (na regressão) constrói o pool, dispara 10 vezes
-  ao corpo e 3 ao olho, e afirma o HP, o fim da luta, `pit_dead` e o dano 5 da
-  forma Ultimate.
+- `tools/check_pit_damage.py` (na regressão) constrói o pool e afirma: o corpo
+  não leva dano, o satélite morre a 3 tiros (o central não conta), o ramo
+  `$BA4E` abre `pit_opened=1`, a saída dura 12×3 frames e fecha a luta, e o
+  dano por forma é 1/2/1/2/1/5/5.
 
-**O que continua por medir:** a *animação* de morte do corpo. A take do poço
-não tem kill (§7.11) e a de stage 3/4 mostra outros bosses; a leitura da ROM
-está em §7.13 — falta a rotina de dano partilhada que arma `$26`/`$1E05` antes
-de se portar a sequência. As caixas 24×30/8×8 são do port — o ROM usa `$809CA4($E2C0)` com os
-parâmetros `±$40`/`±$28`, que estão lidos mas dependem do `$1DCE`/scroll ainda
-não simulado.
+**O que continua por medir:** o comprimento do guião entre `$1DEB=1` e `=2`
+(a take não tem kill) e quem arma o `$26` na ROM — nenhum dos dois muda o
+comportamento observável já portado. As caixas 8×8 são do port — o ROM usa
+`$809CA4($E2C0)` com os parâmetros `±$40`/`±$28`, que estão lidos mas dependem
+do `$1DCE`/scroll ainda não simulado.
 
 ### 7.13 A morte do corpo na ROM (lida em 2026-11-07)
 
@@ -636,8 +638,62 @@ tem o seu em `$82:FA9E` (`jsl $83:BFDD`), enquanto `$C504` tem o seu em
 `$82:F846` (`jsl $83:C504`). Ou seja, o limiar 3/6 é de outro objecto e **não
 contradiz** os 10 HP do corpo.
 
-O que falta é a rotina de dano partilhada: é ela que deve pôr `$26`/`$1E05` no
-objecto que morre (o `$1DEB=2` que faz `$C198` trocar para `$05=4` é escrito
-por `$83:BA5B`, `$83:BCDE` ou `$83:C334`). Até isso estar lido, o que está
-medido é só a sequência 12×3 com o par 14/0 e o estado final (`$26=0`,
-`$36 &= ~$80`).
+**Fechado em §7.14** (2026-11-17): o `$1DEB=2` vem do guião do próprio `$69`
+(`$BCDE`, depois de `$BA5B` pôr `$1DEB=1` quando os dez satélites morrem), e
+o corpo não é um alvo de dano — nunca lê `$1DDE`. O `$26` fica por identificar,
+mas já não bloqueia nada: o comportamento portado é a sequência 12×3 com o par
+14/0 e o estado final (`$26=0`, `$36 &= ~$80`).
+
+
+### 7.14 O fim da luta lido por inteiro: o corpo não tem HP (2026-11-17)
+
+Três leituras fecham a cadeia que a §7.13 deixou em aberto:
+
+1. **O `$6B` não é um alvo de dano.** O handler dele (`$BFDD`-`$C1C2`) nunca
+   lê `$1DDE` — a flag de hurt partilhada que, por exemplo, o Arma lê em
+   `BE:E6FE` — e nada decrementa um HP seu. As balas passam pelo corpo.
+2. **`$1DF8 == 10` abre o fecho** (`$83:BA4E`): quando o controlador do `$69`
+   não encontra olho estacionado e os dez satélites estão mortos, põe
+   `$40=6` e **`$1DEB=1`** (`$BA55`-`$BA5B`).
+3. **O guião do subestado 4 do `$69` termina com `$1DEB=2`**
+   (`$83:BCD1`-`$BCE1`):
+
+   ```
+   lda $1DEB
+   beq rts            ; a luta ainda não acabou
+   lda #$04
+   sta $06            ; o $69 passa ao subestado 4
+   stz $3D
+   lda #$02
+   sta $1DEB          ; $1DEB=2
+   ```
+
+   O hover do corpo (`$C198`) lê o `2` e muda para `$05=4`, onde corre a
+   sequência de saída: os 12 passos de 3 frames da tabela `$81:E29A`
+   (`0E 00` ×6) e, no fim, `stz $26; trb $36 #$80`.
+
+Quem arma o `$26` continua por identificar — não é o handler do `$6B` nem o do
+`$69` (nenhum dos dois escreve `$26`) — mas como o corpo não é um alvo de dano,
+a sequência observável já não depende disso: os valores 14/0 alimentam o
+`$80A18D` (arrumação de OAM/tiles) e leem-se como um piscar na saída.
+
+**O que o port faz agora** (`dcpy/object.py`, `dcpy/render.py`):
+
+- o corpo nasce sem HP e as balas passam por ele (o ramo dos projéteis só
+  cobre os satélites `$6C`, flags 0..9);
+- o olho central (flag 10) também não leva dano — o guião conta só os dez
+  satélites (`$1DF8 == 10`);
+- quando o controlador vê os dez mortos (o ramo `$BA4E` do
+  `_pit_launch_controller`, que já existia), o corpo passa ao estado 4 e
+  pisca 12 passos × 3 frames (`PIT_LEAVE_STEPS`/`PIT_LEAVE_FRAMES`; o render
+  esconde a caixa nos passos com valor 0); no fim, o corpo e o olho central
+  saem, `pit_fight` fecha com `pit_opened=2` (`$1DEB=2`), `boss_defeated` e
+  o evento `OBJECT_EVENT_BOSS_DEFEATED`;
+- o "10 (main body)" do `boss_hp.txt` fica para o Ovununu da área 54 (`$16`),
+  o chefe de lodo descrito na wiki — no poço o corpo é o elevador/cenário.
+
+O comprimento do guião entre `$1DEB=1` e `=2` não está medido (a take não tem
+kill); o port começa a saída quando o controlador vê o décimo olho morto.
+`tools/check_pit_damage.py` afirma a cadeia inteira: corpo sem dano, satélite a
+3 tiros, central fora da contagem, `$BA4E` → `pit_opened=1`, saída de 36
+frames, luta fechada.

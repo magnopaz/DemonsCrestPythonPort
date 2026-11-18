@@ -5,8 +5,8 @@
 ## Estado
 
 - Repo: `~/Projetos/opencode/DemonsCrestPythonPort`
-- `HEAD` = *Arma 2: first-encounter dialogue behind a saved story flag*
-  (2026-11-07),
+- `HEAD` = *Pit boss: the fight ends on the ten eyes, the body just leaves*
+  (2026-11-17),
   **árvore limpa**. As secções das últimas sessões estão no fim do ficheiro.
 - Regressão verde com **`.venv/bin/python`**:
   `DISPLAY=:99 .venv/bin/python tools/run_regression.py` → PASS (~7 min, até
@@ -669,3 +669,40 @@ take o `]` é o reticências dentro da linha ("`AH]]] YOU'VE ARRIVED" lê-se
 "AH... YOU'VE ARRIVED"). Passa a manter os interiores, remover só a cauda no
 fim da página e o 0x60 inicial; `dcpy/text.py` mapeia `]` → ".". 65 dos 518
 blocos mudam; `check_arma2_intro` e `test_editor` (30/30) verdes.
+
+
+## O fim da luta do Ovununu: o corpo não tem HP (2026-11-17, sessão 8)
+
+**ROM (`docs/PIT_BOSS.md` §7.14):** o handler do `$6B` nunca lê `$1DDE` (a
+flag de hurt partilhada) — o corpo **não é um alvo de dano**. O fecho da luta
+é o guião do `$69`: `$1DF8 == 10` (os dez satélites mortos) em `$BA4E` põe
+`$1DEB=1`; o subestado 4 termina com `$1DEB=2` (`$BCDE`); o hover do corpo
+lê o 2 e passa a `$05=4`, onde corre a saída — 12 passos de 3 frames da tabela
+`$81:E29A` (`0E 00` ×6, um piscar) e no fim desaparece.
+
+**Port:** o corpo nasce sem HP e as balas passam por ele; só os satélites
+`$6C` (flags 0..9) levam dano — 3 HP, `_pit_damage` por forma — e o olho
+central (flag 10) também não conta. Dez satélites mortos → o corpo passa ao
+estado 4, pisca 36 frames (`PIT_LEAVE_STEPS`/`PIT_LEAVE_FRAMES`; o render
+esconde a caixa nos passos com valor 0) e sai com o olho central; `pit_fight`
+fecha com `pit_opened=2` (`$1DEB=2`), `boss_defeated` e o evento. O
+"10 (main body)" do `boss_hp.txt` fica para o Ovununu `$16` da área 54 (já
+está na tabela `dcpy/bosses.py`).
+
+**Checker:** `check_pit_damage.py` reescrito — corpo sem dano, satélite a 3
+tiros, central fora da contagem, o ramo `$BA4E` a abrir `pit_opened=1`, a
+saída de 36 frames, a luta fechada e o dano por forma 1/2/1/2/1/5/5.
+`check_pit_boss.py` (abertura/lançamento) continua PASS sem alterações.
+
+**Correcção que veio daqui:** o `check_boss_hp` falhava no "erro antigo da
+área 0" — o jogo carrega `assets/authored/rooms` primeiro
+(`_load_room_with_override`) e o room autoral da área 0 tem o Somulo com
+flags 0, não 128 como o gerado. O `boss_records` do checker passa a seguir a
+mesma precedência; **17 salas, 19 corridas, 0 erros**.
+
+**Notas:** o comprimento do guião entre `$1DEB=1` e `=2` não está medido (a
+take não tem kill) — o port arranca a saída no décimo olho morto; quem arma o
+`$26` na ROM fica por identificar, mas já não bloqueia nada.
+
+**Próximo:** `sub 4` exacto, a arte do poço e o lock da arena; depois Belth
+`$68`.

@@ -181,14 +181,27 @@ def check_form_damage(errors: list[str], report: dict) -> None:
 
 
 def boss_records(assets: Path) -> dict[int, list[tuple[int, int]]]:
-    """area -> [(species, flags)] for every real boss record."""
+    """area -> [(species, flags)] for every real boss record.
+
+    The game loads the authored overlay first (level.py's
+    ``_load_room_with_override``), so an ``assets/authored/rooms`` room wins
+    over the generated one -- its boss flags are what the trace shows.
+    """
     out: dict[int, list[tuple[int, int]]] = {}
     for path in sorted(assets.glob("room_area*.json")):
         try:
             area = int(path.stem.replace("room_area", ""))
         except ValueError:
             continue
-        room = json.loads(path.read_text())
+        room = None
+        override = path.parent.parent / "authored" / "rooms" / path.name
+        if override.is_file():
+            try:
+                room = json.loads(override.read_text())
+            except json.JSONDecodeError:
+                room = None  # the loader falls back to the generated room too
+        if room is None:
+            room = json.loads(path.read_text())
         rows = []
         for obj in room.get("objects", []):
             if obj.get("type") != "boss":

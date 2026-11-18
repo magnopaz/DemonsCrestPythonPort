@@ -112,6 +112,7 @@ class ObjectPool:
         self.pit_dead = 0  # $1DF8: eyes destroyed (no damage yet, so it stays 0)
         self.pit_armed = 0  # $1DF6: 1 once $6B finishes its climb
         self.pit_opened = 0  # $1DEB: 1 when the controller has nothing left to send
+        self.pit_leave = 0  # frames since the body started its leave blink
         self.pit_ctl = 0  # $40: $B9F1's dispatch (0/2/4/6)
         self.pit_burst = 0  # $3F: eyes left in the current burst
         self.pit_wait = 0  # $3E: frames until the next release
@@ -503,10 +504,9 @@ def _spawn_unknown(pool: ObjectPool, src) -> None:
     o.y_fx = float_to_fx(src.y)
     o.origin_x_fx = o.x_fx
     o.origin_y_fx = o.y_fx
-    # docs/boss_hp.txt: Ovununu is 3 HP per eye and 10 for the main body.
-    if src.species == PIT_BODY_SPECIES:
-        o.hp = PIT_BODY_HP
-    elif src.species == PIT_EYE_SPECIES:
+    # docs/boss_hp.txt: Ovununu is 3 HP per eye.  The body takes no damage
+    # (docs/PIT_BOSS.md 7.14), so it spawns inert.
+    if src.species == PIT_EYE_SPECIES:
         o.hp = PIT_EYE_HP
     else:
         o.hp = 1
@@ -532,6 +532,7 @@ def objects_init(pool: ObjectPool, level) -> None:
     pool.pit_burst = 0
     pool.pit_wait = 0
     pool.pit_count = 0
+    pool.pit_leave = 0
     pool.last_fire_piece = 0
     pool.last_talisman = 0
     pool.sfx_queue = []
@@ -848,9 +849,17 @@ def _ghoul_update(o: Object, level, p, pool: ObjectPool) -> None:
 PIT_CORE_SPECIES = 0x69
 PIT_BODY_SPECIES = 0x6B
 PIT_EYE_SPECIES = 0x6C
-# docs/boss_hp.txt (Ovununu): 10 HP for the main body, 3 per eye.
-PIT_BODY_HP = 10
+# docs/boss_hp.txt (Ovununu): 3 HP per eye.  The body has no hit points in the
+# ROM -- its handler never reads the shared hurt flag $1DDE and nothing
+# decrements an HP for it (docs/PIT_BOSS.md 7.14); the fight ends when the
+# ten satellite eyes are dead.
 PIT_EYE_HP = 3
+
+# The body's leave animation, $83:C1C2: twelve steps read from $81:E29A, three
+# frames apart.  The values 14/0 feed $80A18D (OAM/tile bookkeeping), which
+# reads as a blink: the 0 steps clear it from the screen.
+PIT_LEAVE_STEPS = (0x0E, 0x00) * 6
+PIT_LEAVE_FRAMES = 3
 
 
 def _pit_damage(player) -> int:
@@ -1168,6 +1177,7 @@ def _pit_start_fight(pool: ObjectPool) -> None:
     pool.pit_burst = 0
     pool.pit_wait = 0
     pool.pit_count = 0
+    pool.pit_leave = 0
 
 
 def _pit_launch_controller(pool: ObjectPool) -> None:
@@ -1788,6 +1798,28 @@ def _update_pit_boss(pool: ObjectPool, o: Object, player) -> None:
                 o.substate = 0
                 o.timer = 0
                 o.y_fx = float_to_fx(700.0)
+            return
+        if pool.pit_opened == 1:
+            # $BCD1 ends the $69's substate-4 script with $1DEB=2; the body's
+            # hover handler reads it ($C198) and switches to state 4, which
+            # plays the twelve-step leave from $81:E29A.  The script's own
+            # length is not measured (the take has no kill), so the leave
+            # starts when the controller sees the tenth dead eye ($BA4E).
+            o.state = 4
+            o.substate = 0
+            pool.pit_leave += 1
+            if pool.pit_leave >= len(PIT_LEAVE_STEPS) * PIT_LEAVE_FRAMES:
+                o.active = False
+                # The central eye ($6C flag 10) is welded to the body; it
+                # leaves with it.
+                for eye in pool.slots:
+                    if eye.active and eye.species == PIT_EYE_SPECIES:
+                        eye.active = False
+                pool.pit_fight = False
+                pool.pit_opened = 2
+                pool.pit_leave = 0
+                pool.boss_defeated = True
+                pool.events |= OBJECT_EVENT_BOSS_DEFEATED
             return
         o.timer += 1
         climb = max(0, o.timer - _PIT_RISE_DELAY)
@@ -2835,13 +2867,16 @@ def objects_check_projectiles(pool: ObjectPool, projectiles, player=None) -> Non
             ox = fx_to_float(o.x_fx)
             oy = fx_to_float(o.y_fx)
 
-            if o.species in (PIT_BODY_SPECIES, PIT_EYE_SPECIES):
-                # docs/boss_hp.txt: the body takes 10 hits, each eye 3.  The
-                # boxes are the port's (the ROM's probe is $809CA4); the
-                # damage is the current form's column in that table.
-                hw, hh = ((24.0, 30.0) if o.species == PIT_BODY_SPECIES
-                          else (8.0, 8.0))
-                if abs(px - ox) <= hw and abs(py - oy) <= hh:
+            if o.species == PIT_EYE_SPECIES and \
+                    (o.flags & 0x0F) < PIT_EYE_CORE_INDEX:
+                # docs/boss_hp.txt: each satellite eye takes 3 hits.  The box
+                # is the port's (the ROM's probe is $809CA4); the damage is
+                # the current form's column in that table.  Neither the body
+                # nor the central eye is here: the $6B has no hit points in
+                # the ROM (docs/PIT_BOSS.md 7.14), and the fight's script
+                # counts only the ten satellites ($1DF8 == 10 at $BA4E) --
+                # the welded eye leaves with the body.
+                if abs(px - ox) <= 8.0 and abs(py - oy) <= 8.0:
                     p.active = False
                     dmg = (_pit_damage(player) if player is not None
                            else (5 if p.damage >= 2 else 1))
@@ -2851,14 +2886,6 @@ def objects_check_projectiles(pool: ObjectPool, projectiles, player=None) -> Non
                     if o.hp <= 0:
                         o.active = False
                         pool.pit_dead += 1        # $1DF8
-                        if o.species == PIT_BODY_SPECIES:
-                            # The ROM ends the fight with $1DEB=2, which sends
-                            # the body to its leaving state ($83:C198).
-                            pool.pit_fight = False
-                            pool.pit_opened = 2
-                            pool.boss_alive = False
-                            pool.boss_defeated = True
-                            pool.events |= OBJECT_EVENT_BOSS_DEFEATED
                 continue
 
             if o.type == OBJECT_URN:

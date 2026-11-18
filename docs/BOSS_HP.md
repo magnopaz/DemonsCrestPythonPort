@@ -40,8 +40,12 @@ instead, because the byte carries record bits (Belth's thirty records in area
 | `$13` | Grewon | 64 | 30, 41, 71 — "Grewon 1" and "Grewon 2" are both 64 |
 | `$68` | Belth | 32 | 9 |
 
-The pit body and eyes are not boss records: `$6B` keeps its 10 and each `$6C`
-its 3 in `_spawn_unknown` (`dcpy/object.py`), from the same document.
+The pit trio is not a boss record: each `$6C` satellite keeps its 3 in
+`_spawn_unknown` (`dcpy/object.py`). The pit's `$6B` body has **no** hit
+points — its ROM handler never reads the shared hurt flag `$1DDE`, and the
+fight's script ends on the ten satellites' death (docs/PIT_BOSS.md 7.14) — so
+the document's "10 (main body)" belongs to the area-54 Ovununu (`$16`), which
+is the row keyed above.
 
 ## Runtime use
 

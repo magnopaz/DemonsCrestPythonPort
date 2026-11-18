@@ -370,6 +370,13 @@ def _draw_objects(assets, camera, objects) -> None:
         if o.type == LEVEL_OBJECT_UNKNOWN:
             # Pooled species with a partial handler (the pit boss trio): keep
             # the debug box, but at the live position.
+            if (o.species == 0x6B and objects.pit_opened == 1 and
+                    objects.pit_leave and
+                    ((objects.pit_leave - 1) // 3) & 1):
+                # The body's leave steps ($81:E29A) alternate 14/0 every
+                # three frames; the 0 steps clear it from the OAM, so those
+                # frames hide the box (docs/PIT_BOSS.md 7.14).
+                continue
             rl.draw_rect_lines(lround(x - 6), lround(y - 12), 12, 12,
                                rl.rgb(255, 80, 220))
             rl.DrawRectangle(lround(x - 2), lround(y - 4), 4, 4,
