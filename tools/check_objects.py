@@ -152,6 +152,9 @@ def run_placeholder(area: int, doc: dict, binary: Path, assets: Path,
                DC_NO_SAVE="1",
                DC_TRACE_PLACEHOLDERS="1",
                DC_TRACE_CSV=str(player))
+    # This checker verifies the draw path itself (what the renderer put on
+    # screen), so the render-less speed-up must not apply to its runs.
+    env.pop("DC_NO_RENDER", None)
     for key in ("DC_DEMO", "DC_STATE", "DC_TITLE", "DC_CAMPAIGN",
                 "DC_START_X", "DC_START_Y", "DC_BOSS_HP"):
         env.pop(key, None)

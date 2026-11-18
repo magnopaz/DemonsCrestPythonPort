@@ -52,6 +52,9 @@ def run_trace(binary: Path, assets: Path, tmp: Path) -> dict[str, int]:
                DC_NO_SAVE="1",
                DC_TRACE_PLACEHOLDERS="1",
                DC_TRACE_CSV=str(player))
+    # This checker verifies the draw path itself (decor drawn/visible), so
+    # the render-less speed-up must not apply to its runs.
+    env.pop("DC_NO_RENDER", None)
     for key in ("DC_DEMO", "DC_STATE", "DC_TITLE", "DC_CAMPAIGN",
                 "DC_START_X", "DC_START_Y"):
         env.pop(key, None)

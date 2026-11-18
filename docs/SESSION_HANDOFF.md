@@ -779,3 +779,24 @@ EndDrawing 49%, game_render 44%, simulação 1.3%; `DC_NO_RENDER` + checker de
 paridade de traces; regressão ~20 min → ~2–3 min), estado concreto do áudio
 (faixas por nível + pipeline `tools/audio/make_music_asset.py`) e duas regras
 de trabalho (guarda dos rooms autorais; conferir branch antes de commitar).
+
+
+## Passo 6b feito: regressão sem render (2026-11-18)
+
+**`DC_NO_RENDER=1`** em `dcpy/main.py`: em corridas determinísticas salta
+`game_render`+`BeginDrawing/EndDrawing` a menos que haja `DC_SCREENSHOT*`
+(a captura precisa do frame desenhado — o `check_no_render.py` prova que o
+PNG sai na mesma). Novo **`tools/check_no_render.py`** na regressão:
+mesmo demo com e sem render → traces **byte-idênticos**; screenshot
+funciona; o modo não pode ser no-op. A regressão exporta `DC_NO_RENDER=1`
+para todos os filhos; `check_objects`/`check_flame` (que verificam o
+**desenho** via `DC_TRACE_PLACEHOLDERS`) fazem `env.pop` — foram os dois
+únicos vermelhos da primeira corrida e estão verdes de novo.
+
+Medido: 600 frames 24.7 s → 0.9 s (27×); **regressão completa ~20 min →
+4m09s**, mesma lista (só áudio vermelho). Regra nova: um checker que leia
+contadores do renderer (`placeholders_drawn`, `decor_drawn`) tem de fazer
+`env.pop("DC_NO_RENDER")` — traces não são afectados, o desenho é.
+
+Fica pendente no 6b: cache das bandas do BG (`RenderTexture2D`) para o fps
+na janela — não é preciso já.

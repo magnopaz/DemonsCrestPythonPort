@@ -296,6 +296,19 @@ framebuffers que nenhum checker lê: os checkers comparam **traces CSV**.
   `RenderTexture2D` (redesenho só em scroll) — o loop Python das bandas é
   ~14 ms/frame e é o teto de fps mesmo com GPU.
 
+**Resultado (2026-11-18): feito, excepto o cache das bandas.**
+`DC_NO_RENDER` em `dcpy/main.py` (só em modo determinístico; um
+`DC_SCREENSHOT*` no ambiente desliga-o e captura normalmente);
+`tools/check_no_render.py` na regressão prova a paridade — traces
+**byte-idênticos** com e sem render, e o caminho das screenshots continua a
+renderizar. A regressão exporta `DC_NO_RENDER=1` para todos os filhos; os
+checkers que verificam o próprio desenho (`check_objects`, `check_flame`,
+via `DC_TRACE_PLACEHOLDERS`) fazem `env.pop` — verificam a renderização,
+não a simulação. Medido: 600 frames 24.7 s → 0.9 s (**27×**); a regressão
+completa **~20 min → 4m09s**, com a mesma lista verde (só o áudio vermelho).
+O cache das bandas do BG (fps na janela) fica pendente — é o único pedaço
+deste passo que ainda não vale a pena.
+
 ### Passo 7 — Release
 
 - CI (regressão + audit + screenshots), build macOS, perf (target 60 fps em

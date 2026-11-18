@@ -61,6 +61,13 @@ def main(argv: list[str] | None = None) -> int:
     step = 1.0 / 60.0
     accumulator = 0.0
     deterministic = run_limit > 0
+    # Headless speed-up: under DC_RUN_FRAMES the checkers read traces, not
+    # pixels -- drawing a framebuffer nobody looks at costs ~98% of the run
+    # (measured 2026-11-18: EndDrawing 49% + game_render 44%, sim 1.3%).
+    # DC_NO_RENDER skips the draw calls in deterministic runs unless a
+    # screenshot is requested (the capture needs a rendered RT/window).
+    no_render = ("DC_NO_RENDER" in os.environ and deterministic
+                 and not shot and not shot_rt)
 
     while frames < run_limit if deterministic else not rl.WindowShouldClose():
         if deterministic:
@@ -79,6 +86,9 @@ def main(argv: list[str] | None = None) -> int:
                 updates += 1
             if updates == 8 and accumulator >= step:
                 accumulator = 0.0
+
+        if no_render:
+            continue
 
         game_render(game)
         rl.BeginDrawing()

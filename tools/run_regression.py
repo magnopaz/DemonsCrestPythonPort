@@ -118,6 +118,10 @@ def main() -> int:
                                str(Path(__file__).resolve()),
                                *sys.argv[1:]])
     args = parse_args()
+    # Passo 6b: the suite reads traces, not pixels -- every child (demos and
+    # the check_* tools) skips the framebuffer work unless it asks for a
+    # screenshot itself (dcpy/main.py ignores DC_NO_RENDER then).
+    os.environ.setdefault("DC_NO_RENDER", "1")
     binary = args.binary.resolve()
     assets = args.assets.resolve()
     if not binary.is_file():
@@ -151,6 +155,16 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="dc-regression-") as td:
         out = Path(td)
+
+        # ---- DC_NO_RENDER: traces identical, drawing skipped ----
+        no_render_proc = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_no_render.py"),
+             "--binary", str(binary), "--assets", str(assets)],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=300)
+        check(no_render_proc.returncode == 0,
+              "no-render: trace-parity check failed\n"
+              + no_render_proc.stdout[-800:])
 
         # ---- Authored-room overlay must not revert engine fixes ----
         authored_proc = subprocess.run(
@@ -742,7 +756,7 @@ def main() -> int:
     print("regression: PASS (demos 6,7,9,10,11,12,13, boss data/runtime, "
           "hippogriff fight, arma crest/map chain, mode 7 map, "
           "object placement/placeholders, $72 flames, up-door pad_mask, "
-          "death continue hub, authored-room overlay guard, "
+          "death continue hub, authored-room overlay guard, no-render parity, "
           "pit boss opening/launch + damage, "
           "boss hp/damage (boss_hp.txt), arma2 intro flag, "
           "boss defeat + multi-area loads)")
