@@ -152,6 +152,16 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="dc-regression-") as td:
         out = Path(td)
 
+        # ---- Authored-room overlay must not revert engine fixes ----
+        authored_proc = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_authored_rooms.py"),
+             "--assets", str(assets)],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=120)
+        check(authored_proc.returncode == 0,
+              "authored rooms: overlay check failed\n"
+              + authored_proc.stdout[-800:])
+
         # ---- Boss data contract and runtime presence ----
         boss_proc = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "check_bosses.py"),
@@ -732,7 +742,8 @@ def main() -> int:
     print("regression: PASS (demos 6,7,9,10,11,12,13, boss data/runtime, "
           "hippogriff fight, arma crest/map chain, mode 7 map, "
           "object placement/placeholders, $72 flames, up-door pad_mask, "
-          "death continue hub, pit boss opening/launch + damage, "
+          "death continue hub, authored-room overlay guard, "
+          "pit boss opening/launch + damage, "
           "boss hp/damage (boss_hp.txt), arma2 intro flag, "
           "boss defeat + multi-area loads)")
     return 0

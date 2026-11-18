@@ -5,8 +5,8 @@
 ## Estado
 
 - Repo: `~/Projetos/opencode/DemonsCrestPythonPort`
-- `HEAD` = *Pit boss: the fight ends on the ten eyes, the body just leaves*
-  (2026-11-17),
+- `HEAD` = *Somulo: drop the stale authored rooms, guard the overlay, test the
+  fight* (2026-11-17),
   **árvore limpa**. As secções das últimas sessões estão no fim do ficheiro.
 - Regressão verde com **`.venv/bin/python`**:
   `DISPLAY=:99 .venv/bin/python tools/run_regression.py` → PASS (~7 min, até
@@ -726,3 +726,27 @@ autoral vs gerado nos campos críticos do motor, na regressão; 3) o
 `check_mvp_somulo.py` ganha um passe que mata o boss e atravessa a porta;
 4) áudio à parte (cozer os WAVs por nível com `make_music_asset.py`, exige
 oracle). O áudio é a única peça que não é do Somulo.
+
+
+## Somulo: arrumado (2026-11-17, execução do plano)
+
+**1 — rooms autorais 0/4 apagados** (`git rm`): eram cópias velhas com o
+Somulo em cima do spawn e a porta pós-boss substituída; o overlay da área 1
+(cemetery BG1 fix) fica. `check_up_doors` PASS, `test_editor` 30/30,
+`check_boss_hp` 0 erros, `check_mvp_somulo` agora planta o boss em y=193 (o
+pé do (380,170) do gerado).
+
+**2 — `tools/check_authored_rooms.py`** (novo, na regressão): cada room
+autoral é comparado com o gerado em bosses/transições/spawn/gate/arena;
+diferença sem whitelist = falha. Teste negativo com o room_area0 mau do git:
+falha em `bosses`, `transitions`, `gate_next_area`.
+
+**3 — `check_mvp_somulo.py`** ganhou o combate: dois passes com o guião do
+demo 14 (matar `6→0` + gate → 34; e `DC_BOSS_HP=1` com o faint
+`(1,0)→(0,6)`, volta `(3,0)`, colapso `(0,5)`). O buraco que deixava o
+overlay passar está fechado.
+
+**4 — áudio continua pendente** (WAVs por nível; exige oracle). É a única
+falha esperada da regressão completa depois disto.
+
+Ver docs/SOMULO_ROOM_FIX.md (diagnóstico + plano + execução).

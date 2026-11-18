@@ -76,3 +76,24 @@ não é do Somulo — ver o plano, passo 4.
 
 Ordem: 1 → 3 → 2 → (4 quando houver tempo de oracle). Depois do 1+3 os
 itens do Somulo e das up-doors ficam verdes; o 2 impede a repetição.
+
+## Execução (2026-11-17)
+
+1. **Feito — os rooms autorais 0 e 4 foram apagados** (não havia edição
+   intencional a preservar: os BG1 eram cópias velhas de outra extracção —
+   2496 vs 2048 tiles no coliseu —, o "notes_repointed" contradizia o
+   door_table, e o boss movido partia o combate). O overlay da área 1
+   (cemetery BG1 fix) fica. Verificação: `check_up_doors` PASS,
+   `test_editor` 30/30, `check_boss_hp` 17 salas/0 erros.
+2. **Feito — `tools/check_authored_rooms.py`**, na regressão. Compara cada
+   room autoral com o gerado em bosses/transições/spawn/gate/arena e falha
+   sem whitelist (a área 1 passa; a nota lista as chaves não-críticas que
+   diferem). Teste negativo: com o room_area0 mau reposto do git, falha
+   com `bosses`, `transitions` e `gate_next_area` — teria apanhado o
+   `8ec5e85` no dia.
+3. **Feito — `check_mvp_somulo.py`** ganhou dois passes com o guião do demo
+   14: (a) matar a sério — seis tiros `6→0`, o boss morto antes do fim e o
+   gate → área 34; (b) `DC_BOSS_HP=1` — o primeiro golpe de morte faz o
+   faint `(1,0)→(0,6)`, volta com `(3,0)` e os últimos três colapsam
+   `(0,5)`. O checker deixa de passar com a geometria partida.
+4. **Pendente** — os WAVs por nível continuam por cozer (áudio à parte).
