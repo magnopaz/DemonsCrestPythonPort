@@ -104,6 +104,12 @@ class ObjectPool:
         # first one ($86), which only changes phase.
         self.boss_killed_species = -1
         self.boss_phase = 0  # 1 until a two-form boss transforms
+        # Belth ($68, docs/BELTH_68.md): fight bookkeeping shared by the
+        # pieces and the state-2 controller.
+        self.belth_spawned = False   # the controller exists (this room)
+        self.belth_rng = 1           # deterministic anchor picker
+        self.belth_piece_cd = 90     # frames until the next piece respawn
+        self.belth_wait = BELTH_SPAWN_DELAY   # room frames before the fight
         self.pit_fight = False  # area 8: $69 raised $1DEA (the fight started)
         self.pit_rng = 0  # $009C/$009D: the fight's 16-bit LCG seed
         # The $69 launch controller ($83:B9F1) and the fight's shared bytes.
@@ -513,6 +519,33 @@ def _spawn_unknown(pool: ObjectPool, src) -> None:
     o.max_hp = o.hp
 
 
+def _spawn_belth_piece(pool: ObjectPool, src) -> None:
+    """A Belth anchor record ($68): pieces park on the room's 21 anchors
+    (docs/BELTH_68.md 7/8 -- every record position was observed as a parking
+    spot in the take).  They self-delete on a per-record stagger so the live
+    count churns the way the measurement shows (3-10 pieces); the controller
+    re-spawns them during the fight.  Art is still pending, so they keep the
+    unknown-species placeholder look."""
+    o = _alloc(pool)
+    if o is None:
+        return
+    _reset_object(o)
+    o.active = True
+    o.type = LEVEL_OBJECT_UNKNOWN
+    o.species = src.species
+    o.flags = src.flags
+    o.x_fx = float_to_fx(src.x)
+    o.y_fx = float_to_fx(src.y)
+    o.origin_x_fx = o.x_fx
+    o.origin_y_fx = o.y_fx
+    o.state = 0
+    o.hp = 1
+    o.max_hp = 1
+    # deterministic per-record stagger (flags 129..244 in area 9)
+    o.timer = 0
+    o.burst = 240 + (src.flags % 7) * 60   # $3A: frames until self-delete
+
+
 def objects_init(pool: ObjectPool, level) -> None:
     # memset(pool, 0, sizeof(*pool)), then the phase default.
     for slot in pool.slots:
@@ -538,6 +571,13 @@ def objects_init(pool: ObjectPool, level) -> None:
     pool.sfx_queue = []
     pool.boss_phase = 1
     pool.boss_killed_species = -1
+    pool.belth_spawned = False
+    pool.belth_rng = 1
+    pool.belth_piece_cd = BELTH_PIECE_SPAWN_CD
+    # Explicit test hooks (DC_BOSS_*) mean the fight is being forced: skip
+    # the measured room-entry delay so short runs can exercise it.
+    pool.belth_wait = 0 if (env("DC_BOSS_X") or env("DC_BOSS_Y")
+                            or env("DC_BOSS_HP")) else BELTH_SPAWN_DELAY
     # $96 is the script/NPC actor: the shopkeepers and the library old man in
     # 46..49/55, the avenue's townsperson in area 4, and the arena controller
     # in the boss rooms (52/53/54, where it shares the boss's position). The
@@ -568,6 +608,9 @@ def objects_init(pool: ObjectPool, level) -> None:
             _spawn_npc(pool, src)
         elif src.type == LEVEL_OBJECT_TALISMAN:
             _spawn_talisman(pool, src)
+        elif src.type == LEVEL_OBJECT_UNKNOWN and \
+                src.species == BELTH_SPECIES:
+            _spawn_belth_piece(pool, src)
         elif src.type == LEVEL_OBJECT_UNKNOWN and \
                 src.species in (PIT_CORE_SPECIES, PIT_BODY_SPECIES,
                                 PIT_EYE_SPECIES):
@@ -934,6 +977,24 @@ def _pit_body_y(t: int) -> float:
 # through a `$15xx` word table whose base is still unresolved (docs/PIT_BOSS.md
 # Â§7), so the take is the source exactly as for the body's climb.
 PIT_EYE_CORE_INDEX = 10   # record flag of the eleventh $6C (the body's eye)
+
+# Belth ($68, docs/BELTH_68.md).  The ROM machine is two byte-indexed states:
+# 0 = pieces parked on the room's $68 records (the anchors), 2 = the
+# controller that hops between anchors and drags the player toward itself.
+# The constants are the measured ones (rec_level_2 take, 2026-11-18):
+BELTH_SPECIES = 0x68
+BELTH_TRIGGER_DIST = 220.0     # controller appears this close to the player
+BELTH_RELOCATE_FRAMES = 400    # ~7 controller hops across ~2800 fight frames
+BELTH_DRAG_FRAMES = 120        # $3D = 0x78: length of one pull burst
+BELTH_DRAG_SPEED_FX = 3 * FX_ONE   # $B7FD/$B83F: +-3 px/frame...
+BELTH_DRAG_DEADZONE = 4.0           # ...with a 4 px deadzone
+BELTH_PIECE_SPAWN_CD = 90       # controller spawns pieces at this cadence
+BELTH_PIECE_MAX = 10            # measured peak 12, sustained 3-10
+# The take's controller only shows up ~680 frames after room entry, once
+# the player has walked in from the door -- a pure proximity trigger would
+# fire on the boot spawn and drag a freshly respawned player (that exact
+# false positive turned the death-menu checker red).
+BELTH_SPAWN_DELAY = 680
 PIT_EYE_RELEASE = 220     # frames of fight before $1DF7: the body starts up
 
 # One row per satellite (records with flags 0..9), straight from the ROM's
@@ -2086,8 +2147,158 @@ def _update_def_enemy(pool: ObjectPool, o: Object, level, player,
                  min(int(level.play_max_x * FX_ONE), o.x_fx))
 
 
+
+def _belth_anchors(level):
+    return [rec for rec in level.objects
+            if rec.species == BELTH_SPECIES
+            and rec.type == LEVEL_OBJECT_UNKNOWN]
+
+
+def _belth_next_rng(pool: ObjectPool) -> int:
+    pool.belth_rng = (pool.belth_rng * 1103515245 + 12345) & 0x7FFFFFFF
+    return pool.belth_rng
+
+
+def _spawn_belth_controller(pool: ObjectPool, level, player) -> None:
+    """The state-2 controller (the boss): measured first appearance ~200 px
+    from the player on one of the room's anchors ($B571: $3B=6, $06=2 -- the
+    live trace shows it born (sub 0, phase 0) and in (2, 6) one sample
+    later, then living there for the whole fight; docs/BELTH_68.md 9)."""
+    anchors = _belth_anchors(level)
+    if not anchors:
+        return
+    near = [a for a in anchors if 100.0 <= abs(a.x - player.x) <= 300.0]
+    if not near:
+        near = anchors
+    a = near[_belth_next_rng(pool) % len(near)]
+    o = _alloc(pool)
+    if o is None:
+        return
+    _reset_object(o)
+    o.active = True
+    o.type = OBJECT_BOSS
+    pool.boss_present = True
+    o.species = BELTH_SPECIES
+    o.flags = 0
+    o.x_fx = float_to_fx(a.x)
+    o.y_fx = float_to_fx(a.y)
+    o.origin_x_fx = o.x_fx
+    o.origin_y_fx = o.y_fx
+    o.state = 2
+    o.substate = 2
+    o.phase = 6
+    o.facing = 1 if a.x >= player.x else -1
+    o.hp = boss_hp(BELTH_SPECIES, 0)
+    hp_env = env("DC_BOSS_HP")
+    if hp_env:
+        o.hp = _atoi(hp_env)
+    bx_env = env("DC_BOSS_X")
+    by_env = env("DC_BOSS_Y")
+    if bx_env:
+        o.x_fx = float_to_fx(_atof(bx_env))
+        o.origin_x_fx = o.x_fx
+    if by_env:
+        o.y_fx = float_to_fx(_atof(by_env))
+        o.origin_y_fx = o.y_fx
+    o.max_hp = o.hp
+    pool.boss_alive = True
+    pool.belth_spawned = True
+
+
+def _belth_controller_update(pool: ObjectPool, o: Object, player, level) \
+        -> None:
+    o.timer += 1
+    pool.boss_alive = True
+    # (Death is handled where every other boss's is: the generic hp <= 0
+    # branch of objects_check_projectiles, which also wipes the pieces.)
+    # Hop between anchors: the ROM relocates the controller by
+    # delete+respawn (~7 slots across the fight, docs/BELTH_68.md 9); the
+    # port teleports in place so the boss's accumulated HP survives, which
+    # the multi-instance ROM version preserves elsewhere.
+    if o.timer > 0 and o.timer % BELTH_RELOCATE_FRAMES == 0:
+        anchors = _belth_anchors(level)
+        if anchors:
+            a = anchors[_belth_next_rng(pool) % len(anchors)]
+            o.x_fx = float_to_fx(a.x)
+            o.y_fx = float_to_fx(a.y)
+            o.facing = 1 if a.x >= player.x else -1
+            o.hit_flash = 0   # fresh instance, no residual hit flash
+    # Drag burst ($B7FD/$B83F): pull the player toward the controller at
+    # 3 px/frame with a 4 px deadzone, in ~120-frame windows (measured 7
+    # bursts across the fight; the +$1000 mirrors those helpers write are
+    # the player task's own x/y fields).
+    if (o.timer % BELTH_RELOCATE_FRAMES) < BELTH_DRAG_FRAMES:
+        step = fx_to_float(BELTH_DRAG_SPEED_FX)
+        dx = fx_to_float(o.x_fx) - player.x
+        if abs(dx) > BELTH_DRAG_DEADZONE:
+            d = min(step, abs(dx) - BELTH_DRAG_DEADZONE)
+            player.x += d if dx > 0.0 else -d
+            player.x_fx = float_to_fx(player.x)
+        dy = fx_to_float(o.y_fx) - player.y
+        if abs(dy) > BELTH_DRAG_DEADZONE:
+            d = min(step, abs(dy) - BELTH_DRAG_DEADZONE)
+            player.y += d if dy > 0.0 else -d
+            player.y_fx = float_to_fx(player.y)
+    # Keep the piece population churning (measured 3-10 sustained, 12 peak).
+    pool.belth_piece_cd -= 1
+    if pool.belth_piece_cd <= 0:
+        pool.belth_piece_cd = BELTH_PIECE_SPAWN_CD
+        alive = sum(1 for slot in pool.slots
+                    if slot.active and slot.species == BELTH_SPECIES
+                    and slot.type != OBJECT_BOSS)
+        if alive < BELTH_PIECE_MAX:
+            anchors = _belth_anchors(level)
+            if anchors:
+                a = anchors[_belth_next_rng(pool) % len(anchors)]
+                piece = _alloc(pool)
+                if piece is not None:
+                    _reset_object(piece)
+                    piece.active = True
+                    piece.type = LEVEL_OBJECT_UNKNOWN
+                    piece.species = BELTH_SPECIES
+                    piece.flags = 0
+                    piece.x_fx = float_to_fx(a.x)
+                    piece.y_fx = float_to_fx(a.y)
+                    piece.origin_x_fx = piece.x_fx
+                    piece.origin_y_fx = piece.y_fx
+                    piece.state = 0
+                    piece.hp = 1
+                    piece.burst = 240 + (_belth_next_rng(pool) % 7) * 60
+
+
+def _belth_update(pool: ObjectPool, o: Object, player, level) -> None:
+    if o.type == OBJECT_BOSS:
+        _belth_controller_update(pool, o, player, level)
+        return
+    # ---- state 0: a parked piece ----
+    o.timer += 1
+    wig = ((o.timer // 4) & 1) ^ ((o.timer // 10) & 1)   # $B785/$B77E walker
+    o.x_fx = o.origin_x_fx + (wig * 2 - 1) * FX_ONE
+    if o.burst > 0:    # $3A: self-delete countdown (sub 2's delete branch)
+        o.burst -= 1
+        if o.burst == 0:
+            o.active = False
+
+
 def objects_update(pool: ObjectPool, level, player) -> None:
     pool.boss_alive = False
+    if not pool.belth_spawned:
+        if pool.belth_wait > 0:
+            pool.belth_wait -= 1
+        # Measured trigger: after ~680 frames of room time the player has
+        # walked in, and the controller appears on an anchor within the
+        # band around the player (first sighting: player (387,412),
+        # controller (582,367)).  Hooks and defeat suppress the fight;
+        # the DC_BOSS_* hooks also skip the delay (set at init).
+        if pool.belth_wait == 0 and not pool.boss_defeated \
+                and not env_flag("DC_BOSS_CLEAR") \
+                and not env_flag("DC_BOSS_DEFEATED"):
+            for rec in level.objects:
+                if (rec.species == BELTH_SPECIES
+                        and abs(rec.x - player.x) < BELTH_TRIGGER_DIST
+                        and abs(rec.y - player.y) < 120.0):
+                    _spawn_belth_controller(pool, level, player)
+                    break
     for o in pool.slots:
         if not o.active:
             continue
@@ -2098,6 +2309,10 @@ def objects_update(pool: ObjectPool, level, player) -> None:
 
         if o.species in (PIT_CORE_SPECIES, PIT_BODY_SPECIES, PIT_EYE_SPECIES):
             _update_pit_boss(pool, o, player)
+            continue
+
+        if o.species == BELTH_SPECIES:
+            _belth_update(pool, o, player, level)
             continue
 
         if o.type == OBJECT_PLATFORM:
@@ -2985,6 +3200,14 @@ def objects_check_projectiles(pool: ObjectPool, projectiles, player=None) -> Non
                             pool.events |= OBJECT_EVENT_BOSS_DEFEATED
                             _spawn_pickup(pool, ox, oy + 8.0)
                             break
+                        if o.species == BELTH_SPECIES:
+                            # The measured kill (rec_level_2 take) wipes every
+                            # piece in the same frame -- no orphan pieces
+                            # outlive the controller (docs/BELTH_68.md 8).
+                            for slot in pool.slots:
+                                if slot.active and slot.species == \
+                                        BELTH_SPECIES and slot is not o:
+                                    slot.active = False
                         o.active = False
                         pool.boss_killed_species = o.species
                         if o.species == 0x09:

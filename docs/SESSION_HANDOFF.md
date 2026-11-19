@@ -825,3 +825,34 @@ magenta; agora tem a análise completa no molde do `ARMA_AI.md`:
   real); depois o handler em `object.py` + `check_belth.py`.
 - `rec_level_v` do utilizador também foi digitalizada: áreas 24→27
   (Poseidonia) — sem Belth, fica registada como cobertura.
+
+
+## Belth portado e verificado (2026-11-18, sessão autónoma)
+
+O ciclo completo da primeira espécie do Passo 2: ROM → medição → port →
+checker.
+
+- **`trace_stage.py`** ganhou `#$05.$06.$3B` por slot no blob (aditivo —
+  o prefixo `slot:sp@x,y` mantém-se). Estados vivos confirmaram a
+  indexação por byte TAMBÉM nos estados: `$05 ∈ {0,2}` (nunca 1 — a
+  leitura estática inicial dizia "estado 1"); o controlador nasce
+  `(sub 0, fase 0)` → `(2, 6)` numa amostra e vive lá a luta inteira;
+  os seus teleportes são re-spawns (7 slots).
+- **Descoberta de mecânica**: `$B7FD/$B83F` escrevem em `$1031/$1034` — a
+  **task do jogador**. O Belth ARRASTA o jogador a ±3px/frame (deadzone
+  4): 7 janelas de arrasto medidas na take do kill. `$80A0FF(Y)` lê
+  registos `[dx][dy]` relativos ao chamador em `$83:Y` (Y é ponteiro,
+  não índice — mais uma leitura corrigida); `$809E7F` sincroniza o bit de
+  espelho com o facing.
+- **Port**: `_belth_update`/`_spawn_belth_piece`/`_spawn_belth_controller`
+  em `dcpy/object.py` — peças ancoradas com walker e stagger, controlador
+  que salta entre âncoras (~400f) e arrasta, kill no ramo genérico com
+  **wipe simultâneo das peças**. Desvios documentados no §6 do doc.
+- **`tools/check_belth.py`** (na regressão): âncoras, hp 32, saltos,
+  arrasto de jogador parado, churn 3–10, kill de um tiro esvazia a sala.
+- Regressão completa: ver email/resultado do run em curso; esperado
+  verde-excepto-áudio.
+
+Fica por fazer no Belth: arte (captura na sala real), os probes
+`$80A0FF` finos, os sons de fase e as tabelas sob suspeita
+(`$DF9C/$DF9F/$DFB3`).

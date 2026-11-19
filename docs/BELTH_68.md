@@ -139,21 +139,38 @@ Dispatcher `$B54E` (`jsr ($B563,X)`, byte-indexado: 0/2/4/6/8/A/C →
   `$809E7F`, `$80BD51`, `$80F83D`, `$80F81D` (som), `$808C31/$808BED`
   (colisão, censo §4), `$BC904B` (random).
 
-## 6. Leitura para o port
+## 6. O port (2026-11-18, mesma sessão)
 
-- O modelo é **um controlador + peças**: o controlador (estado 2) teleporta
-  (random+colisão, offsets ±) e as peças (estado 0) homingam-no em X e Y com
-  ±3/frame, deadzone 4, a altura por fase (`$DFB3`). O `$4C` (broadcast)
-  sincroniza o engajamento; `$38` referencia o parceiro; `$4A` reage à morte
-  dele.
-- Campo a campo é portável com o que o `Object` já tem (`state`, `substate`,
-  `phase` $3B, `$3E` sub-subestado, timers $39/$3A/$3C/$46, `$36/$38/$47`).
-- **Arte**: pendente — a captura injectada não desenha (precisa do script da
-  sala); quando houver handler, o passo de captura entra no `build_assets.sh`.
-- **Checker**: o ciclo mínimo a afirmar — entrar na área 9, os `$68` saem do
-  placeholder; o controlador teleporta dentro dos limites; as peças seguem-no
-  com a regra ±3/4px; a tabela de fases toca os sons `$DF8E`; o fim (duas
-  mortes na take) deixa o jogador no spawn 0.
+**Implementado em `dcpy/object.py`** (`_spawn_belth_piece`,
+`_spawn_belth_controller`, `_belth_update`) e coberto pelo
+**`tools/check_belth.py`** (na regressão):
+
+- **Peças**: os 21 registos ancoram na sua posição de registo (todas as 21
+  medidas na take), com o walker ±1 px do `$B785/$B77E`; auto-apagam num
+  stagger por registo (ramo delete do sub@2), e o controlador re-spawna-as
+  ao ritmo de ~90 frames com o tecto medido (sustentado 3–10, pico 12).
+- **Controlador** (estado 2, nasce `(sub 0) → (sub 2, fase 6)` como medido):
+  hp 32 do `bosses.py`; salta entre âncoras a cada ~400 frames (a cadência
+  dos 7 slots da take); **arrasta o jogador** a ±3 px/frame com deadzone 4
+  em janelas de ~120 frames por ciclo de 400 — o `$B7FD/$B83F` escreve nas
+  fields `$31/$34` da **task do jogador** (`$1031/$1034`), medido como 7
+  janelas de arrasto na take.
+- **Kill**: no ramo genérico `hp <= 0` do `objects_check_projectiles`, como
+  todos os bosses — e **apaga todas as peças no mesmo frame** (a take
+  mostra o wipe simultâneo g11841→g11861, sem peças órfãs).
+- **Hooks**: `DC_BOSS_HP/X/Y` funcionam no controlador (o checker usa-os
+  para matá-lo com um tiro do demo 10); `DC_BOSS_CLEAR`/`DC_BOSS_DEFEATED`
+  suprimem a luta para os checkers de navegação.
+
+**Desvios documentados**: (a) o teleporte do controlador é em-place em vez
+do delete+respawn multi-slot da ROM — o HP acumulado sobrevive no port
+(na ROM deve viver fora do registo); (b) o stagger das peças usa as flags
+do registo em vez dos probes `$80A0FF` (a dinâmica medida 3–12 é o alvo, a
+regra fina dos probes fica por portar); (c) o arrasto em Y perde contra o
+chão (o ROM cap `$1022=-0x40` sugere que puxa no ar) — o arrasto em X é o
+mensurável e está coberto; (d) sons/tabelas por confirmar (`$DF8E`,
+`$DF9C/$DF9F/$DFB3` sob suspeita) não tocam — o port não emite os sons
+de fase ainda.
 
 ## 7. O ciclo medido — take §6.2 (replay determinístico do pool)
 

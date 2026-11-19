@@ -405,6 +405,15 @@ def main() -> int:
         check(cling_proc.returncode == 0,
               "wall cling: check failed\n" + cling_proc.stdout[-800:])
 
+        # ---- Belth ($68): pieces, controller hops, player drag, kill wipe ----
+        belth_proc = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_belth.py"),
+             "--binary", str(binary), "--assets", str(assets)],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=600)
+        check(belth_proc.returncode == 0,
+              "belth: check failed\n" + belth_proc.stdout[-800:])
+
         # ---- Species $67: the ROM ghoul state machine ----
         ghoul_proc = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "check_ghoul.py"),
@@ -758,7 +767,7 @@ def main() -> int:
           "object placement/placeholders, $72 flames, up-door pad_mask, "
           "death continue hub, authored-room overlay guard, no-render parity, "
           "pit boss opening/launch + damage, "
-          "boss hp/damage (boss_hp.txt), arma2 intro flag, "
+          "boss hp/damage (boss_hp.txt), arma2 intro flag, belth fight, "
           "boss defeat + multi-area loads)")
     return 0
 
