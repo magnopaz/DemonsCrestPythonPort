@@ -938,3 +938,22 @@ frames, "todos os tipos de tiros") cobre **0, 80, 84, 107, 85, 108, 86,
   extrair a **geometria dos impactos** (posição do tiro vs do inimigo
   no frame da morte) — a convenção do acerto do §3 do NEXT_STEPS, com
   todos os elementos de tiro do jogador.
+
+
+## rec_kill_enemies: análise final (2026-11-19)
+
+O replay fino (passo 4, 3750 amostras) confirma: **a take percorre só
+menus/galerias** — 0 (intro curta) → 80 → 84/107/85/108/86/107/87
+(pré-visualizações da galeria de bosses) → 83/82 (menus). O `0x66`/`$4F`
+que aparece no pool são **peças decorativas estáticas** desses ecrãs
+(8 registos no `room_area80.json`; posições fixas, jogador em (128,128)
+modo menu), não fireballs. **Nenhum tiro foi disparado** — nesses ecrãs
+não há inimigos e o botão não faz nada. O valor real da take foi a
+descoberta dos corredores 107/108 da galeria (commit anterior).
+
+**A take que falta para a geometria do acerto (§3):** numa sala normal
+com inimigos **no chão** — área 2 (os esqueletos no chão perto do
+ledge de x≈1000) ou a área 10 (os ogres agora portados) — encara um
+inimimo parado e dispara **cada tipo de tiro** uns segundos. O
+replay a passo 4 dá o frame exacto do impacto e a distância
+tiro↔alvo.
