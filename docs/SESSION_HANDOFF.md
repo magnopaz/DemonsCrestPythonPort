@@ -982,3 +982,18 @@ provavelmente com razão. Para medir o impacto falta:
 2. estender o `trace_stage.py` com um dump desse array;
 3. re-replay a MESMA take (`rec_kill_enemies`, janela g8988+) — os
    disparos estão lá, só não são visíveis pelo blob actual.
+
+
+## Sessão do fireball (2026-11-19, commits abaixo)
+
+`docs/FIREBALL.md` novo: o fireball É objecto do pool (flags $1080),
+spawn $A91D, despawn $82:E6AC/$82:E49E (x∈[0,255], morre dx=+257/-1),
+voo $82:E4A3 (jsl $809481, trilha $82877B em $0016∈{$1C,$1D}).
+**Falta**: o teste de acerto tiro↔inimigo (dentro de $809481 ou o
+despacho seguinte) — disasm na próxima sessão. A take que fecha:
+sala normal + inimigo no chão + um tiro de cada tipo — o `--objects`
+AGORA vê os fireballs (não precisa de ferramenta nova, graças ao
+descoberta de que são objectos do pool). `rec_kill_enemies` não dá
+geometria: os presses do tiro caem todos em estado 2 (menus/galeria —
+medido). Novo tool: `tools/oracle/find_projectiles.py` (diferencial
+WRAM; lição: o debug server é endereçamento 16-bit, sem banco $7F).
