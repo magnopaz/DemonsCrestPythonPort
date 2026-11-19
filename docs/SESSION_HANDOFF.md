@@ -921,3 +921,20 @@ A take do tour pelo mapa do utilizador (`rec_map_areas`,
 - Os ecrãs de arena põem **objectos dinâmicos** no pool: `$94`/`$40`
   na 54, `$97`/`$66` na 49/52 — os sprites das pré-visualizações;
   catálogo para quando as pré-visualizações forem portadas (Passo 5).
+
+
+## rec_kill_enemies (2026-11-19): a galeria dos boss + a geometria dos tiros
+
+A take do utilizador (`rec_kill_enemies`, `rec_20261119_120455`, 15k
+frames, "todos os tipos de tiros") cobre **0, 80, 84, 107, 85, 108, 86,
+87, 83, 82**:
+
+- **Correcção (a segunda) da nota das salas 91–112**: NÃO são ecrãs de
+  sistema inacessíveis — **107/108 são os corredores entre as salas de
+  boss** (84→107→85→108→86→107→87). As salas do `$B0` devem ser ramos
+  dessa galeria; uma take a percorrer esses ramos destrava a medição.
+  A nota "só por leitura da ROM" do commit anterior estava errada.
+- O replay fino (passo 4) com o blob de estados está em curso para
+  extrair a **geometria dos impactos** (posição do tiro vs do inimigo
+  no frame da morte) — a convenção do acerto do §3 do NEXT_STEPS, com
+  todos os elementos de tiro do jogador.

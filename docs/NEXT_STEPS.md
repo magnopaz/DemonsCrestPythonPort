@@ -199,11 +199,12 @@ estados, que helpers e que arte cada espécie tem. Ordem de ataque:
 3. ~~`$68` (30, 2 estados)~~ — **feito a 2026-11-18** (`docs/BELTH_68.md`:
    controlador + peças ancoradas, arrasto do jogador, kill apaga tudo).
    **`$B0` por tomar**: despacha nas **FLAGS** (`lda $03; asl; jsr
-   ($CADC,X)` — 18 variantes, uma por sala, áreas 91–112) e **essas
-   salas são inacessíveis a andar** (2026-11-19: são ecrãs de sistema,
-   256×N, zero portas, sem nome; nem o tour pelo mapa do utilizador as
-   alcança). Portar exige **leitura da ROM** de quando esses ecrãs
-   carregam — não uma gravação.
+   ($CADC,X)` — 18 variantes, uma por sala, áreas 91–112). **Correcção
+   de 2026-11-19 (a segunda)**: o intervalo NÃO é inacessível — a
+   `rec_kill_enemies` do utilizador provou que **107/108 são os
+   corredores entre as salas de boss** (84→107→85→108→86→107→87);
+   as salas do `$B0` (91, 93, 98, 101–106, 111, 112) devem ser ramos
+   dessa galeria — uma take que os percorra destrava a medição.
 4. ~~`$63` (35, 3, arte de 1 pose já cozida)~~ — **feito a 2026-11-18**
    (`docs/OGRE_63.md`): estados byte-indexados {0,2,4}, o arco medido
    na take do estágio III (áreas 10/12: apex 35 px, ~40 f no ar, ~200 px
