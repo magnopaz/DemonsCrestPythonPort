@@ -54,13 +54,21 @@ deu-lhe a dwell).
   do arco confirmado ao vivo.
 - **Ciclo por slot** (área 10, slot 8, o mais limpo): `(0,0)` idle →
   `(0,2)` armado → `(2,0,6)` no ar → `(4,2)/(4,4)/(4,6)` aterrado →
-  re-armar. Período ~440 frames; janela armado→no ar ~40; dwell ~300.
+  re-armar. Período ~440 frames; janela armado→no ar ~40; a fase
+  aterrada dura ~300 e **anda** (não é paragem).
 - **Arco**: y 87 → 52 (subida de ~35 px), deslocação ~200 px por salto
   **na direcção do jogador** (o ogre persegue-o aos saltos: 576 → 1178
   na área 10).
 - **`$91` nasce exactamente no frame em que o ogre vai ao ar** (g5041:
   ausente; g5061: presente) — o ramo das flags é o spawn da peça.
-- **Morrem a tiro** (o `$57` — pickup — pisca junto aos ogres na take).
+- **Nenhum ogre morre na janela medida** — os `$57` que piscam são
+  **corações de urnas partidas**, não mortes (a verificação por slot
+  mostra todos os ogres vivos do início ao fim da janela). A morte
+  fica por medir numa take onde o jogador os mate, ou por leitura da
+  convenção de acerto da ROM (NEXT_STEPS §3).
+- **O estado 4 anda**: entre saltos, o ogre desliza ~0,5–0,75 px/frame
+  na direcção do jogador (slot 8: (576,87) → (680,151) entre dois
+  saltos) — não é uma paragem estática.
 - *Os dados `$DC1B/$DC2B/$DC2E` leem-se como código nos bytes — o mesmo
   padrão das tabelas `$DF9C` do Belth; as constantes do port vêm da
   medição dos arcos, não desses bytes.*
@@ -78,7 +86,8 @@ deu-lhe a dwell).
   frames — a máquina própria fica pendente; sem isto o pool encheria);
 - estado 2: parábola medida (apex 35 px, ~40 frames, ~200 px na
   direcção do encaramento; fases 2/4/6);
-- estado 4: dwell de 300 frames, volta a armar;
+- estado 4: **anda** ~0,5 px/frame na direcção do jogador durante os
+  ~300 frames medidos, depois volta a armar;
 - contacto danifica o jogador (o ramo genérico dos inimigos);
 - **sempre atingível** — acrescentado ao lado do ghoul na condição do
   `objects_check_projectiles` (os `$05` do ogre são estados de

@@ -6,8 +6,7 @@ the measured cycle: idle -> armed (~40 f) -> airborne arc (~40 f,
 apex ~35 px, ~200 px toward the player, $3B phases 2/4/6) -> landed
 dwell (~300 f) -> re-arm.  The flags!=0 branch spawns species $91 (the
 thrown piece) on the airborne frame -- measured: $91 appears exactly
-then.  Ogre records are real enemies (1-pose sheet baked): the take
-shows them dying to shots and dropping pickups.
+then.  Ogre records are real enemies (1-pose sheet baked).
 
 Asserted here:
 1. all seven area-10 records are placed at boot;
@@ -15,12 +14,16 @@ Asserted here:
    moves >= 100 px from its origin;
 3. $91 pieces appear at the hops and EXPIRE (their own machine is not
    ported yet; a placeholder lifetime keeps the pool from filling);
+   the landed phase walks toward the player (measured ~0.5 px/frame),
+   so the ogres close in even without a scripted player;
 4. (death itself is pending on the known hit-convention item: the
    fireball spawns 18 px above the shooter's feet and the enemy box is
    +/-12, so a grounded shot cannot hit a grounded enemy -- NEXT_STEPS
    3 documents it as needing the ROM's convention, not a guessed offset.
-   The take shows ogres dying to shots; the port asserts the cycle, and
-   the kill joins the checker when that convention lands.)
+   No ogre actually dies in the measured window -- the $57 pickups in
+   the trace are broken-urn hearts, not ogre drops -- so the kill
+   assertion waits for either a take with ogre kills or the ROM's
+   hit convention.)
 
 Usage:
   python tools/check_ogre.py [--binary tools/demonscrest-py]

@@ -547,9 +547,10 @@ def _spawn_belth_piece(pool: ObjectPool, src) -> None:
 
 
 def _spawn_ogre(pool: ObjectPool, src) -> None:
-    """An ogre record ($63): a real enemy -- the 1-pose sheet is baked, the
-    take shows them dying to shots and dropping pickups.  States cycle
-    idle -> armed -> airborne -> landed (docs/OGRE_63.md)."""
+    """An ogre record ($63): a real enemy with its 1-pose sheet baked.
+    States cycle idle -> armed -> airborne -> landed, and the landed
+    phase slowly walks toward the player (measured on the stage-3 take:
+    ~0.5-0.75 px/frame while grounded; docs/OGRE_63.md)."""
     o = _alloc(pool)
     if o is None:
         return
@@ -2398,8 +2399,13 @@ def _ogre_update(pool: ObjectPool, o: Object, level, player) -> None:
         o.y_fx = float_to_fx(fx_to_float(o.origin_y_fx) - lift)
         o.phase = 2 + int(prog * 3.0) * 2
     else:
-        # landed: the measured post-hop dwell, then re-arm
+        # landed: the measured post-hop phase -- the take shows the ogre
+        # GLIDING ~0.5-0.75 px/frame toward the player (slot 8 walked
+        # (576,87) -> (680,151) between hops), not standing still.  Then
+        # it re-arms.
         o.phase = 0
+        o.facing = 1 if player.x >= ox else -1
+        o.x_fx += _c_int(o.facing * 0.5 * FX_ONE)
         if o.burst > 0:
             o.burst -= 1
         else:
