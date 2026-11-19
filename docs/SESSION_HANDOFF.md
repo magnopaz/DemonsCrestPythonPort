@@ -856,3 +856,24 @@ checker.
 Fica por fazer no Belth: arte (captura na sala real), os probes
 `$80A0FF` finos, os sons de fase e as tabelas sob suspeita
 (`$DF9C/$DF9F/$DFB3`).
+
+
+## Ogre ($63) portado; $B0 diagnosticado e adiado (2026-11-18, autónomo)
+
+- **`$63`** (`docs/OGRE_63.md`): máquina lida (`$83:9FAA`, estados
+  byte-indexados {0,2,4}, sub-tabela `$A04C`, física `$808B9C` +
+  colisão `$808C31`) e medida na take do estágio III (blob de estados:
+  subestados {0,2,4,6}, fases 2→4→6; ciclo idle→armado 40f→arco 40f com
+  apex 35px e ~200px→dwell 300f; **peça `$91` nasce no descolar** — o
+  `lda #$91` + `$82877B` do ramo das flags). Port em
+  `dcpy/object.py::_ogre_update` com constantes medidas; inimigo real
+  (folha de 1 pose), sempre-atingível ao lado do ghoul; peça `$91`
+  placeholder com vida de 300f. `check_ogre.py` na regressão: 7
+  registos, ciclos, viagem ≥100px, peças nascem e expiram. Pendente: a
+  máquina da `$91`, o acerto-no-chão (§3 do NEXT_STEPS), o estado 4
+  (`$A116`) fino, áreas 6/13/33 sem take.
+- **`$B0`**: NÃO portado de propósito — despacha nas flags (`$03 ×2 →
+  ($CADC,X)`, 18 variantes) nas áreas 91–112, **sem take nenhuma**.
+  Fica registado no NEXT_STEPS como "precisa de gravação dessas salas".
+- Regressão: esperado verde-excepto-áudio com o novo checker (a corrida
+  final está no histórico desta sessão).

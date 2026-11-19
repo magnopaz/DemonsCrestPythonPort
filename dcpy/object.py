@@ -546,6 +546,36 @@ def _spawn_belth_piece(pool: ObjectPool, src) -> None:
     o.burst = 240 + (src.flags % 7) * 60   # $3A: frames until self-delete
 
 
+def _spawn_ogre(pool: ObjectPool, src) -> None:
+    """An ogre record ($63): a real enemy -- the 1-pose sheet is baked, the
+    take shows them dying to shots and dropping pickups.  States cycle
+    idle -> armed -> airborne -> landed (docs/OGRE_63.md)."""
+    o = _alloc(pool)
+    if o is None:
+        return
+    _reset_object(o)
+    o.active = True
+    o.type = OBJECT_ENEMY
+    o.species = src.species
+    o.flags = src.flags
+    o.x_fx = float_to_fx(src.x)
+    o.y_fx = float_to_fx(src.y)
+    o.origin_x_fx = o.x_fx
+    o.origin_y_fx = o.y_fx
+    defn = enemy_defs.get(src.species, src.flags)
+    if defn is not None:
+        status = defn.get("status") or {}
+        o.hp = max(1, as_int(status.get("hp"), 2))
+        o.damage = max(0, as_int(status.get("contact_damage"), 1))
+    else:
+        o.hp = 2
+    o.max_hp = o.hp
+    o.state = 0
+    o.substate = 0
+    o.timer = 0
+    o.facing = 1 if src.x < 512.0 else -1
+
+
 def objects_init(pool: ObjectPool, level) -> None:
     # memset(pool, 0, sizeof(*pool)), then the phase default.
     for slot in pool.slots:
@@ -611,6 +641,9 @@ def objects_init(pool: ObjectPool, level) -> None:
         elif src.type == LEVEL_OBJECT_UNKNOWN and \
                 src.species == BELTH_SPECIES:
             _spawn_belth_piece(pool, src)
+        elif src.type == LEVEL_OBJECT_UNKNOWN and \
+                src.species == OGRE_SPECIES:
+            _spawn_ogre(pool, src)
         elif src.type == LEVEL_OBJECT_UNKNOWN and \
                 src.species in (PIT_CORE_SPECIES, PIT_BODY_SPECIES,
                                 PIT_EYE_SPECIES):
@@ -990,11 +1023,26 @@ BELTH_DRAG_SPEED_FX = 3 * FX_ONE   # $B7FD/$B83F: +-3 px/frame...
 BELTH_DRAG_DEADZONE = 4.0           # ...with a 4 px deadzone
 BELTH_PIECE_SPAWN_CD = 90       # controller spawns pieces at this cadence
 BELTH_PIECE_MAX = 10            # measured peak 12, sustained 3-10
-# The take's controller only shows up ~680 frames after room entry, once
-# the player has walked in from the door -- a pure proximity trigger would
-# fire on the boot spawn and drag a freshly respawned player (that exact
-# false positive turned the death-menu checker red).
+# The Belth take's controller only shows up ~680 frames after room entry,
+# once the player has walked in from the door -- a pure proximity trigger
+# would fire on the boot spawn and drag a freshly respawned player (that
+# exact false positive turned the death-menu checker red).
 BELTH_SPAWN_DELAY = 680
+
+# Ogre ($63, docs/OGRE_63.md).  States byte-indexed {0, 2, 4} (table $9FB5);
+# state 0 probes a landing spot $34+0x68 below ($809CA4, record $DC17) and
+# arms a hop, state 2 flies the arc, state 4 is the post-hop ground dwell.
+# The flags!=0 branch spawns species $91 (the thrown piece) at every hop --
+# observed live: $91 appears exactly on the airborne frame.  All constants
+# below are measured on the stage-3 take (areas 10/12):
+OGRE_SPECIES = 0x63
+OGRE_PROJ_SPECIES = 0x91     # the hop-spawned piece (own port pending)
+OGRE_HOP_RISE = 35.0         # measured arc apex above the ground (87 -> 52)
+OGRE_HOP_AIR_FRAMES = 40     # measured armed -> landed window
+OGRE_HOP_DX = 200.0          # measured per-hop travel toward the player
+OGRE_ARM_FRAMES = 40         # measured (0,2) countdown before liftoff
+OGRE_COOLDOWN = 300          # measured state-4 dwell before re-arming
+OGRE_PROBE_DROP = 104.0      # $34 + $0068: where the probe looks
 PIT_EYE_RELEASE = 220     # frames of fight before $1DF7: the body starts up
 
 # One row per satellite (records with flags 0..9), straight from the ROM's
@@ -2280,6 +2328,85 @@ def _belth_update(pool: ObjectPool, o: Object, player, level) -> None:
             o.active = False
 
 
+
+def _ogre_update(pool: ObjectPool, o: Object, level, player) -> None:
+    o.timer += 1
+    ox = fx_to_float(o.x_fx)
+    oy = fx_to_float(o.y_fx)
+    # contact damage, the way the generic enemy branch does it
+    if (abs(ox - player.x) < 14.0 and
+            abs(oy - (player.y - 10.0)) < 18.0):
+        _damage_player(player, ox, o.damage if o.damage > 0 else 1)
+    if o.state == 0:
+        if o.substate == 0:
+            # idle: face the player, arm a hop once the landing probe
+            # would find ground ($809CA4 with the $DC17 record looks
+            # $34+0x68 below in the facing direction)
+            o.facing = 1 if player.x >= ox else -1
+            if o.timer % 90 == 0:
+                lx = ox + o.facing * OGRE_HOP_DX * 0.5
+                floor_y = level_floor_at(level, lx, oy + OGRE_PROBE_DROP)
+                if floor_y is not None and abs(floor_y - oy) < 120.0:
+                    o.substate = 2
+                    o.burst = OGRE_ARM_FRAMES      # $3A countdown
+        else:
+            # armed: countdown, then lift off -- the flags!=0 branch of
+            # $A01A spawns the $91 piece at every hop (measured: $91
+            # appears exactly on the airborne frame)
+            if o.burst > 0:
+                o.burst -= 1
+                if o.burst == 0:
+                    o.state = 2
+                    o.substate = 2
+                    o.phase = 2
+                    o.origin_x_fx = o.x_fx
+                    o.origin_y_fx = o.y_fx
+                    o.target_x_fx = float_to_fx(
+                        ox + o.facing * OGRE_HOP_DX)
+                    if o.flags:
+                        piece = _alloc(pool)
+                        if piece is not None:
+                            _reset_object(piece)
+                            piece.active = True
+                            piece.type = LEVEL_OBJECT_UNKNOWN
+                            piece.species = OGRE_PROJ_SPECIES
+                            piece.flags = 0
+                            piece.x_fx = o.x_fx
+                            piece.y_fx = o.y_fx
+                            piece.origin_x_fx = piece.x_fx
+                            piece.origin_y_fx = piece.y_fx
+                            piece.burst = 300   # thrown piece lifetime
+    elif o.state == 2:
+        # airborne: the measured arc, apex OGRE_HOP_RISE, landing at the
+        # probe's floor; $3B steps 2 -> 4 -> 6 while it flies ($A05E/$A071)
+        if o.hops >= OGRE_HOP_AIR_FRAMES:
+            o.state = 4
+            o.substate = 2
+            o.hops = 0
+            o.burst = OGRE_COOLDOWN    # the measured post-hop dwell
+            floor_y = level_floor_at(
+                level, fx_to_float(o.x_fx), oy + OGRE_PROBE_DROP)
+            if floor_y is not None:
+                o.y_fx = float_to_fx(floor_y)
+            return
+        o.hops += 1
+        prog = o.hops / OGRE_HOP_AIR_FRAMES
+        sx = fx_to_float(o.origin_x_fx)
+        tx = fx_to_float(o.target_x_fx)
+        o.x_fx = float_to_fx(sx + (tx - sx) * prog)
+        lift = OGRE_HOP_RISE * 4.0 * prog * (1.0 - prog)
+        o.y_fx = float_to_fx(fx_to_float(o.origin_y_fx) - lift)
+        o.phase = 2 + int(prog * 3.0) * 2
+    else:
+        # landed: the measured post-hop dwell, then re-arm
+        o.phase = 0
+        if o.burst > 0:
+            o.burst -= 1
+        else:
+            o.state = 0
+            o.substate = 0
+
+
 def objects_update(pool: ObjectPool, level, player) -> None:
     pool.boss_alive = False
     if not pool.belth_spawned:
@@ -2313,6 +2440,20 @@ def objects_update(pool: ObjectPool, level, player) -> None:
 
         if o.species == BELTH_SPECIES:
             _belth_update(pool, o, player, level)
+            continue
+
+        if o.species == OGRE_SPECIES:
+            _ogre_update(pool, o, level, player)
+            continue
+
+        if o.species == OGRE_PROJ_SPECIES:
+            # The ogre's thrown piece ($91): its own machine is not ported
+            # yet; until then it lives the measured flight and expires
+            # instead of piling up in the pool.
+            if o.burst > 0:
+                o.burst -= 1
+                if o.burst == 0:
+                    o.active = False
             continue
 
         if o.type == OBJECT_PLATFORM:
@@ -3112,11 +3253,13 @@ def objects_check_projectiles(pool: ObjectPool, projectiles, player=None) -> Non
                     _spawn_pickup(pool, ox, oy + URN_HALF)
                     break
             elif o.type == OBJECT_ENEMY and \
-                    (o.species == 0x67 or o.state != 0 or
+                    (o.species == 0x67 or o.species == OGRE_SPECIES or
+                     o.state != 0 or
                      enemy_defs.get(o.species, o.flags) is not None):
-                # Ghouls are hittable in every state: the ROM's $05 values are
-                # behaviour states, not an emerge phase.  Authored species are
-                # always hittable (a turret stays in state 0).
+                # Ghouls and ogres are hittable in every state: the ROM's $05
+                # values are behaviour states, not an emerge phase.
+                # Authored species are always hittable (a turret stays in
+                # state 0).
                 if abs(px - ox) <= 12.0 and abs(py - oy) <= 12.0:
                     p.active = False
                     defn = enemy_defs.get(o.species, o.flags)

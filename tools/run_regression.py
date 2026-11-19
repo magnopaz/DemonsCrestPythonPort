@@ -414,6 +414,15 @@ def main() -> int:
         check(belth_proc.returncode == 0,
               "belth: check failed\n" + belth_proc.stdout[-800:])
 
+        # ---- Species $63: the ROM ogre hop cycle ----
+        ogre_proc = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_ogre.py"),
+             "--binary", str(binary), "--assets", str(assets)],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=600)
+        check(ogre_proc.returncode == 0,
+              "ogre: check failed\n" + ogre_proc.stdout[-800:])
+
         # ---- Species $67: the ROM ghoul state machine ----
         ghoul_proc = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "check_ghoul.py"),
@@ -768,6 +777,7 @@ def main() -> int:
           "death continue hub, authored-room overlay guard, no-render parity, "
           "pit boss opening/launch + damage, "
           "boss hp/damage (boss_hp.txt), arma2 intro flag, belth fight, "
+          "ogre hop cycle, "
           "boss defeat + multi-area loads)")
     return 0
 

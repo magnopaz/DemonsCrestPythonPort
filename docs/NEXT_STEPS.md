@@ -196,9 +196,20 @@ estados, que helpers e que arte cada espécie tem. Ordem de ataque:
    o oracle não desenha OAM (nem com `--flags 0x80`); era um controlador de
    script, não uma peça visível. Deixou de inventar placeholders nas salas
    52/53/54.
-3. `$68` (30, 2 estados) e `$B0` (18, 2 estados) — máquinas pequenas com
-   tabelas próprias. `$68` ainda sem arte (a captura não desenha).
-4. `$63` (35, 3, arte de 1 pose já cozida) — primeiro inimigo completo.
+3. ~~`$68` (30, 2 estados)~~ — **feito a 2026-11-18** (`docs/BELTH_68.md`:
+   controlador + peças ancoradas, arrasto do jogador, kill apaga tudo).
+   **`$B0` por tomar**: a leitura de 2026-11-18 mostrou que despacha nas
+   **FLAGS** (`lda $03; asl; jsr ($CADC,X)` — 18 variantes, uma por sala,
+   áreas 91–112) e **nenhuma take existente cobre essas salas** — portar
+   sem medição seria inventar; precisa de uma gravação que as visite.
+4. ~~`$63` (35, 3, arte de 1 pose já cozida)~~ — **feito a 2026-11-18**
+   (`docs/OGRE_63.md`): estados byte-indexados {0,2,4}, o arco medido
+   na take do estágio III (áreas 10/12: apex 35 px, ~40 f no ar, ~200 px
+   na direcção do jogador, dwell ~300), **a peça `$91` nasce no frame do
+   descolar** (ramo das flags, `lda #$91` + allocator), peças com prazo
+   até a máquina própria ser portada. Checker `check_ogre.py` na
+   regressão. O *kill a tiro* fica pendente da convenção do acerto no
+   chão (§3 abaixo).
 5. `$06`, `$30`, `$61`; depois os de 5 estados; `$50`/`$20`/`$9C` no fim.
 
 Antes das espécies, portar os helpers partilhados (§4 do censo): probe
