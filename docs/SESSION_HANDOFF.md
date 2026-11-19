@@ -896,3 +896,28 @@ inimigo é ±12 — tiro no chão não alcança inimigo no chão):
   e ler o teste, ou (b) uma take onde o jogador acerte num inimimo
   parado no chão (basta um esqueleto da área 2 ou um ogre) para medir
   a distância tiro↔alvo no frame do hit.
+
+
+## rec_map_areas (2026-11-19): 91–112 são inacessíveis; $16/área-54 reconciliado
+
+A take do tour pelo mapa do utilizador (`rec_map_areas`,
+`rec_20261119_112516`, 8,8k frames) cobre **0, 80, 82, 94, 52, 49, 55,
+54** — as 52/49/55/54 novas. Conclusões:
+
+- **As salas 91–112 não se visitam a andar**: são ecrãs de sistema
+  (256×N, **zero portas**, só o `$B0`, sem nome no `room_names.json`).
+  Nenhum tour as alcança; o `$B0` só se mede quando a ROM disser
+  **quando** é que esses ecrãs carregam (leitura, não gravação — a
+  nota está no NEXT_STEPS).
+- **`$16`/área 54 e `$6F`/área 52 nunca entram no pool** nos ecrãs de
+  arena: são registos dormentes das pré-visualizações do mapa. A
+  reconciliação "a `$16` da área 54 é outra entrada" está FECHADA
+  (nota nova no TAKES.md §6.1); o "Ovununu" do boss_hp.txt é o lodo do
+  poço, não a 54.
+- **`$9B` vive**: nos ecrãs de arena as peças "inertes" têm
+  estado/subestado a mexer — invisíveis (init sem metasprite) mas com
+  script interno. O port não as spawna lá (nada se desenha) — quando o
+  papel delas for lido, entra como script invisível.
+- Os ecrãs de arena põem **objectos dinâmicos** no pool: `$94`/`$40`
+  na 54, `$97`/`$66` na 49/52 — os sprites das pré-visualizações;
+  catálogo para quando as pré-visualizações forem portadas (Passo 5).

@@ -199,6 +199,14 @@ lançados. A tabela `BOSSES` do `tools/check_bosses.py` põe o `$16` na **área
 54** (que no `room_area54.json` só tem as peças `$9B` inertes) — é outra
 entrada, a reconciliar; o poço não a usa.
 
+**Reconciliado a 2026-11-19** com a take do tour pelo mapa do utilizador
+(`rec_map_areas`): os ecrãs de arena 52–55 são as pré-visualizações do mapa
+— e neles **o `$16` (área 54) e o `$6F` (área 52) nunca entram no pool**
+(os registos de (216,183) ficam dormentes; o `$9B` afinal vive com estados
+internos, invisível). A entrada do `BOSSES` descreve dados de sala, não uma
+luta; o "Ovununu" do `boss_hp.txt` continua a ser o lodo do poço, não a
+área 54.
+
 ### 6.2 `..._dark-avenue_to_..._reservoir_to_..._boneyard` — 23 056 frames (384 s)
 
 | área | loader | frames | tempo |
