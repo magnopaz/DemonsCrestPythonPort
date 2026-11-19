@@ -126,14 +126,20 @@ def sample(c: Client, gframe: int, objects: bool = False) -> dict:
             continue
         slots.append((i, rec[2],
                       (rec[0x30] | rec[0x31] << 8 | rec[0x32] << 16) / 256.0,
-                      (rec[0x33] | rec[0x34] << 8 | rec[0x35] << 16) / 256.0))
+                      (rec[0x33] | rec[0x34] << 8 | rec[0x35] << 16) / 256.0,
+                      rec[5], rec[6], rec[0x3B]))
     row = dict(gframe=gframe, area8d=area8d, area=area8d // 2,
                state=win[5], sub=win[6], x=round(x, 1), y=round(y, 1),
                species=";".join(str(s) for s in sorted({s[1] for s in slots})))
     if objects:
         # `|` keeps the field readable; csv quotes it because of the commas.
-        row["objects"] = "|".join(f"{i}:{s:02x}@{sx:.0f},{sy:.0f}"
-                                  for i, s, sx, sy in slots)
+        # The `#state.sub.phase` suffix (live $05/$06/$3B) is additive: the
+        # slot:species@x,y prefix is unchanged, so old extractions that only
+        # match the prefix keep working.  Belth ($68) needs it -- its
+        # substates are byte-offsets, not indexes (docs/BELTH_68.md 2).
+        row["objects"] = "|".join(
+            f"{i}:{s:02x}@{sx:.0f},{sy:.0f}#{st:02x}.{su:02x}.{ph:02x}"
+            for i, s, sx, sy, st, su, ph in slots)
     return row
 
 

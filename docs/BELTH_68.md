@@ -18,7 +18,7 @@ marcador magenta: 30 registos `unknown` (21 na área 9, 9 na área 35).*
     — flags ≥ 4 com o bit `$40` marcam `$0A` (a captura injectada com
     `--flags 0x84` fazia a espécie desaparecer porque o init esperava o
     contexto da sala; os registos reais usam 0x82/0x84/0xF4);
-  - estado 1, sub@0: `and #$03` — os bits 0–1 são a variante; `cmp #$02`
+  - estado 2, sub@0: `and #$03` — os bits 0–1 são a variante; `cmp #$02`
     compra um random extra; o bit 0 decide o deslocamento **-0x30/ +0x20**
     do ponto de teleporte.
 
@@ -27,7 +27,8 @@ marcador magenta: 30 registos `unknown` (21 na área 9, 9 na área 35).*
 ```asm
 83:B393  sep #$30
         ldx $05               ; estado
-        jsr ($B3A3,X)         ; 0 → $B3A7, 1 → $B54E
+        ldx $05               ; estado — TAMBÉM byte-indexado
+        jsr ($B3A3,X)         ; $05=0 → $B3A7 (peças), $05=2 → $B54E (controlador)
         lda $0C; bne rtl; jmp $80F83D   ; cauda comum
 ```
 
@@ -47,8 +48,14 @@ Estado 0 (`$B3A7`): `ldx $06; jmp ($B3AC,X)` — **X é o offset em bytes, não 
 **Quem ler a tabela como índices 0..6 sem dobrar cai em alvos fora da janela
 LoROM (`$83:04F0`, `$83:3E80`, `$83:75A0`) e conclui errado.** Os valores
 `$06 = 8/$0A/$0C` aparecem por todo o lado (`$B7AC`, `$B71A`, `$B727`, …) e são
-perfeitamente válidos porque a indexação é por byte. O estado 1 usa a mesma
-convenção (`jsr ($B563,X)`).
+perfeitamente válidos porque a indexação é por byte. O controlador usa a
+mesma convenção (`jsr ($B563,X)` em `$B54E`).
+
+**Os estados também são byte-indexados** (confirmado ao vivo, §9): a
+leitura estática inicial dizia "estado 1 → `$B54E`" por ler a tabela como
+índices; o `jsr ($B3A3,X)` com X=`$05` só visita `$B3A7` (com `$05=0`) e
+`$B54E` (com **`$05=2`**) — medido: os `$68` do trace usam `$05 ∈ {0,2}`,
+nunca 1.
 
 ## 3. Estado 0 — as peças (chamas/servos)
 
@@ -83,7 +90,7 @@ convenção (`jsr ($B563,X)`).
   `$39=$1B`; ramo B `$B538`: `dec $39` → 0 → jmp `$B47E` (fecha o ciclo de
   fases); `$B88D`/`$B77E`; nalguma condição → `$06=8, $3E=0`.
 
-## 4. Estado 1 — o controlador (o mago)
+## 4. Estado 2 — o controlador (o mago)
 
 Dispatcher `$B54E` (`jsr ($B563,X)`, byte-indexado: 0/2/4/6/8/A/C →
 `$B571 $B5D8 $B604 $B617 $B649 $B65F $B6DC`). Cauda: se o objecto referenciado
@@ -134,7 +141,7 @@ Dispatcher `$B54E` (`jsr ($B563,X)`, byte-indexado: 0/2/4/6/8/A/C →
 
 ## 6. Leitura para o port
 
-- O modelo é **um controlador + peças**: o controlador (estado 1) teleporta
+- O modelo é **um controlador + peças**: o controlador (estado 2) teleporta
   (random+colisão, offsets ±) e as peças (estado 0) homingam-no em X e Y com
   ±3/frame, deadzone 4, a altura por fase (`$DFB3`). O `$4C` (broadcast)
   sincroniza o engajamento; `$38` referencia o parceiro; `$4A` reage à morte
@@ -197,9 +204,7 @@ amostra seguinte (g11861) já não há **nenhum**:
 
 ### O que falta para portar (actualizado a 2026-11-18)
 
-1. **Estados vivos**: repetir o replay com `$05/$06` no blob (2 bytes no
-   `trace_stage.py`) para confirmar as transições dos subestados byte-
-   indexados contra o §2.
+1. ~~Estados vivos~~ — **feito**, ver §9.
 2. **Helpers por ler**: `$B88D`, `$B87C`, `$B727`, `$B73E`, `$B71A`,
    `$B412`, `$B7C8` completa, e os JSL `$80A0FF/$809E7F/$80BD51/$80F83D`
    (as bases `$DF9C/$DF9F/$DFB3` estão sob suspeita — §3/§5).
@@ -208,3 +213,28 @@ amostra seguinte (g11861) já não há **nenhum**:
 4. **Checker**: entrar na área 9 → peças saem do placeholder e ancoram
    nos registos; contagem 3–12; homing ±3/4px; **kill apaga tudo de
    uma vez**; o jogador sai pelo mapa.
+
+## 9. Estados vivos — o replay com `$05/$06/$3B` (2026-11-18)
+
+O `trace_stage.py` ganhou o sufixo `#state.sub.phase` por slot (bytes vivos
+`$05/$06/$3B` do registo; o prefixo `slot:sp@x,y` mantém-se compatível).
+Repetido o replay da take do §8 (`rec_level_2`, passo 20):
+
+- **Estados medidos: `$05 ∈ {0, 2}`** — 936 amostras de peças (estado 0),
+  259 do controlador (estado 2), **nunca 1**: confirma a indexação por
+  byte também nos estados (§2) e corrige a leitura estática inicial.
+- **Subestados das peças: `{0: 746, 2: 372, 4: 45, 6: 17, 8: 12, C: 3}`**
+  (amostras) — todos pares, tal como o §2 previu; o ciclo do slot 8 ao
+  vivo: `0 → 2 → 4 → C → 4 → 2 → 0` e o ataque em `sub=6` com fases
+  `$3B` 0..5 a rodar.
+- **O controlador nasce `(sub 0, fase 0)` e passa a `(sub 2, fase 6)`**
+  numa amostra — exactamente o arranque do `$B571` (`$3B=6`, `$06=2`) —
+  e **vive em `(2, 6)` a luta inteira** (258/259 amostras). Fase 6 é
+  exclusiva do controlador nas medições.
+- **O teleporte do controlador é um re-spawn**: ao longo da luta ocupa
+  **7 slots diferentes** (20, 21, 17, 18, 19, 16, 14), do primeiro
+  (582, 367) ao último (1558, 247) — consistente com os ramos de apagar
+  (`$0C=$80`) + allocator `$828777`; não há deslize, há morte/nascimento
+  de instância.
+- **Peças estacionadas dominam**: `(sub 0)` é 62% das amostras de peça —
+  ancoradas nos registos, tal como §7/§8 mediram pelas posições.
