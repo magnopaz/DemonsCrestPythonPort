@@ -877,3 +877,22 @@ Fica por fazer no Belth: arte (captura na sala real), os probes
   Fica registado no NEXT_STEPS como "precisa de gravação dessas salas".
 - Regressão: esperado verde-excepto-áudio com o novo checker (a corrida
   final está no histórico desta sessão).
+
+
+## Convenção do acerto: estado da caçada (2026-11-18)
+
+Item §3 do NEXT_STEPS (o fireball nasce a `player.y-18` e a caixa do
+inimigo é ±12 — tiro no chão não alcança inimigo no chão):
+
+- `$809CA4` **não é** o teste de acerto — é o probe de solidez
+  (candidato = posição própria + registo `[dx][dy]`, amostra a colisão
+  do nível via `$9C2C`; é o que o ogre usa para aterragens). O teste
+  projéctil↔inimigo está noutro handler por identificar.
+- Os offsets do port (`PLAYER_FIREBALL_X_OFFSET=10`, `Y_OFFSET=18`)
+  vêm do projectile.c sem âncora de ROM anotada.
+- **Nenhum ogre morre na janela medida** da take do estágio III (os
+  `$57` são urnas) — não há geometria de impacto medida. Faltam: (a)
+  achar o handler do fireball na ROM (a espécie/estado dele no censo)
+  e ler o teste, ou (b) uma take onde o jogador acerte num inimimo
+  parado no chão (basta um esqueleto da área 2 ou um ogre) para medir
+  a distância tiro↔alvo no frame do hit.
