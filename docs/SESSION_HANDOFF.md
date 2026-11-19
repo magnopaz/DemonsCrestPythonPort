@@ -800,3 +800,28 @@ contadores do renderer (`placeholders_drawn`, `decor_drawn`) tem de fazer
 
 Fica pendente no 6b: cache das bandas do BG (`RenderTexture2D`) para o fps
 na janela — não é preciso já.
+
+
+## Belth ($68): a máquina lida e medida (2026-11-18)
+
+**`docs/BELTH_68.md`** — a espécie do Passo 2/4 estava como placeholder
+magenta; agora tem a análise completa no molde do `ARMA_AI.md`:
+
+- **ROM**: despacho por tabelas **byte-indexadas** (`$06` é offset — a lição
+  do doc; ler como índice 0..6 cai fora da janela LoROM); 2 estados × 7
+  subestados; o estado 1 é o controlador (teleporta com random+colisão,
+  broadcast `$4C`), o 0 são as peças (homing ±3px com deadzone 4, tabela de
+  fases `$DF89/$DF8E`, sons por fase). Bases `$DF9C/$DF9F/$DFB3` sob
+  suspeita (leem-se como código) — confirmar com estados vivos.
+- **Medição**: a take §6.2 (`…_to_ruined-city-boneyard` — cuidado: dentro de
+  `rec_stage2_trace` há DUAS takes; a outra, só-avenida, nunca chega à área
+  9) dá o ciclo: 3–10 peças, **as 21 posições dos registos são as âncoras**
+  — todas observadas exactas. A **`rec_level_2` do utilizador** (com o kill)
+  fecha o fim: 3–12 peças, **a morte do boss apaga tudo de uma vez**
+  (g11841→g11861), o jogador sai pelo mapa ao g14681.
+- **Falta para o port**: `$05/$06` no blob do `trace_stage.py` (2 bytes) e
+  repetir o replay; helpers por ler (`$B88D/$B87C/$B727/$B73E/$B71A/$B412/
+  $B7C8`, JSL `$80A0FF/$809E7F/$80BD51/$80F83D`); arte (captura na sala
+  real); depois o handler em `object.py` + `check_belth.py`.
+- `rec_level_v` do utilizador também foi digitalizada: áreas 24→27
+  (Poseidonia) — sem Belth, fica registada como cobertura.

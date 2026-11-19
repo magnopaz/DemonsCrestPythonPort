@@ -154,8 +154,14 @@ cobre os quatro casos e está na regressão. Ver `docs/BOSS_INTROS.md`.
 - **Poço (área 8)**: `$6B` sobe atrás do jogador (y 700→212 medido), `$6C` são
   os olhos que voam, `$69` fica fixo no fundo. Não é `$16`; a entrada da área 54
   nessa tabela é outra coisa. Dados em `docs/TAKES.md` §6.1.
-- **Belth (área 9)**: `$68`, 30 registos, ainda sem arte; a take tem duas mortes
-  e o padrão de ataque para comparar.
+- **Belth (área 9)**: `$68`, 30 registos. **A máquina está lida da ROM e
+  medida contra duas takes** (`docs/BELTH_68.md`): 2 estados × 7
+  subestados byte-indexados, controlador que teleporta + peças que
+  homingam ±3px (deadzone 4) e ancoram nas posições dos registos; a take
+  §6.2 tem as duas mortes, a `rec_level_2` do utilizador (2026-11-18) tem
+  **o kill** — as peças desaparecem todas de uma vez. Falta: estados
+  vivos ($05/$06 no blob do trace_stage), arte (captura na sala real) e
+  o port em si.
 
 ### O que **não** fazer primeiro
 
