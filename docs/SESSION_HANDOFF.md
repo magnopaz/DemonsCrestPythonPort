@@ -957,3 +957,28 @@ ledge de x≈1000) ou a área 10 (os ogres agora portados) — encara um
 inimimo parado e dispara **cada tipo de tiro** uns segundos. O
 replay a passo 4 dá o frame exacto do impacto e a distância
 tiro↔alvo.
+
+
+## rec_kill_enemies: CORRECÇÃO da leitura (2026-11-19, input log)
+
+O utilizador corrigiu: **a take TEM jogo real** — e o `input_log.jsonl`
+confirma. Os primeiros ~8400 frames são idle (menus a avançar sozinhos);
+**a jogada real é g8988→fim**, nas áreas **87/83/0/82**, com inputs
+densos (máscaras 1/2/8/16/32/64/128). Os inimigos que ele descreve
+("normais, espalhados pelos cenários") são **dinâmicos** — as salas
+82/83 têm **0 objectos nos JSONs** e ainda assim o pool enche de
+`$66`/`$33`/`$35-38` — spawnadas pelo script da sala, não por
+registos. A minha leitura "menus/attract" da janela final estava
+ERRADA (a janela inicial até g8400 sim era idle).
+
+**Porque é que a geometria ainda não saiu**: o replay mostra que os
+tiros do jogador **não vivem no pool de 26 slots** — nenhum slot se
+move a ~3 px/frame durante os disparos (o `0x4F` afinal é peça estática
+do ecrã 82). O port também separa os projécteis (ProjectilePool) —
+provavelmente com razão. Para medir o impacto falta:
+1. achar na ROM o handler do fireball e o **endereço WRAM do array de
+   projécteis** (o repo do oracle é recompilador sem símbolos — é
+   leitura de ROM, não grep);
+2. estender o `trace_stage.py` com um dump desse array;
+3. re-replay a MESMA take (`rec_kill_enemies`, janela g8988+) — os
+   disparos estão lá, só não são visíveis pelo blob actual.
