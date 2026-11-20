@@ -137,6 +137,128 @@ def documented_species_block(entry: dict) -> dict | None:
     if damage is not None:
         out["damage"] = damage
     return out
+# A blob record from tools/oracle/trace_stage.py --objects:
+# "<slot>:<sp>@<x>,<y>#<state>.<sub>.<phase>", all hex two-digit except the
+# slot and the coordinates.
+TRACE_OBJ_RE = re.compile(
+    r"(\d+):([0-9a-fA-F]{2})@(-?\d+),(-?\d+)"
+    r"#([0-9a-fA-F]{2})\.([0-9a-fA-F]{2})\.([0-9a-fA-F]{2})")
+
+TRACE_CSV_MAX_BYTES = 64 * 1024 * 1024
+TRACE_MAX_POINTS = 2400      # total, across every returned run
+
+
+def parse_blob_csv(text: str) -> list:
+    """Parse a trace_stage replay CSV into (gframe, area, objects) rows.
+
+    ``objects`` is a list of (slot, species, x, y, state, sub, phase)
+    tuples.  Malformed rows are skipped, not fatal.
+    """
+    import csv as _csv
+    import io
+    rows: list = []
+    reader = _csv.reader(io.StringIO(text))
+    header = None
+    for row in reader:
+        if not row:
+            continue
+        if header is None:
+            header = [cell.strip() for cell in row]
+            if "gframe" not in header or "objects" not in header:
+                return []
+            continue
+        rec = dict(zip(header, row))
+        try:
+            g = int(rec["gframe"])
+            area = int(rec.get("area") or 0)
+        except (KeyError, ValueError):
+            continue
+        objs = []
+        for m in TRACE_OBJ_RE.findall(rec.get("objects") or ""):
+            slot, sp, sx, sy, st, su, ph = m
+            objs.append((int(slot), int(sp, 16), int(sx), int(sy),
+                         int(st, 16), int(su, 16), int(ph, 16)))
+        rows.append((g, area, objs))
+    return rows
+
+
+def trace_summary(rows: list, max_points: int = TRACE_MAX_POINTS) -> dict:
+    """Per-species trajectories and measured state histograms.
+
+    Returns ``{"species": {id: {...}}, "span": [g0, g1], "rows": N}``
+    where each species entry holds ``runs`` (per-slot, per-area path
+    segments with decimated points) and ``states`` (how long the live
+    state $05 held, measured in frames -- the honest reference for
+    hand-tuning animation durations, not something to auto-apply).
+    """
+    by_slot: dict = {}
+    areas: set = set()
+    span = [None, None]
+    for g, area, objs in rows:
+        areas.add(area)
+        if span[0] is None or g < span[0]:
+            span[0] = g
+        if span[1] is None or g > span[1]:
+            span[1] = g
+        for slot, sp, x, y, st, su, ph in objs:
+            key = (sp, slot, area)
+            by_slot.setdefault(key, []).append((g, x, y, st, su, ph))
+    out: dict = {"species": {}, "span": span, "areas": sorted(areas),
+                 "rows": len(rows)}
+    total = 0
+    for (sp, slot, area), pts in sorted(by_slot.items()):
+        entry = out["species"].setdefault(sp, {
+            "runs": [], "states": {}, "points": 0})
+        entry_points = 0
+        # split into runs when the gap between samples is large (the
+        # object died and came back, or the replay moved away)
+        runs = []
+        cur = [pts[0]]
+        for prev, nxt in zip(pts, pts[1:]):
+            if nxt[0] - prev[0] > 240:
+                runs.append(cur)
+                cur = []
+            cur.append(nxt)
+        runs.append(cur)
+        for run in runs:
+            stride = 1
+            if total + len(run) > max_points:
+                stride = max(1, math.ceil(
+                    len(run) / max(1, max_points - total)))
+            kept = run[::stride]
+            if not kept:
+                continue
+            total += len(kept)
+            entry_points += len(kept)
+            entry["runs"].append({
+                "slot": slot, "area": area,
+                "start": kept[0][0], "end": kept[-1][0],
+                "points": [[g, x, y, st, su, ph]
+                            for g, x, y, st, su, ph in kept],
+            })
+            # state $05 histogram in frames, from the raw (undecimated)
+            # run so the durations stay exact
+            seg_state, seg_start, seg_last = run[0][3], run[0][0], run[0][0]
+            for g, x, y, st, su, ph in run[1:]:
+                if st != seg_state:
+                    rec = entry["states"].setdefault(seg_state, {
+                        "frames": 0, "segments": 0})
+                    rec["frames"] += seg_last - seg_start
+                    rec["segments"] += 1
+                    # the new state is already live at this sample; the
+                    # boundary error stays under one sample step
+                    seg_state, seg_start = st, g
+                seg_last = g
+            rec = entry["states"].setdefault(seg_state, {
+                "frames": 0, "segments": 0})
+            rec["frames"] += seg_last - seg_start
+            rec["segments"] += 1
+        for rec in entry["states"].values():
+            rec["mean"] = (round(rec["frames"] / rec["segments"])
+                           if rec["segments"] else 0)
+        entry["points"] = entry_points
+    return out
+
 AI_KINDS = ["walker", "flyer", "charger", "turret", "stationary"]
 ATTACK_TYPES = ["projectile", "spread", "burst", "lunge", "melee"]
 

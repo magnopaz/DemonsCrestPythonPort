@@ -1238,6 +1238,43 @@ export class EnemyEditor {
   renderAnimationTab() {
     clear(this.tabBody);
     const stateKeys = Object.keys(this.states).sort((a, b) => Number(a) - Number(b));
+    // measured reference from an oracle trace (docs/EDITOR_NEXT_FEATURES
+    // #7): the blob's live state $05 durations for THIS species.  Read-
+    // only -- the mapping between the ROM AI state and the animation
+    // state is the author's judgement, never auto-applied.
+    const measured = this.measuredStates
+      ? this.measuredStates[String(this.entry.species)] : null;
+    this.tabBody.append(
+      h("div", { class: "field-note dim",
+        text: measured
+          ? Object.entries(measured).sort((a, b) => a[0] - b[0]).map(
+              ([st, rec]) => `state $${Number(st).toString(16)}: ` +
+                `${rec.frames}f over ${rec.segments}x (~${rec.mean}f)`).join(" · ")
+          : "Measured states: import a trace_stage replay CSV to see how " +
+            "long the ROM kept this species in each live state $05." }),
+      h("button", {
+        text: "Import measured states\u2026",
+        onclick: () => this.traceStatesInput
+          && this.traceStatesInput.click(),
+      }),
+      (this.traceStatesInput = h("input", {
+        type: "file", accept: ".csv,text/csv",
+        style: { display: "none" },
+        onchange: async (event) => {
+          const file = event.target.files && event.target.files[0];
+          event.target.value = "";
+          if (!file) return;
+          try {
+            const summary = await api.trace(await file.text());
+            this.measuredStates = summary.species;
+            this.renderAnimationTab();
+          } catch (error) {
+            this.app.setStatus("Trace import failed", error.message);
+          }
+        },
+      })),
+      h("hr"),
+    );
     const addState = h("select", {
       onchange: () => {
         const id = addState.value;

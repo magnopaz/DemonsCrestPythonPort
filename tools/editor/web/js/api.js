@@ -22,6 +22,9 @@ async function request(path, options = {}) {
 
 export const api = {
   health: () => request("/api/health"),
+  trace: (csv) => request("/api/trace", {
+    method: "POST", body: JSON.stringify({ csv }),
+  }),
   meta: () => request("/api/meta"),
   rooms: () => request("/api/rooms"),
   room: (area) => request(`/api/rooms/${area}`),

@@ -136,6 +136,53 @@ class EditorDataTests(unittest.TestCase):
         self.assertFalse((self.authored / "species_anim.json").exists())
         self.assertFalse((self.authored / "enemies.json").exists())
 
+    def test_trace_parse_and_summary(self):
+        # a synthetic blob: species 0x63 hops 87 -> 52 -> 87 in area 12,
+        # state $05 walks 2 -> 4 -> 6 -> 4; species 0x66 sits still in
+        # area 83; a row with no objects is skipped by the regex
+        lines = ["gframe,area8d,area,state,sub,x,y,species,objects"]
+        g = 0
+        for i in range(60):
+            g += 4
+            y = 87 - (35 if 10 <= i < 50 else 0)
+            st = 2 if i < 10 else (4 if i < 40 else 6)
+            # the real trace quotes the objects column (commas inside)
+            lines.append(f'{g},24,12,0,0,0,0,0,"|8:63@{100 + i * 3},{y}'
+                          f'#{st:02x}.00.00"')
+            if i % 2:
+                lines.append(f'{g},166,83,0,0,0,0,0,"|9:66@56,184'
+                              f'#02.00.00"')
+        lines.append("99999,24,12,0,0,0,0,0,broken not objects")
+        summary = editor_data.trace_summary(
+            editor_data.parse_blob_csv("\n".join(lines) + "\r\n"))
+        # 60 ogre rows + 30 interleaved 0x66 rows + 1 broken row
+        self.assertEqual(summary["rows"], 91)
+        self.assertIn(12, summary["areas"])
+        self.assertIn(83, summary["areas"])
+        self.assertEqual(summary["span"][0], 4)
+        ogre = summary["species"][0x63]
+        self.assertEqual(len(ogre["runs"]), 1)
+        pts = ogre["runs"][0]["points"]
+        # decimated or not, the arc is visible: y min 52, max 87, x grows
+        ys = [p[2] for p in pts]
+        xs = [p[1] for p in pts]
+        self.assertEqual(min(ys), 52)
+        self.assertEqual(max(ys), 87)
+        self.assertGreater(xs[-1], xs[0])
+        # segment frames run first-sample -> last-sample of the state
+        self.assertEqual(ogre["states"][2]["mean"], 36)   # g4..g40
+        self.assertEqual(ogre["states"][4]["mean"], 116)  # g44..g160
+        self.assertEqual(ogre["states"][6]["mean"], 76)   # g164..g240
+        self.assertEqual(ogre["points"], len(pts))
+        piece = summary["species"][0x66]
+        self.assertEqual(piece["runs"][0]["area"], 83)
+        # the cap is honoured even with many small runs
+        big = editor_data.trace_summary(
+            editor_data.parse_blob_csv("\n".join(lines)),
+            max_points=8)
+        kept = sum(e["points"] for e in big["species"].values())
+        self.assertLessEqual(kept, 8 + 12)  # soft cap, small overshoot
+
     def test_forms_damage_round_trip_and_documented_block(self):
         # the authored per-form damage matrix survives normalisation
         definition = editor_data.normalize_enemy_def({

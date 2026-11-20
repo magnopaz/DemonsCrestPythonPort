@@ -159,6 +159,16 @@ magenta; the inspector lists changed collision cells, objects, doors, spawns
 and room fields. This is the quick way to review a correction pass without
 diffing JSON by hand.
 
+**Oracle trace overlay.** **Import oracle trace…** loads a
+`tools/oracle/trace_stage.py replay <take> --objects` CSV and draws the
+measured object paths over the room: one polyline per pool slot per visit,
+colour per species, a square at each run's first sample. The legend lists
+every species the take saw (points, runs in this room) with a checkbox —
+toggle to isolate one. Paths are room coordinates, so the Belth anchor
+hops or an ogre's leap arcs land exactly where the records sit; the
+legend also shows the take's frame span. The overlay is per-room: runs
+from other areas stay hidden until you open those rooms.
+
 **Music.** The selector stores the track id in the room JSON; leaving it on
 –Area default“ omits the field. The runtime uses `level.music` when present,
 otherwise the measured area table. The play button streams the ROM-rendered
@@ -225,6 +235,13 @@ Python port keeps up to 64 frames per species (the C reference keeps 10); the
 authored Belth entry (`$68`) is a 32-frame example with `state_names`
 (`idle`, `taunt`, `walk`, `attack`, `jump`, `charge`, `turn`, `hurt`, `death`)
 baked from `docs/sprites/…Belth.gif`.
+
+**Measured states (oracle).** The Animation tab's **Import measured
+states…** loads the same trace CSV and shows, read-only, how long the ROM
+kept this species in each live state `$05` — total frames, segment count
+and the mean duration. It is a reference for hand-tuning frame durations,
+never auto-applied: the mapping between the ROM's AI state and an
+animation state is the author's judgement.
 
 **Animation.** States 0“15 each hold up to 8 frame indices (the loader cap);
 click a chip to select that frame, right-click to remove it, `+` appends the
@@ -421,6 +438,7 @@ The UI is a thin client over a small JSON API; useful for scripts:
 | `GET /api/checks` | check list, last results, display/python info |
 | `POST /api/checks/run` | `{name, timeout}`; runs one check and returns its output |
 | `POST /api/assets/upload` | `{name, data(base64 PNG), overwrite}` |
+| `POST /api/trace` | parse a trace_stage `--objects` CSV; returns per-species paths + state histograms |
 | `POST /api/validate/species` | validate an entry/definition |
 
 ## Verification

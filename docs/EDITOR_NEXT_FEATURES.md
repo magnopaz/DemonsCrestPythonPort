@@ -84,10 +84,12 @@ quando houver sala autoral nova a precisar delas.
 
 ## Estado (2026-11-19)
 
-**Feitas**: #2 (matriz `forms_damage` — schema em `enemy_defs.py`,
-consumo nos ramos enemy E boss de `object.py`, UI no tab Stats,
-`check_forms_damage.py` na regressão), #3 (bloco `documented` na rota
-de espécie, linha de referência + aviso no tab Stats) e #4 (banda do
-fireball no meta e no preview do Map Builder). Em falta: #1+#7 (o
-importador de trajectórias do oracle), #5 (spawners autorais), #6
-(flag no Coverage).
+**Feitas**: #2 (matriz `forms_damage`), #3 (bloco `documented`), #4
+(banda do fireball) e **#1+#7** (importador de trajectórias:
+`POST /api/trace` faz o parse+resumo do blob CSV — `parse_blob_csv`/
+`trace_summary` em `editor_data.py`, teste próprio no test_editor; o
+Map Builder desenha os trajectos por espécie sobre a sala com legenda
+toggle; o tab Animation mostra os estados `$05` medidos como referência
+read-only, sem auto-aplicar — a correspondência estado-AI↔estado-animação
+é julgamento do autor). Em falta: #5 (spawners autorais), #6 (flag no
+Coverage).

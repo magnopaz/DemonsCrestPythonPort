@@ -275,6 +275,25 @@ class EditorHandler(BaseHTTPRequestHandler):
                 key = urllib.parse.unquote(path[len("/api/species/"):])
                 self.handle_species_post(key, body)
                 return
+            if path == "/api/trace":
+                csv_text = str(body.get("csv") or "")
+                if len(csv_text.encode("utf-8", "ignore")) > \
+                        editor_data.TRACE_CSV_MAX_BYTES:
+                    self.send_error_json(
+                        413, "trace csv is too large (max "
+                        f"{editor_data.TRACE_CSV_MAX_BYTES // (1024 * 1024)}"
+                        " MB)")
+                    return
+                rows = editor_data.parse_blob_csv(csv_text)
+                if not rows:
+                    self.send_error_json(
+                        400, "not a trace_stage --objects csv "
+                             "(needs gframe and objects columns)")
+                    return
+                summary = editor_data.trace_summary(rows)
+                summary["ok"] = True
+                self.send_json(200, summary)
+                return
             if path == "/api/assets/upload":
                 result = self.server.workspace.save_upload(
                     str(body.get("name") or "image.png"),

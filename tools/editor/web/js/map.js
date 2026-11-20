@@ -77,6 +77,10 @@ export class MapEditor {
     this._spawnCache = new Map();
     this.view = { x: 0, y: 0, zoom: 1 };
     this.preview = { on: false, x: 0, y: 0 };
+    // oracle trace overlay (POST /api/trace, docs/EDITOR_NEXT_FEATURES #1)
+    this.trace = null;         // the summary: {species, areas, span, rows}
+    this.traceVisible = {};    // species id -> bool
+    this.traceLegend = null;   // the DOM container, rebuilt on import
     this.selection = null;
     this.hover = null;
     this.undoStack = [];
@@ -579,6 +583,32 @@ export class MapEditor {
         "Compare current collision/objects with generated"),
       h("div", { class: "field-note",
         text: "Collision overlay shows the gameplay shape and the 0x20/40/60/80 environment flags. Compare highlights every cell that differs from assets/generated." }),
+      h("button", {
+        text: "Import oracle trace\u2026",
+        title: "Load a trace_stage replay CSV (--objects) and draw the " +
+               "measured object paths over this room",
+        onclick: () => this.traceFileInput && this.traceFileInput.click(),
+      }),
+      this.traceFileInput = h("input", {
+        type: "file", accept: ".csv,text/csv",
+        style: { display: "none" },
+        onchange: async (event) => {
+          const file = event.target.files && event.target.files[0];
+          event.target.value = "";
+          if (!file) return;
+          try {
+            const text = await file.text();
+            const summary = await api.trace(text);
+            this.loadTrace(summary);
+          } catch (error) {
+            this.app.setStatus("Trace import failed", error.message);
+          }
+        },
+      }),
+      (this.traceLegend = h("div", { class: "field-note dim",
+        text: "No trace loaded. Record a take with the oracle, run " +
+              "tools/oracle/trace_stage.py replay <take> --objects, and " +
+              "import the CSV here." })),
     );
 
     /* Backgrounds ---------------------------------------------------- */
@@ -878,6 +908,7 @@ export class MapEditor {
     this.originalRoom = null;
     this.compareToOriginal = false;
     if (this.compareCheck) this.compareCheck.checked = false;
+    if (this.trace) this.buildTraceLegend();
     this.fillRoomSelect();
     this.roomSelect.value = String(area);
     history.replaceState(null, "", `#map/${area}`);
@@ -1418,6 +1449,7 @@ export class MapEditor {
     if (this.show.collision) this.drawCollision(ctx);
     if (this.compareToOriginal) this.drawCollisionDiff(ctx);
     if (this.show.objects) this.drawObjects(ctx);
+    if (this.trace) this.drawTrace(ctx);
     if (this.show.transitions) this.drawTransitions(ctx);
     if (this.show.bounds) this.drawBounds(ctx);
     this.drawSpawns(ctx);
@@ -1693,6 +1725,105 @@ export class MapEditor {
         w: img.width, h: img.height };
     }
     return { x: obj.x - 8, y: obj.y - 16, w: 16, h: 16 };
+  }
+
+  /* Oracle trace overlay ------------------------------------------------ */
+  traceColor(speciesId) {
+    const palette = ["#e05aa0", "#e0a53a", "#3aa0e0", "#3ae06a", "#a03ae0",
+      "#e03a3a", "#e0d03a", "#3ae0d0"];
+    const ids = Object.keys(this.trace ? this.trace.species : {});
+    return palette[ids.indexOf(String(speciesId)) % palette.length]
+      || palette[0];
+  }
+
+  loadTrace(summary) {
+    this.trace = summary;
+    this.traceVisible = {};
+    for (const key of Object.keys(summary.species || {})) {
+      const entry = summary.species[key];
+      // visible by default when the take visited this room
+      const here = entry.runs.some((run) => run.area === this.area);
+      this.traceVisible[key] = here;
+    }
+    this.buildTraceLegend();
+    this.app.setStatus(
+      `Trace loaded: ${summary.rows} samples, g${summary.span[0]}` +
+      `-g${summary.span[1]}, areas ${summary.areas.join("/")}`);
+    this.invalidate();
+  }
+
+  buildTraceLegend() {
+    if (!this.traceLegend) return;
+    this.traceLegend.textContent = "";
+    this.traceLegend.className = "";
+    if (!this.trace) {
+      this.traceLegend.className = "field-note dim";
+      this.traceLegend.textContent = "No trace loaded.";
+      return;
+    }
+    const ids = Object.keys(this.trace.species || {});
+    if (!ids.length) {
+      this.traceLegend.className = "field-note dim";
+      this.traceLegend.textContent = "The trace holds no object records.";
+      return;
+    }
+    for (const id of ids) {
+      const entry = this.trace.species[id];
+      const here = entry.runs.filter((r) => r.area === this.area);
+      const check = h("input", {
+        type: "checkbox", checked: !!this.traceVisible[id],
+        onchange: (event) => {
+          this.traceVisible[id] = event.target.checked;
+          this.invalidate();
+        },
+      });
+      const label = `$${Number(id).toString(16).padStart(2, "0")}` +
+        ` ${entry.points} pts` + (here.length
+          ? ` · ${here.length} run(s) here` : " · none here");
+      const swatch = h("span", {
+        style: {
+          display: "inline-block", width: "10px", height: "10px",
+          "margin-right": "4px", "border-radius": "2px",
+          background: this.traceColor(id),
+        },
+      });
+      this.traceLegend.append(h("label", { class: "check" }, check,
+        swatch, label));
+    }
+    this.traceLegend.append(h("div", { class: "field-note",
+      text: `span g${this.trace.span[0]}-g${this.trace.span[1]}` +
+        ` · ${this.trace.rows} samples · areas ` +
+        `${this.trace.areas.join(",")}` }));
+  }
+
+  drawTrace(ctx) {
+    if (!this.trace) return;
+    const ids = Object.keys(this.trace.species || {});
+    for (const id of ids) {
+      if (!this.traceVisible[id]) continue;
+      const entry = this.trace.species[id];
+      ctx.strokeStyle = this.traceColor(id);
+      ctx.lineWidth = Math.max(1, this.view.zoom * 1.2);
+      for (const run of entry.runs) {
+        if (run.area !== this.area || !run.points.length) continue;
+        ctx.beginPath();
+        let first = null;
+        for (const [g, x, y] of run.points) {
+          const p = this.worldToScreen(x, y);
+          if (first === null) {
+            ctx.moveTo(p.x, p.y);
+            first = p;
+          } else {
+            ctx.lineTo(p.x, p.y);
+          }
+        }
+        ctx.stroke();
+        if (first) {
+          ctx.fillStyle = this.traceColor(id);
+          ctx.fillRect(first.x - 2, first.y - 2, 4, 4);
+        }
+      }
+    }
   }
 
   drawObjects(ctx) {

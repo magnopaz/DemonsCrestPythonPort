@@ -1012,3 +1012,21 @@ preview do Map Builder. test_editor 31/31; regressão verde excepto
 áudio (13 mapping FAILs, todas WAVs por nível — a falha conhecida).
 Faltam do doc: #1+#7 (importador de trajectórias do oracle), #5
 (spawners autorais), #6 (flag no Coverage).
+
+
+## Editor: features #1+#7 (importador de trajectórias) (2026-11-19)
+
+`POST /api/trace` + `parse_blob_csv`/`trace_summary` em
+`editor_data.py`: o CSV do blob (`slot:sp@x,y#st.su.ph`, coluna
+`objects` CITADA) vira runs por slot/área com pontos (cap ~2400,
+decimação) e histograma de estado `$05` em frames (mean por
+segmento). Map Builder: "Import oracle trace…" desenha os trajectos
+sobre a sala (legenda com toggle por espécie, quadrado no primeiro
+sample, refresco por sala). Enemy Editor tab Animation: "Import
+measured states…" mostra os estados medidos como referência
+read-only (sem auto-aplicar — julgamento do autor). Bugs apanhados
+nos testes: o meu CSV sintético sem aspas (o real cita a coluna) e
+`points` acumulado global (agora é por espécie). test_editor 32/32;
+JS `node --check` limpo. Faltam #5 (spawners autorais) e #6 (flag no
+Coverage). Browser self-test (web/test.html) por correr na máquina
+com Edge/Chrome do dono.
