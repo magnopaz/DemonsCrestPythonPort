@@ -1028,5 +1028,6 @@ read-only (sem auto-aplicar — julgamento do autor). Bugs apanhados
 nos testes: o meu CSV sintético sem aspas (o real cita a coluna) e
 `points` acumulado global (agora é por espécie). test_editor 32/32;
 JS `node --check` limpo. Faltam #5 (spawners autorais) e #6 (flag no
-Coverage). Browser self-test (web/test.html) por correr na máquina
-com Edge/Chrome do dono.
+Coverage). Browser self-test CORRIDO nesta máquina (google-chrome headless,
+--virtual-time-budget): 31/31 verde com o importador; o artefacto
+captures/editor_selftest.json é gitignored.
