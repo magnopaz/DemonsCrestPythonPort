@@ -55,8 +55,38 @@ function withDefaults(definition) {
     movement: { ...base.movement, ...(definition.movement || {}) },
     attacks: Array.isArray(definition.attacks) ? definition.attacks : [],
     sounds: { ...(definition.sounds || {}) },
+    forms_damage: { ...((definition.forms_damage && typeof definition.forms_damage === "object") ? definition.forms_damage : {}) },
   };
 }
+
+function documentedText(doc, def) {
+  const parts = [];
+  if (doc.name) parts.push(`ROM doc: ${doc.name}`);
+  if (doc.hp != null) {
+    parts.push(`documented HP ${doc.hp}` +
+      (doc.documented ? "" : " (fallback, not in boss_hp.txt)"));
+  }
+  if (doc.damage) {
+    const cells = FORM_DAMAGE_COLUMNS
+      .filter(([col]) => doc.damage[col] != null)
+      .map(([col, label]) =>
+        `${label} ${Array.isArray(doc.damage[col]) ? doc.damage[col].join("/") : doc.damage[col]}`)
+      .join(" · ");
+    if (cells) parts.push(cells);
+  }
+  let text = parts.join(" — ");
+  if (doc.hp != null && Number(def.status.hp) !== doc.hp) {
+    text += ` ⚠ authored HP ${def.status.hp} differs from the documented ${doc.hp}`;
+  }
+  return text;
+}
+
+const FORM_DAMAGE_COLUMNS = [
+  ["fire", "Fire"], ["buster", "Buster"], ["claw", "Claw"],
+  ["demon_fire", "DemonFire"], ["earth_ground", "Earth(g)"],
+  ["earth_air", "Earth(a)"], ["aerial", "Aerial"], ["tidal", "Tidal"],
+  ["legendary", "Legendary"], ["ultimate", "Ultimate"],
+];
 
 function textureFromAsset(asset) {
   if (!asset) return "";
@@ -436,6 +466,7 @@ export class EnemyEditor {
     this.entry = detail.entry;
     this.def = detail.definition ? withDefaults(detail.definition) : null;
     this.originalDef = detail.definition ? deepClone(detail.definition) : null;
+    this.documented = detail.documented || null;
     this.defDirty = false;
     this._undo = [];
     this._redo = [];
@@ -1362,6 +1393,8 @@ export class EnemyEditor {
           : native
             ? "This species has a native ported handler. The data-driven profile below is only used when Override AI is enabled; HP/contact damage still apply."
             : "This species uses the data-driven profile: movement, attacks and damage are read from enemies.json." }),
+      ...(this.documented ? [h("div", { class: "field-note dim",
+        text: documentedText(this.documented, def) })] : []),
       h("hr"),
       h("div", { class: "small dim", text: "Status" }),
       this.inputRow("HP", def.status.hp,
@@ -1375,6 +1408,41 @@ export class EnemyEditor {
         { min: 0, max: 9 }),
       this.checkboxRow("Invulnerable", def.status.invulnerable,
         (value) => { def.status.invulnerable = value; this.defDirty = true; this.markDirty(); }),
+      h("hr"),
+      h("div", { class: "small dim", text: "Per-form damage (authored row)" }),
+      ...FORM_DAMAGE_COLUMNS.map(([col, label]) => {
+        const value = def.forms_damage ? def.forms_damage[col] : undefined;
+        const docCell = this.documented && this.documented.damage
+          ? this.documented.damage[col] : null;
+        const text = value == null ? ""
+          : (Array.isArray(value) ? value.join(",") : String(value));
+        return h("div", { class: "field" },
+          h("span", { text: label }),
+          h("input", {
+            type: "text", value: text,
+            placeholder: docCell == null ? ""
+              : (Array.isArray(docCell) ? docCell.join(",")
+                : String(docCell)),
+            title: docCell == null ? "not in the ROM doc"
+              : `ROM doc: ${Array.isArray(docCell) ? docCell.join(" / ") : docCell}`,
+            oninput: (event) => {
+              const raw = event.target.value.trim();
+              if (!raw) { delete def.forms_damage[col]; }
+              else if (raw.includes(",")) {
+                const list = raw.split(",")
+                  .map((v) => Number(v.trim()))
+                  .filter((v) => !Number.isNaN(v));
+                def.forms_damage[col] = list;
+              } else {
+                const num = Number(raw);
+                if (!Number.isNaN(num)) def.forms_damage[col] = num;
+              }
+              this.defDirty = true; this.markDirty();
+            },
+          }));
+      }),
+      h("div", { class: "field-note",
+        text: "Same ten columns as dcpy/bosses (the boss_hp.txt truth). 0 = N/A, the form cannot hurt it; a comma list is per-phase. An authored row wins over the documented table; empty keeps the table's value." }),
       h("hr"),
       h("div", { class: "small dim", text: "Movement" }),
       this.selectRow("AI", (this.app.meta?.ai_kinds || ["walker", "flyer", "charger", "turret", "stationary"])

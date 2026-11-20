@@ -99,6 +99,44 @@ PLAYER_CLIP_NAMES = [
     "flying", "hurt", "death",
 ]
 
+FORM_DAMAGE_COLUMNS = ("fire", "buster", "claw", "demon_fire",
+                       "earth_ground", "earth_air", "aerial", "tidal",
+                       "legendary", "ultimate")
+
+
+def documented_species_block(entry: dict) -> dict | None:
+    """ROM-documented HP/damage for a species entry, or None.
+
+    Reads the tables the runtime itself uses (``dcpy.bosses``, the
+    ``docs/boss_hp.txt`` truth) so the editor can show the documented
+    values next to an authored override.  The import is lazy and
+    guarded: the editor stays stdlib-only for everything else.
+    """
+    species = entry.get("species")
+    if not isinstance(species, int):
+        return None
+    flags = entry.get("flags")
+    if not isinstance(flags, int):
+        flags = 0
+    root = Path(__file__).resolve().parents[2]
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    try:
+        from dcpy.bosses import damage_row_dict, hp_entry
+    except ImportError:
+        return None
+    hp = hp_entry(species, flags)
+    damage = damage_row_dict(species, flags)
+    if hp is None and damage is None:
+        return None
+    out: dict = {"columns": list(FORM_DAMAGE_COLUMNS)}
+    if hp is not None:
+        out.update({"name": hp.name, "hp": hp.hp,
+                    "documented": bool(hp.documented),
+                    "note": hp.note or ""})
+    if damage is not None:
+        out["damage"] = damage
+    return out
 AI_KINDS = ["walker", "flyer", "charger", "turret", "stationary"]
 ATTACK_TYPES = ["projectile", "spread", "burst", "lunge", "melee"]
 
@@ -2104,6 +2142,7 @@ class Workspace:
         entry = entries.get(key)
         if entry is None:
             return None
+        documented = documented_species_block(entry)
         entry = copy.deepcopy(entry)
         source = entry.pop("_source", "generated")
         frames = []
@@ -2118,7 +2157,7 @@ class Workspace:
         entry["frames"] = frames
         definition = copy.deepcopy(self._species_def(key))
         return {"key": key, "source": source, "entry": entry,
-                "definition": definition}
+                "definition": definition, "documented": documented}
 
     def validate_species(self, key: str, entry: dict,
                          definition: dict | None,
@@ -2288,6 +2327,28 @@ class Workspace:
         if not (0 <= clamp_float(movement.get("speed"), 0.5) <= 8):
             errors.append(issue("error", "enemy.speed",
                                 "speed must be 0..8 px/frame"))
+        forms = definition.get("forms_damage")
+        if forms is not None:
+            if not isinstance(forms, dict):
+                errors.append(issue("error", "enemy.forms_damage.type",
+                                    "forms_damage must be an object"))
+            else:
+                for col, value in forms.items():
+                    if col not in FORM_DAMAGE_COLUMNS:
+                        errors.append(issue(
+                            "error", "enemy.forms_damage.key",
+                            f"unknown column {col!r}; use one of "
+                            f"{', '.join(FORM_DAMAGE_COLUMNS)}"))
+                        continue
+                    if value is None:
+                        continue
+                    values = value if isinstance(value, list) else [value]
+                    if not values or any(
+                            not isinstance(v, (int, float)) or
+                            not (0 <= v <= 99) for v in values):
+                        errors.append(issue(
+                            "error", "enemy.forms_damage.value",
+                            f"{col} must be 0..99; a list is per-phase"))
         attacks = definition.get("attacks") or []
         if len(attacks) > 8:
             errors.append(issue("error", "enemy.attacks.cap",
@@ -2951,6 +3012,10 @@ class Workspace:
             },
             "ai_kinds": AI_KINDS,
             "attack_types": ATTACK_TYPES,
+            # Measured despawn band of the player's fireball
+            # (docs/FIREBALL.md, ROM $82:E6AC): it only lives while
+            # its screen x is inside [0,255].
+            "fireball_band": [0, 255],
             "default_music": {str(area): default_music_for_area(area)
                               for area in self.all_room_areas()},
         }
@@ -3128,6 +3193,20 @@ def normalize_enemy_def(definition: dict) -> dict:
         "attacks": [],
         "sounds": {},
     }
+    raw_forms = definition.get("forms_damage")
+    if isinstance(raw_forms, dict) and raw_forms:
+        forms = {}
+        for col in FORM_DAMAGE_COLUMNS:
+            value = raw_forms.get(col)
+            if value is None:
+                continue
+            if isinstance(value, list):
+                forms[col] = [clamp_int(v, 1, 0, 99)
+                              for v in value if isinstance(v, (int, float))]
+            else:
+                forms[col] = clamp_int(value, 1, 0, 99)
+        if forms:
+            out["forms_damage"] = forms
     for attack in (definition.get("attacks") or [])[:8]:
         if not isinstance(attack, dict):
             continue

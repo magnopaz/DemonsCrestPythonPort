@@ -2314,6 +2314,21 @@ export class MapEditor {
     ctx.rect(0, 0, VIEW_W, VIEW_H);
     ctx.clip();
     this.renderGameView(ctx, this.preview.x, this.preview.y);
+    // Measured (docs/FIREBALL.md, ROM $82:E6AC): the player's
+    // fireball only lives while its screen x is in [0,255]; it dies at
+    // the view edges, not at a wall.  Mark them so a shot vanishing
+    // here is not read as a collision.
+    const band = this.app.meta?.fireball_band || [0, 255];
+    ctx.strokeStyle = "rgba(255,80,80,.75)";
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(band[0] + 1.5, 0); ctx.lineTo(band[0] + 1.5, VIEW_H);
+    ctx.moveTo(band[1] - 1.5, 0); ctx.lineTo(band[1] - 1.5, VIEW_H);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(255,80,80,.9)";
+    ctx.font = "7px monospace";
+    ctx.fillText("fireball despawn", band[0] + 4, 8);
     ctx.restore();
     ctx.strokeStyle = "#3a4050";
     ctx.lineWidth = 1;
@@ -2322,7 +2337,8 @@ export class MapEditor {
     ctx.font = "10px monospace";
     ctx.fillText(`${scale}× · ${this.preview.x},${this.preview.y}`, ox + 4, oy - 6 > 10 ? oy - 6 : oy + hgt + 13);
     const coords = $("#preview-coords");
-    if (coords) coords.textContent = `camera ${this.preview.x},${this.preview.y}`;
+    if (coords) coords.textContent =
+      `camera ${this.preview.x},${this.preview.y} · fireball dies at screen edges (0–255)`;
   }
 
   renderGameView(ctx, camX, camY) {

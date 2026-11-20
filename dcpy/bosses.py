@@ -201,6 +201,11 @@ def _lookup(species: int, flags: int) -> BossHp | None:
     return entry
 
 
+def hp_entry(species: int, flags: int):
+    """The BossHp entry a record resolves to, or None when absent."""
+    return _lookup(species, flags)
+
+
 def boss_hp(species: int, flags: int) -> int:
     """HP for a boss record; the documented value or the visible fallback."""
     entry = _lookup(species, flags)
@@ -233,6 +238,23 @@ def boss_damage(species: int, flags: int, form: int, grounded: bool = True,
     if row is None:
         return None
     return row.for_form(form, grounded, phase)
+
+
+def damage_row_dict(species: int, flags: int) -> dict | None:
+    """The raw ten-column damage row as a dict, or None if absent.
+
+    Values keep their per-phase tuples; N/A columns are omitted so an
+    editor can show exactly what the document lists.
+    """
+    row = _damage_row(species, flags)
+    if row is None:
+        return None
+    out = {}
+    for key in row._fields:
+        value = getattr(row, key)
+        if value is not None:
+            out[key] = list(value) if isinstance(value, tuple) else value
+    return out
 
 
 def all_entries():

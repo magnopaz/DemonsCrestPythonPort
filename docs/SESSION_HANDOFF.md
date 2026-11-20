@@ -997,3 +997,18 @@ descoberta de que são objectos do pool). `rec_kill_enemies` não dá
 geometria: os presses do tiro caem todos em estado 2 (menus/galeria —
 medido). Novo tool: `tools/oracle/find_projectiles.py` (diferencial
 WRAM; lição: o debug server é endereçamento 16-bit, sem banco $7F).
+
+
+## Editor: features #2/#3/#4 implementadas (2026-11-19)
+
+`docs/EDITOR_NEXT_FEATURES.md` (Estado): a matriz `forms_damage`
+(10 colunas, vocabulário de `dcpy/bosses`) funciona de ponta a ponta —
+schema em `enemy_defs.py`, consumo nos ramos enemy E boss de
+`object.py` (a linha autoral ganha à tabela; defense não toca nela),
+UI no tab Stats com a linha "ROM doc" (bloco `documented` na rota de
+espécie) e grelha editável; `check_forms_damage.py` na regressão
+(0 erros); banda do fireball (medida, `$82:E6AC`) no meta e no
+preview do Map Builder. test_editor 31/31; regressão verde excepto
+áudio (13 mapping FAILs, todas WAVs por nível — a falha conhecida).
+Faltam do doc: #1+#7 (importador de trajectórias do oracle), #5
+(spawners autorais), #6 (flag no Coverage).

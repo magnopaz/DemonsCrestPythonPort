@@ -136,6 +136,78 @@ class EditorDataTests(unittest.TestCase):
         self.assertFalse((self.authored / "species_anim.json").exists())
         self.assertFalse((self.authored / "enemies.json").exists())
 
+    def test_forms_damage_round_trip_and_documented_block(self):
+        # the authored per-form damage matrix survives normalisation
+        definition = editor_data.normalize_enemy_def({
+            "name": "Arma test",
+            "species": 0xA5, "flags": 0,
+            "status": {"hp": 16, "contact_damage": 1},
+            "forms_damage": {
+                "fire": 1, "ultimate": 5,
+                "earth_air": [1, 2, 3],       # per-phase list
+                "bogus_column": 9,            # unknown -> dropped
+                "legendary": 250,              # out of range -> clamped
+            },
+        })
+        forms = definition["forms_damage"]
+        self.assertEqual(forms["fire"], 1)
+        self.assertEqual(forms["ultimate"], 5)
+        self.assertEqual(forms["earth_air"], [1, 2, 3])
+        self.assertNotIn("bogus_column", forms)
+        self.assertEqual(forms["legendary"], 99)
+
+        # validation rejects bad keys/values outright (the raw dict;
+        # the normaliser would silently drop the unknown column)
+        bad = {
+            "species": 0xA5, "status": {"hp": 16},
+            "forms_damage": {"nope": 1},
+        }
+        entry = {"species": 0xA5, "flags": 0,
+                 "frames": [{"texture": "enemy_2c_0.png", "anchor_x": 12,
+                             "anchor_y": 37, "duration": 8}],
+                 "states": {"0": [0]}, "source": "test"}
+        report = self.ws.validate_species("arma_test", entry, bad)
+        self.assertFalse(report["ok"])
+
+        # saving carries the row into enemies.json ...
+        result = self.ws.save_species("arma_test", entry, definition)
+        self.assertTrue(result["ok"], result.get("validation"))
+        root = json.loads((self.authored / "enemies.json").read_text())
+        self.assertEqual(
+            root["enemies"]["arma_test"]["forms_damage"]["fire"], 1)
+
+        # ... and the runtime getter turns it into a BossDamage with
+        # the same for_form semantics as the documented table
+        import dcpy.enemy_defs as enemy_defs
+        enemy_defs.load(str(self.authored))
+        row = enemy_defs.forms_damage(0xA5, 0)
+        if row is None:
+            self.fail("authored forms_damage row did not parse")
+        self.assertEqual(row.fire, 1)
+        self.assertEqual(row.ultimate, 5)
+        self.assertEqual(row.for_form(4, False), 99)  # Legendary (clamped)
+        self.assertEqual(row.for_form(5, False), 5)   # Ultimate form
+        self.assertEqual(row.earth_air, (1, 2, 3))
+        self.assertEqual(row.for_form(1, False), 1)   # earth, air: phase 0
+        self.assertIsNone(enemy_defs.forms_damage(0x33, 0))
+
+        # the documented block shows the ROM truth for this species
+        detail = self.ws.load_species("arma_test")
+        doc = detail["documented"]
+        if doc is None:
+            self.fail("documented block missing for species 0xA5")
+        self.assertEqual(doc["name"], "Arma 1")
+        self.assertEqual(doc["hp"], 16)
+        self.assertTrue(doc["documented"])
+        self.assertEqual(doc["damage"]["fire"], 1)
+        self.assertIn("columns", doc)
+        self.assertIn("fire", doc["columns"])
+        self.ws.delete_species("arma_test")
+
+        # the meta carries the measured fireball despawn band
+        meta = self.ws.meta()
+        self.assertEqual(meta["fireball_band"], [0, 255])
+
     def test_player_form_save_load_revert(self):
         data = self.ws.list_player()
         self.assertEqual(data["base"]["kind"], "base")

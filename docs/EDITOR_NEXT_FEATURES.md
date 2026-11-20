@@ -81,3 +81,13 @@ preencher esses campos com um clique em vez de transcrição.
 #3 e #4 primeiro (horas, sem risco), depois #2 (schema+runtime+UI),
 depois #1+#7 (a ponte medir→autorar, o maior salto de valor), #5 e #6
 quando houver sala autoral nova a precisar delas.
+
+## Estado (2026-11-19)
+
+**Feitas**: #2 (matriz `forms_damage` — schema em `enemy_defs.py`,
+consumo nos ramos enemy E boss de `object.py`, UI no tab Stats,
+`check_forms_damage.py` na regressão), #3 (bloco `documented` na rota
+de espécie, linha de referência + aviso no tab Stats) e #4 (banda do
+fireball no meta e no preview do Map Builder). Em falta: #1+#7 (o
+importador de trajectórias do oracle), #5 (spawners autorais), #6
+(flag no Coverage).

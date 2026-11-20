@@ -87,3 +87,37 @@ def sounds(species: int, flags: int = 0) -> dict:
     entry = get(species, flags)
     value = entry.get("sounds") if entry else None
     return value if isinstance(value, dict) else {}
+
+
+FORM_DAMAGE_KEYS = ("fire", "buster", "claw", "demon_fire", "earth_ground",
+                    "earth_air", "aerial", "tidal", "legendary", "ultimate")
+
+
+def forms_damage(species: int, flags: int = 0):
+    """Authored per-form damage row as a :class:`BossDamage`, or None.
+
+    Uses exactly the ten column names of ``dcpy.bosses`` so authored
+    content and the documented table share one vocabulary.  Values may
+    be an int, a list (per-phase) or null (N/A: the form cannot hurt
+    it).
+    """
+    from .bosses import BossDamage
+    entry = get(species, flags)
+    if entry is None:
+        return None
+    row = entry.get("forms_damage")
+    if not isinstance(row, dict) or not row:
+        return None
+    kwargs = {}
+    for key in FORM_DAMAGE_KEYS:
+        value = row.get(key)
+        if isinstance(value, list):
+            value = tuple(int(v) for v in value)
+        elif value is not None:
+            value = int(value)
+        if value is not None:
+            kwargs[key] = value
+    try:
+        return BossDamage(**kwargs)
+    except TypeError:
+        return None

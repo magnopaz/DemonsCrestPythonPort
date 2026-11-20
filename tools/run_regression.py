@@ -423,6 +423,14 @@ def main() -> int:
         check(ogre_proc.returncode == 0,
               "ogre: check failed\n" + ogre_proc.stdout[-800:])
 
+        # ---- Authored forms_damage: the row wins over the table ----
+        forms_proc = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "check_forms_damage.py")],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=180)
+        check(forms_proc.returncode == 0,
+              "forms_damage: check failed\n" + forms_proc.stdout[-800:])
+
         # ---- Species $67: the ROM ghoul state machine ----
         ghoul_proc = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "check_ghoul.py"),

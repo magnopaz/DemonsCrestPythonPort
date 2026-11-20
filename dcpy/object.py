@@ -3269,10 +3269,22 @@ def objects_check_projectiles(pool: ObjectPool, projectiles, player=None) -> Non
                 if abs(px - ox) <= 12.0 and abs(py - oy) <= 12.0:
                     p.active = False
                     defn = enemy_defs.get(o.species, o.flags)
-                    if defn is not None:
+                    # An authored forms_damage row replaces the shot's
+                    # own damage with the same ten columns and for_form
+                    # semantics the boss table uses; 0 = N/A, the form
+                    # cannot hurt it.  Defense does not shave it, the
+                    # same way the boss branch never shaves its row.
+                    authored_row = (
+                        enemy_defs.forms_damage(o.species, o.flags)
+                        if player is not None else None)
+                    if authored_row is not None:
+                        dmg = authored_row.for_form(
+                            player.crest_form, player.on_ground)
+                    elif defn is not None:
                         defense = max(0, as_int(
                             (defn.get("status") or {}).get("defense"), 0))
                         dmg = max(1, dmg - defense)
+                    if defn is not None:
                         _queue_def_sound(pool, defn, "hurt")
                     o.hp -= dmg
                     o.hit_flash = 8
@@ -3311,10 +3323,21 @@ def objects_check_projectiles(pool: ObjectPool, projectiles, player=None) -> Non
                     # keep the projectile's own damage.
                     # phase 0: the two-form rows (Dark Demon) are not wired
                     # to a form index yet, so the first value is used.
-                    form_damage = (
-                        boss_damage(o.species, o.flags, player.crest_form,
-                                    player.on_ground)
+                    # An authored forms_damage row (enemies.json) wins
+                    # over the documented table: same ten columns and the
+                    # same for_form semantics, so authored species can
+                    # carry their own per-form damage.
+                    authored_row = (
+                        enemy_defs.forms_damage(o.species, o.flags)
                         if player is not None else None)
+                    if authored_row is not None:
+                        form_damage = authored_row.for_form(
+                            player.crest_form, player.on_ground)
+                    else:
+                        form_damage = (
+                            boss_damage(o.species, o.flags, player.crest_form,
+                                        player.on_ground)
+                            if player is not None else None)
                     if form_damage is not None:
                         dmg = form_damage
                     p.active = False

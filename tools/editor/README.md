@@ -168,6 +168,10 @@ WAV from `assets/generated/audio`.
 layer rules: backdrop parallax, BG0 wrapping/HDMA bands, world-space BG1,
 objects and the player spawn. Camera x/y is shown in the preview bar; `At
 spawn`/`At camera` jump to those positions, `PNG` downloads the 256×224 frame.
+The dashed red lines at the view edges mark the measured fireball despawn
+band (ROM `$82:E6AC`, see `docs/FIREBALL.md`): the player's shot only lives
+while its screen x is inside `[0,255]`, so a shot vanishing there died at the
+edge, not at a wall.
 
 **Render in game.** `Render in game` runs the actual Python port headlessly
 with a temporary copy of the *unsaved* room (through `DC_AUTHORED_ROOMS`), and
@@ -235,6 +239,19 @@ keep their exact ROM AI by default; new species use the data-driven profile.
 `Override native AI` is the explicit opt-in for replacing a ported handler.
 Boss objects keep their native movement/AI; ranged and melee patterns from the
 profile are layered on top (lunge is enemy-only), and HP/contact damage apply.
+
+When the species has an entry in the runtime's documented tables
+(`dcpy/bosses.py`, the `docs/boss_hp.txt` truth), the Stats tab shows it as a
+read-only reference line — name, documented HP and the damage row — and flags
+an authored HP that differs. **Per-form damage** is the authored counterpart
+of that row: ten columns (`fire`, `buster`, `claw`, `demon_fire`,
+`earth_ground`, `earth_air`, `aerial`, `tidal`, `legendary`, `ultimate`), same
+names and semantics as the boss table. An int is flat damage, a comma list is
+per-phase, empty keeps the documented value and `0` means N/A — that form
+cannot hurt it. The runtime uses the authored row first (`forms_damage` in
+`enemies.json`), then the documented `boss_damage()` row, then the shot's own
+damage; defense never shaves an authored row (the boss path never shaves
+either). `tools/check_forms_damage.py` asserts all of this in the regression.
 
 **Attacks.** Up to 8 patterns. Projectile/spread/burst patterns spawn enemy
 shots with a count, spread, speed, damage, projectile species, aim mode and
